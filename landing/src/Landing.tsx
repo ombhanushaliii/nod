@@ -126,13 +126,11 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
 
       <section
         id="top"
+        className="hero"
         style={{
           maxWidth: 1160,
           margin: '0 auto',
-          padding: '72px 24px 88px',
           display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) minmax(0,540px)',
-          gap: 48,
           alignItems: 'center',
           overflow: 'hidden',
         }}>
@@ -161,11 +159,11 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
             }}>
             Risky payments wait for a nod.
           </h1>
-          <p style={{ margin: 0, fontSize: 20, lineHeight: 1.5, color: '#6e6e73', maxWidth: 520, textWrap: 'pretty' }}>
+          <p className="hero-lede" style={{ margin: 0, lineHeight: 1.5, color: '#6e6e73', maxWidth: 520, textWrap: 'pretty' }}>
             Pick one person you trust. When a payment looks like a scam, it goes to them before the money leaves. Everything else
             sends like normal.
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 4 }}>
+          <div className="hero-ctas" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 4 }}>
             <a href="#get" className="btn-orange" style={{ height: 56, padding: '0 24px', borderRadius: 16, fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center' }}>
               Get the app
             </a>
@@ -175,14 +173,14 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 14, color: '#6e6e73', paddingTop: 8 }}>
             <span>Sign in with Google</span>
-            <span>·</span>
+            <span className="sep" aria-hidden="true">·</span>
             <span>No gas to pay</span>
-            <span>·</span>
+            <span className="sep" aria-hidden="true">·</span>
             <span>Face ID lock</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', flexWrap: 'nowrap', minWidth: 0 }}>
+        <div className="hero-phones" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', flexWrap: 'nowrap', minWidth: 0 }}>
           {showWalletPhone && <WalletPhone rowSub={rq[2]} chip={rq[3]} chipTone={rq[4]} />}
           <RequestPhone
             req={req}
@@ -217,10 +215,10 @@ function Header() {
         borderBottom: '1px solid #ECE9E2',
       }}>
       <div
+        className="header-inner"
         style={{
           maxWidth: 1160,
           margin: '0 auto',
-          padding: '14px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -231,13 +229,13 @@ function Header() {
           <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em' }}>Nod</span>
         </a>
         <nav style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 15, fontWeight: 600 }}>
-          <a href="#how" style={{ color: '#6e6e73' }}>
+          <a href="#how" className="nav-link" style={{ color: '#6e6e73' }}>
             How it works
           </a>
-          <a href="#checks" style={{ color: '#6e6e73' }}>
+          <a href="#checks" className="nav-link" style={{ color: '#6e6e73' }}>
             What we check
           </a>
-          <a href="#trustee" style={{ color: '#6e6e73' }}>
+          <a href="#trustee" className="nav-link" style={{ color: '#6e6e73' }}>
             For trustees
           </a>
           <a
@@ -624,7 +622,7 @@ const STEPS = [
 function HowItWorks() {
   return (
     <section id="how" style={{ borderTop: '1px solid #ECE9E2', background: '#fff' }}>
-      <div style={{ maxWidth: 1160, margin: '0 auto', padding: '88px 24px', display: 'flex', flexDirection: 'column', gap: 48 }}>
+      <div className="section-88" style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 48 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
           <span style={eyebrow}>HOW IT WORKS</span>
           <h2 style={h2}>You keep your money. Someone has your back.</h2>
@@ -663,10 +661,10 @@ function Checks({ sel, onSelect }: { sel: number; onSelect: (i: number) => void 
   return (
     <section
       id="checks"
+      className="section-96"
       style={{
         maxWidth: 1160,
         margin: '0 auto',
-        padding: '96px 24px',
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))',
         gap: 56,
@@ -720,6 +718,7 @@ function Checks({ sel, onSelect }: { sel: number; onSelect: (i: number) => void 
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <div
+          className="check-phone"
           style={{
             width: 320,
             height: 560,
@@ -823,10 +822,10 @@ function Questions() {
   return (
     <section style={{ background: '#25282B', color: '#fff' }}>
       <div
+        className="section-88"
         style={{
           maxWidth: 1160,
           margin: '0 auto',
-          padding: '88px 24px',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))',
           gap: 48,
@@ -872,7 +871,7 @@ const TRUSTEE_CARDS = [
 
 function ForTrustees() {
   return (
-    <section id="trustee" style={{ maxWidth: 1160, margin: '0 auto', padding: '96px 24px', display: 'flex', flexDirection: 'column', gap: 40 }}>
+    <section id="trustee" className="section-96" style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680 }}>
         <span style={eyebrow}>FOR TRUSTEES</span>
         <h2 style={h2}>You only hear about the ones that matter.</h2>
@@ -892,15 +891,15 @@ function ForTrustees() {
 function GetNod() {
   const cta = { height: 56, padding: '0 24px', borderRadius: 16, fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center' } as const
   return (
-    <section id="get" style={{ padding: '0 24px 96px' }}>
+    <section id="get" className="get-wrap">
       <div
+        className="get-card"
         style={{
           maxWidth: 1160,
           margin: '0 auto',
           borderRadius: 32,
           background: '#E55B00',
           color: '#fff',
-          padding: '64px 40px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -916,7 +915,7 @@ function GetNod() {
         <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, maxWidth: 520 }}>
           Takes about two minutes. Sign in with Google, pick an avatar, invite your trustee.
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingTop: 8 }}>
+        <div className="get-ctas" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingTop: 8 }}>
           <a href="#top" className="btn-white" style={cta}>
             Download for iPhone
           </a>

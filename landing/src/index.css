@@ -16,6 +16,103 @@ a:hover {
 * {
   box-sizing: border-box;
 }
+html {
+  /* Anchor links land below the sticky header */
+  scroll-padding-top: 76px;
+}
+
+/* Layout values that change with screen size. Desktop values match the design;
+   they live here (not inline) so the media queries below can change them. */
+.header-inner {
+  padding: 14px 24px;
+}
+.hero {
+  padding: 72px 24px 88px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 540px);
+  gap: 48px;
+}
+.hero-lede {
+  font-size: 20px;
+}
+.section-88 {
+  padding: 88px 24px;
+}
+.section-96 {
+  padding: 96px 24px;
+}
+.get-wrap {
+  padding: 0 24px 96px;
+}
+.get-card {
+  padding: 64px 40px;
+}
+
+/* Tablet: hero stacks, phones sit under the copy */
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+    padding: 48px 24px 72px;
+  }
+}
+
+/* Phones */
+@media (max-width: 720px) {
+  html {
+    scroll-padding-top: 68px;
+  }
+  .header-inner {
+    padding: 12px 20px;
+  }
+  .nav-link {
+    display: none;
+  }
+  .hero {
+    padding: 36px 20px 56px;
+    gap: 36px;
+  }
+  .hero-lede {
+    font-size: 18px;
+  }
+  .section-88,
+  .section-96 {
+    padding: 64px 20px;
+  }
+  .get-wrap {
+    padding: 0 16px 64px;
+  }
+  .get-card {
+    padding: 48px 22px;
+  }
+}
+
+/* Small phones: full-width buttons, scaled phone mockups */
+@media (max-width: 600px) {
+  .hero-phones {
+    zoom: 0.8;
+  }
+}
+@media (max-width: 480px) {
+  .hero-ctas > a,
+  .get-ctas > a {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  .hero-phones {
+    zoom: 0.6;
+  }
+  .sep {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .hero-phones {
+    zoom: 0.5;
+  }
+  .check-phone {
+    zoom: 0.86;
+  }
+}
 
 /* Buttons with a hover colour (the design's style-hover). Colours live here, not inline,
    so the :hover rule can win. */
