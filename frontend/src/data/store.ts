@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { DAY, money } from '@/lib/format';
+import { isDemo } from '@/wallet/config';
 import { ADDR, evaluate, handleFrom, payeeBy, reqState, trusteeNameFrom } from './engine';
 import type {
   ActivityEvent,
@@ -30,6 +31,7 @@ export const APP_NAME = 'Haven';
 export const DEMO_USER_EMAIL = 'alex.rivera@gmail.com';
 
 type Data = {
+  liveUserId: string | null;
   session: Session | null;
   /** Simulated clock offset ("Skip 24 hours"). */
   offset: number;
@@ -66,6 +68,7 @@ type Flow = {
 };
 
 type Actions = {
+  activateWalletSession: (userId: string, session: Session) => void;
   now: () => number;
   // session
   signIn: (role: Role, email: string) => void;
@@ -108,6 +111,7 @@ export type Store = Data & Flow & Actions;
 function initialData(): Data {
   const t = Date.now();
   return {
+    liveUserId: null,
     session: null,
     offset: 0,
     username: '',
@@ -150,6 +154,13 @@ export const useStore = create<Store>()(
         ...initialData(),
         ...initialFlow(),
         now,
+
+        activateWalletSession: (userId, session) => set((s) => ({
+          ...(s.liveUserId !== userId ? { ...initialData(), ...initialFlow(), balance: 0, payees: [] } : {}),
+          liveUserId: userId,
+          session,
+          username: s.liveUserId === userId && s.username ? s.username : handleFrom(session.email || userId.slice(-12)),
+        })),
 
         signIn: (role, email) =>
           set((s) => ({
@@ -310,10 +321,11 @@ export const useStore = create<Store>()(
       };
     },
     {
-      name: 'haven-demo-v1',
+      name: isDemo ? 'haven-demo-v1' : 'haven-wallet-v1',
       storage: createJSONStorage(() => AsyncStorage),
       // Durable data and undelivered banners survive a restart; in-flight screens start fresh.
       partialize: (s): Data & Pick<Flow, 'banners'> => ({
+        liveUserId: s.liveUserId,
         banners: s.banners,
         session: s.session,
         offset: s.offset,

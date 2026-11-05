@@ -2,7 +2,7 @@ import type { Tone } from '@/theme';
 
 export type Role = 'user' | 'trustee';
 
-export type Session = { role: Role; email: string; method: 'Google' };
+export type Session = { role: Role; email: string; method: 'Google' | 'Phone' };
 
 export type RulesMode = 'first_per_payee' | 'every_time';
 export type Rules = { limit: number; mode: RulesMode; daily: number };
@@ -61,6 +61,8 @@ export type ActivityEvent = { id: string; time: number; icon: string; title: str
 export type Verdict = 'refused' | 'waiting' | 'needs_trustee' | 'safe' | 'cooldown';
 
 export type CheckResult = {
+  paymentId?: string;
+  nonce?: string;
   verdict: Verdict;
   reqId?: string;
   why?: Why;
