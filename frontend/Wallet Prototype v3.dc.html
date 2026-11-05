@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800" rel="stylesheet">
+<style>
+body{margin:0;background:#E9E7E1;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,sans-serif;color:#25282B;-webkit-font-smoothing:antialiased;font-feature-settings:'tnum' 0}
+a{color:oklch(0.56 0.17 45);text-decoration:none}a:hover{color:oklch(0.48 0.16 42)}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none}
+*,*::before,*::after{font-family:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif !important}
+input::placeholder{color:#a3a3aa}
+button{transition:transform .14s cubic-bezier(.3,.7,.4,1),filter .15s,background-color .15s,opacity .25s}
+button:active{transform:scale(.96)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes drop{from{transform:translateY(-130%);opacity:0}to{transform:none;opacity:1}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes screenIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+@keyframes rowIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,91,0,.3)}50%{box-shadow:0 0 0 16px rgba(229,91,0,0)}}
+</style>
+</helmet>
+<div style="min-height:100vh;padding:40px 24px 56px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:26px">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;max-width:640px">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em">{{ appName }} — prototype v3</div>
+    <div style="font-size:14px;line-height:1.5;color:#6e6e73;text-wrap:pretty">Follows the payment rules in the architecture doc: $10 first payment, flagged or over-limit payments need the trustee, new people unlock after 24 hours.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:56px;justify-content:center;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:13px;font-weight:700">Your phone</div><div style="font-size:12px;color:#6e6e73">New user</div></div>
+      <div data-phone="user" style="width:412px;height:866px;border-radius:60px;background:#0b0b0d;padding:11px;box-sizing:border-box;box-shadow:0 40px 80px -30px rgba(0,0,0,.4),0 0 0 1px rgba(0,0,0,.25);flex:none">
+        <div style="position:relative;width:100%;height:100%;border-radius:50px;overflow:hidden;background:#F7F6F2">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px 0 40px;z-index:20;pointer-events:none">
+            <div style="font-size:16px;font-weight:700">9:41</div>
+            <div style="position:absolute;left:50%;top:11px;transform:translateX(-50%);width:122px;height:35px;border-radius:20px;background:#000"></div>
+            <div style="width:26px;height:12px;border-radius:4px;border:1.5px solid #25282B;box-sizing:border-box;padding:1.5px"><div style="width:80%;height:100%;background:#25282B;border-radius:1.5px"></div></div>
+          </div>
+          {{ uBanner }}
+
+          <sc-if value="{{ us.login }}" hint-placeholder-val="{{ true }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+                <div style="width:64px;height:64px;border-radius:20px;background:#E55B00;display:flex;align-items:center;justify-content:center"><div style="width:26px;height:26px;border-radius:50%;border:5px solid #fff"></div></div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:40px;font-weight:800;letter-spacing:-0.035em;line-height:1.05">Money, with<br>a safety net.</div>
+                  <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">A simple wallet with someone you trust looking out for you.</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <button onClick="{{ onLoginGoogle }}" style="height:58px;border:none;border-radius:18px;background:#25282B;color:#fff;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 20px 0 8px;box-shadow:0 10px 24px -12px rgba(37,40,43,.6)" style-active="transform:scale(.97);opacity:.9"><span style="width:42px;height:42px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg></span><span style="flex:1;text-align:center;margin-right:42px">Continue with Google</span></button>
+                <div style="font-size:13px;line-height:1.45;color:#6e6e73;text-align:center;padding:8px 12px 0">No passwords or secret words to remember.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.username }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:44px;display:flex;align-items:center;gap:6px"><div style="flex:1;height:4px;border-radius:2px;background:#E55B00"></div><div style="flex:1;height:4px;border-radius:2px;background:#e8e8ec"></div></div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:18px 0 24px">
+                <div style="font-size:12px;font-weight:800;color:oklch(0.56 0.17 45);letter-spacing:.06em">STEP 1 OF 2</div>
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;line-height:1.1">Pick your avatar</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">Your username is <span style="color:#25282B;font-weight:700">@{{ username }}</span>, made from your {{ loginSource }}.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:22px;padding-bottom:8px"><div style="align-self:center;width:104px;height:104px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-size:42px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .25s">{{ userInitialTxt }}</div><div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">CHOOSE ONE</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+                  <sc-for list="{{ userAvatars }}" as="a" hint-placeholder-count="8">
+                    <button onClick="{{ a.onPick }}" style="aspect-ratio:1;width:100%;border:none;border-radius:50%;background:{{ a.bg }};cursor:pointer;padding:0;box-shadow:0 0 0 3px #fff,0 0 0 5.5px {{ a.ring }};transition:box-shadow .2s,transform .14s"></button>
+                  </sc-for>
+                </div>
+              </div></div>
+              <div style="flex:1"></div>
+              <button onClick="{{ onUsernameNext }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ unameBtnOpacity }}">Continue</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.trustee }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:44px;display:flex;align-items:center;gap:6px"><div style="flex:1;height:4px;border-radius:2px;background:#E55B00"></div><div style="flex:1;height:4px;border-radius:2px;background:#E55B00"></div></div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:18px 0 24px">
+                <div style="font-size:12px;font-weight:800;color:oklch(0.56 0.17 45);letter-spacing:.06em">STEP 2 OF 2</div>
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;line-height:1.1">Add a trustee</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">Someone you trust, like a parent or friend. They check risky payments before they go out.</div>
+              </div>
+              <input value="{{ trusteeContact }}" onChange="{{ onTrusteeContact }}" placeholder="Their email address" style="height:56px;border:none;border-radius:16px;background:#fff;box-shadow:inset 0 0 0 1px #E6E2D8;padding:0 16px;font-size:17px;font-weight:600;outline:none;color:#25282B">
+              <div style="font-size:14px;line-height:1.5;color:#6e6e73;padding:12px 4px 0">They can't touch your money. This step is required.</div>
+              <div style="flex:1"></div>
+              <button onClick="{{ onInvite }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ contactBtnOpacity }}">Send invite</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.ready }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+                <div style="width:88px;height:88px;border-radius:50%;background:{{ readyBg }};box-shadow:0 0 0 10px rgba(220,231,234,.35);color:{{ readyFg }};font-size:36px;font-weight:800;display:flex;align-items:center;justify-content:center;animation:{{ readyAnim }}">{{ readyIcon }}</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">{{ readyTitle }}</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;max-width:300px;text-wrap:pretty">{{ readyBody }}</div>
+              </div>
+              <button onClick="{{ onHome }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ readyBtn }}</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.home }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 0 0;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;overflow-y:auto;padding:8px 20px 40px;display:flex;flex-direction:column;gap:22px">
+                <div style="display:flex;align-items:center;justify-content:space-between;height:52px">
+                  <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:13px;font-weight:600;color:#6e6e73">Your wallet</div><div style="font-size:18px;font-weight:800;letter-spacing:-0.01em">@{{ username }}</div></div>
+                  <button onClick="{{ onSettings }}" aria-label="Settings" style="width:44px;height:44px;border-radius:50%;border:none;padding:0;cursor:pointer;background:{{ userAvatarBg }};box-shadow:0 0 0 2px #fff,0 0 0 3.5px #e6e6ea;color:oklch(0.5 0.16 42);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center" style-active="transform:scale(.9)">{{ userInitialTxt }}</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:15px;font-weight:500;color:#6e6e73">Balance</div>
+                  <div style="display:flex;align-items:flex-start;gap:2px;line-height:1">
+                    <div style="align-self:center;font-size:26px;font-weight:700;color:#25282B;margin-right:2px">$</div>
+                    <div style="font-size:58px;font-weight:800;letter-spacing:-0.04em;color:#25282B">{{ balanceWhole }}</div>
+                    <div style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:#a3a3aa;padding-top:6px">.{{ balanceCents }}</div>
+                  </div>
+                  <div style="font-size:13px;color:#6e6e73">USDC · 1 USDC = $1</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <button onClick="{{ onSend }}" style="height:54px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><span>↑</span><span>Send</span></button>
+                  <button onClick="{{ onReceive }}" style="height:54px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><span>↓</span><span>Receive</span></button>
+                </div>
+                <sc-if value="{{ hasNotice }}" hint-placeholder-val="{{ false }}">
+                  <div style="animation:rowIn .35s ease-out both;border-radius:20px;background:#fff;border:1px solid #ECE9E2;box-shadow:0 8px 24px -12px rgba(0,0,0,.12);padding:14px;display:flex;gap:12px;align-items:center">
+                    <div style="width:40px;height:40px;border-radius:50%;background:{{ noticeBg }};color:{{ noticeFg }};font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none">{{ noticeIcon }}</div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:700">{{ noticeTitle }}</div><div style="font-size:14px;line-height:1.4;color:#6e6e73">{{ noticeBody }}</div></div>
+                    <button onClick="{{ onDismissNotice }}" style="width:28px;height:28px;flex:none;border:none;border-radius:50%;background:#DCE7EA;color:#6e6e73;font-size:12px;cursor:pointer">✕</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em">In progress</div>
+                    <sc-for list="{{ pendingList }}" as="p" hint-placeholder-count="0">
+                      <div onClick="{{ p.onOpen }}" style="animation:rowIn .3s ease-out both;border-radius:18px;background:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .15s" style-active="transform:scale(.98)">
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ p.title }}</div><div style="font-size:13px;color:#6e6e73">{{ p.sub }}</div></div>
+                        <div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ p.chipBg }};color:{{ p.chipFg }};flex:none">{{ p.chip }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="border-radius:20px;background:#fff;padding:14px 16px;display:flex;gap:14px;align-items:center">
+                  <div style="width:42px;height:42px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none">{{ trusteeInitialTxt }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ trusteeName }} · your trustee</div><div style="font-size:13px;color:#6e6e73;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ trusteeSub }}</div></div>
+                  <div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ trusteeBadgeBg }};color:{{ trusteeBadgeFg }};flex:none">{{ trusteeBadge }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em;padding-bottom:6px">Recent</div>
+                  <sc-if value="{{ noPayments }}" hint-placeholder-val="{{ true }}">
+                    <div style="font-size:15px;line-height:1.5;color:#6e6e73">No payments yet.</div>
+                  </sc-if>
+                  <sc-for list="{{ paymentsView }}" as="a" hint-placeholder-count="0">
+                    <div style="animation:rowIn .3s ease-out both;display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #ECE9E2">
+                      <div style="width:42px;height:42px;border-radius:50%;background:#DCE7EA;font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">↑</div>
+                      <div style="flex:1;display:flex;flex-direction:column;gap:1px"><div style="font-size:16px;font-weight:700">{{ a.title }}</div><div style="font-size:13px;color:#6e6e73">{{ a.time }}</div></div>
+                      <div style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums">{{ a.amount }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.to }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onHome }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;padding:4px 0 16px">Send to</div>
+              <input value="{{ toVal }}" onChange="{{ onTo }}" placeholder="Paste address or @username" style="height:56px;border:none;border-radius:16px;background:#fff;box-shadow:inset 0 0 0 1px #E6E2D8;padding:0 16px;font-size:15px;font-weight:600;outline:none;color:#25282B">
+              <sc-if value="{{ toIsNew }}" hint-placeholder-val="{{ false }}">
+                <input value="{{ toName }}" onChange="{{ onToName }}" placeholder="Name them, e.g. Ari" style="margin-top:10px;height:56px;border:none;border-radius:16px;background:#fff;box-shadow:inset 0 0 0 1px #E6E2D8;padding:0 16px;font-size:17px;font-weight:600;outline:none;color:#25282B">
+              </sc-if>
+              <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">TRY A TEST ADDRESS</div>
+                  <div style="font-size:12px;font-weight:600;color:#a3a3aa">Swipe →</div>
+                </div>
+                <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -20px;padding:2px 20px 6px;scrollbar-width:none">
+                  <sc-for list="{{ demoChips }}" as="d" hint-placeholder-count="5">
+                    <button onClick="{{ d.onPick }}" style="flex:none;width:128px;text-align:left;border:none;border-radius:16px;background:{{ d.bg }};box-shadow:inset 0 0 0 1.5px {{ d.ring }};padding:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer">
+                      <div style="width:28px;height:28px;border-radius:50%;background:#fff;color:{{ d.fg }};font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ d.icon }}</div>
+                      <div style="display:flex;flex-direction:column;gap:2px">
+                        <div style="font-size:14px;font-weight:700;color:#25282B;line-height:1.25">{{ d.label }}</div>
+                        <div style="font-size:12px;color:#6e6e73;line-height:1.3">{{ d.sub }}</div>
+                      </div>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em;padding:18px 0 4px">PEOPLE YOU'VE ADDED</div>
+              <div style="flex:1;overflow-y:auto">
+                <sc-for list="{{ payeesView }}" as="c" hint-placeholder-count="1">
+                  <div onClick="{{ c.onPick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #ECE9E2;cursor:pointer;transition:opacity .15s;animation:rowIn .3s ease-out both" style-active="opacity:.55">
+                    <div style="width:42px;height:42px;border-radius:50%;background:#DCE7EA;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none">{{ c.initial }}</div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:16px;font-weight:700">{{ c.name }}</div><div style="font-size:13px;color:#6e6e73;font-variant-numeric:tabular-nums">{{ c.sub }}</div></div>
+                    <div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ c.chipBg }};color:{{ c.chipFg }};flex:none">{{ c.chip }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <button onClick="{{ onToNext }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ toBtnOpacity }}">Next</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.amount }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onSend }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="font-size:17px;color:#6e6e73;text-align:center">To <span style="color:#25282B;font-weight:700">{{ sendName }}</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+                <div style="display:flex;align-items:center;gap:3px;line-height:1;transition:color .2s;color:{{ amountColor }}">
+                  <div style="font-size:32px;font-weight:700">$</div>
+                  <div style="font-size:66px;font-weight:800;letter-spacing:-0.05em;font-variant-numeric:tabular-nums">{{ amountNum }}</div>
+                </div>
+                <button onClick="{{ onHintInfo }}" style="border:none;font-size:13px;font-weight:700;padding:7px 8px 7px 13px;border-radius:999px;background:{{ hintBg }};color:{{ hintFg }};cursor:pointer;display:flex;align-items:center;gap:6px"><span>{{ hintText }}</span><span style="width:17px;height:17px;border-radius:50%;border:1.5px solid currentColor;box-sizing:border-box;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">i</span></button>
+                <div style="font-size:14px;font-weight:500;color:{{ balColor }}">{{ balLine }}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+                <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+                  <button onClick="{{ k.onPress }}" style="height:54px;border:none;background:transparent;border-radius:14px;font-size:26px;font-weight:600;color:#25282B;cursor:pointer" style-active="background:#ECEAE3">{{ k.label }}</button>
+                </sc-for>
+              </div>
+              <button onClick="{{ onAmountNext }}" style="margin-top:10px;height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ amtBtnOpacity }}">Continue</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.checking }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:#F7F6F2">
+              {{ spinner }}
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em">Checking…</div>
+              <div style="font-size:15px;color:#6e6e73">Making sure it's safe</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.refused }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+                <div style="animation:pop .55s cubic-bezier(.3,1.4,.5,1) both;width:88px;height:88px;border-radius:50%;background:oklch(0.96 0.05 90);color:oklch(0.47 0.1 75);font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center">$10</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">First payment: $10 max</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;max-width:300px;text-wrap:pretty">Start small while you get the hang of it. After your first payment, you can send more.</div>
+              </div>
+              <button onClick="{{ onChangeAmount }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">Change amount</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.cooldown }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+                <div style="animation:pop .55s cubic-bezier(.3,1.4,.5,1) both;width:88px;height:88px;border-radius:50%;background:oklch(0.96 0.035 55);color:oklch(0.56 0.17 45);font-size:40px;font-weight:700;display:flex;align-items:center;justify-content:center">◷</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">{{ cdTitle }}</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;max-width:310px;text-wrap:pretty">{{ cdBody }}</div>
+              </div>
+              <div style="border-radius:20px;background:#fff;padding:4px 16px;margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Payment</div><div style="font-size:16px;font-weight:700">{{ cdAmount }} to {{ cdName }}</div></div>
+                <div style="display:flex;justify-content:space-between;padding:14px 0"><div style="font-size:16px;color:#6e6e73">Unlocks</div><div style="font-size:16px;font-weight:700">{{ cdWhen }}</div></div>
+              </div>
+              <sc-if value="{{ hasUnverified }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px;line-height:1.45;color:#6e6e73;padding:0 4px 12px">{{ unverifiedText }}</div>
+              </sc-if>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-if value="{{ cdCanCap }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ onSendCap }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ capBtnLabel }}</button>
+                </sc-if>
+                <button onClick="{{ onHome }}" style="height:52px;border:none;border-radius:16px;background:{{ cdOkBg }};color:{{ cdOkFg }};font-size:16px;font-weight:700;cursor:pointer">{{ cdOkLabel }}</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.flagged }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onBackAmount }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:18px">
+                <div style="animation:pop .55s cubic-bezier(.3,1.4,.5,1) both;width:64px;height:64px;border-radius:50%;background:{{ flagIconBg }};color:{{ flagIconFg }};font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ flagIcon }}</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:1.12">{{ flagTitle }}</div>
+                  <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ flagBody }}</div>
+                </div>
+                <div style="border-radius:20px;background:#fff;padding:4px 16px">
+                  <sc-for list="{{ reasonsView }}" as="r" hint-placeholder-count="1">
+                    <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #ECE9E2">
+                      <div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ r.title }}</div><div style="font-size:14px;line-height:1.45;color:#6e6e73">{{ r.detail }}</div></div>
+                      <div style="font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px;background:{{ r.tagBg }};color:{{ r.tagFg }};flex:none;letter-spacing:.03em">{{ r.tag }}</div>
+                    </div>
+                  </sc-for>
+                  <div style="display:flex;justify-content:space-between;padding:14px 0"><div style="font-size:15px;color:#6e6e73">Payment</div><div style="font-size:15px;font-weight:700">{{ amountFmt }} to {{ sendName }}</div></div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding-top:14px">
+                <button onClick="{{ onAskTrustee }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">Ask {{ trusteeName }} to check</button>
+                <button onClick="{{ onHome }}" style="height:50px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:16px;font-weight:700;cursor:pointer">Don't send</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.questions }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onBackFlag }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0 18px">
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">3 quick questions</div>
+                <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">Be honest. Only {{ trusteeName }} sees your answers.</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ qList }}" as="q" hint-placeholder-count="3">
+                  <div style="border-radius:20px;background:#fff;padding:16px;display:flex;flex-direction:column;gap:12px">
+                    <div style="font-size:16px;font-weight:700;line-height:1.4">{{ q.q }}</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                      <button onClick="{{ q.onYes }}" style="height:44px;border:none;border-radius:12px;background:{{ q.yesBg }};color:{{ q.yesFg }};font-size:15px;font-weight:700;cursor:pointer">Yes</button>
+                      <button onClick="{{ q.onNo }}" style="height:44px;border:none;border-radius:12px;background:{{ q.noBg }};color:{{ q.noFg }};font-size:15px;font-weight:700;cursor:pointer">No</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <button onClick="{{ onSubmitQ }}" style="margin-top:14px;height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ qBtnOpacity }}">Send to {{ trusteeName }}</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.waiting }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+                <div style="width:88px;height:88px;border-radius:50%;background:{{ wBg }};box-shadow:0 0 0 10px rgba(220,231,234,.35);color:{{ wFg }};font-size:{{ wIconSize }};font-weight:800;display:flex;align-items:center;justify-content:center;animation:{{ wAnim }};font-variant-numeric:tabular-nums">{{ wIcon }}</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">{{ wTitle }}</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73;max-width:310px;text-wrap:pretty">{{ wBody }}</div>
+              </div>
+              <div style="border-radius:20px;background:#fff;padding:4px 16px;margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;padding:14px 0"><div style="font-size:16px;color:#6e6e73">Payment</div><div style="font-size:16px;font-weight:700">{{ wAmount }} to {{ wTo }}</div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-if value="{{ wPrimary }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ onWaitPrimary }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ wPrimaryLabel }}</button>
+                </sc-if>
+                <button onClick="{{ onWaitDone }}" style="height:50px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:16px;font-weight:700;cursor:pointer">{{ wDoneLabel }}</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.review }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;justify-content:space-between;margin-left:-8px"><button onClick="{{ onBackAmount }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><div style="font-size:15px;font-weight:700;color:#6e6e73;margin-right:auto;margin-left:12px">Review</div></div>
+              <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:18px;padding-bottom:12px">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 4px">
+                  <div style="font-size:14px;font-weight:600;color:#6e6e73">You're sending</div>
+                  <div style="display:flex;align-items:flex-start;line-height:1;animation:pop .5s cubic-bezier(.3,1.4,.5,1) both">
+                    <div style="align-self:center;font-size:30px;font-weight:700;margin-right:2px">$</div>
+                    <div style="font-size:68px;font-weight:800;letter-spacing:-0.045em;font-variant-numeric:tabular-nums">{{ amtWhole }}</div>
+                    <div style="font-size:30px;font-weight:700;color:#a3a3aa;padding-top:8px">.{{ amtCents }}</div>
+                  </div>
+                  <div style="width:32px;height:32px;border-radius:50%;background:#DCE7EA;color:#2F4A52;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M6 13l6 6 6-6"></path></svg></div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 8px 8px;border-radius:999px;background:#fff;box-shadow:0 6px 18px -10px rgba(37,40,43,.25)">
+                    <div style="width:36px;height:36px;border-radius:50%;background:oklch(0.95 0.04 55);color:oklch(0.5 0.16 42);font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ sendInitial }}</div>
+                    <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:16px;font-weight:800">{{ sendName }}</div><div style="font-size:12px;color:#6e6e73;font-variant-numeric:tabular-nums">{{ sendAddr }}</div></div>
+                  </div>
+                </div>
+                <div style="border-radius:20px;background:#fff;padding:0 16px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:15px;color:#6e6e73">From</div><div style="font-size:15px;font-weight:700">Your wallet</div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:15px;color:#6e6e73">Arrives</div><div style="font-size:15px;font-weight:700">In seconds</div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0"><div style="font-size:15px;color:#6e6e73">Network fee</div><div style="display:flex;align-items:center;gap:8px"><div style="font-size:13px;color:#a3a3aa;text-decoration:line-through">$0.02</div><div style="font-size:15px;font-weight:700">Free</div></div></div>
+                </div>
+                <sc-if value="{{ reviewApproved }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:16px;background:#DCE7EA;color:#2F4A52;padding:12px 14px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:50%;background:#2F4A52;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none">✓</div>{{ trusteeName }} approved this once</div>
+                </sc-if>
+                <sc-if value="{{ hasUnverified }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:16px;background:#fff;color:#55555b;padding:12px 14px;font-size:14px;line-height:1.45">{{ unverifiedText }}</div>
+                </sc-if>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#6e6e73"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid currentColor;box-sizing:border-box;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">!</span>Payments can't be undone</div>
+                <button onPointerDown="{{ onHoldStart }}" onPointerUp="{{ onHoldEnd }}" onPointerLeave="{{ onHoldEnd }}" onPointerCancel="{{ onHoldEnd }}" style="position:relative;overflow:hidden;height:60px;border:none;border-radius:18px;background:#25282B;color:#fff;font-size:17px;font-weight:700;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:{{ holdW }};background:#E55B00;transition:{{ holdT }}"></div>
+                  <div style="position:relative;display:flex;align-items:center;justify-content:center;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M6 11l6-6 6 6"></path></svg></span><span>{{ holdLabel }}</span></div>
+                </button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.sent }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center">
+                <div style="animation:pop .55s cubic-bezier(.3,1.4,.5,1) both;width:88px;height:88px;border-radius:50%;background:#E55B00;color:#fff;font-size:40px;font-weight:700;display:flex;align-items:center;justify-content:center">✓</div>
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em">Sent</div>
+                <div style="font-size:17px;color:#6e6e73">{{ sentText }}</div>
+              </div>
+              <button onClick="{{ onHome }}" style="height:56px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Done</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.receive }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onHome }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;padding:4px 0 8px">Receive</div>
+              <div style="font-size:17px;line-height:1.5;color:#6e6e73">Share your username to get paid in USDC.</div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+                <div style="width:220px;height:220px;border-radius:24px;background:repeating-linear-gradient(45deg,#DCE7EA 0 8px,#ebebef 8px 16px);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:.06em;color:#6e6e73">QR CODE</div>
+                <div style="font-size:24px;font-weight:800">@{{ username }}</div>
+                <div style="font-size:13px;color:#6e6e73;font-variant-numeric:tabular-nums">0x4c1d…a7e2 · Base</div>
+              </div>
+              <button onClick="{{ onCopy }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ copyLabel }}</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.settings }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 0 0;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;padding:0 12px"><button onClick="{{ onHome }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="flex:1;overflow-y:auto;padding:0 20px 56px;display:flex;flex-direction:column;gap:20px">
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em">Settings</div>
+                <div style="display:flex;flex-direction:column;gap:18px"><div style="align-self:center;width:92px;height:92px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-size:37px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .25s">{{ userInitialTxt }}</div><div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">AVATAR</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+                  <sc-for list="{{ userAvatars }}" as="a" hint-placeholder-count="8">
+                    <button onClick="{{ a.onPick }}" style="aspect-ratio:1;width:100%;border:none;border-radius:50%;background:{{ a.bg }};cursor:pointer;padding:0;box-shadow:0 0 0 3px #fff,0 0 0 5.5px {{ a.ring }};transition:box-shadow .2s,transform .14s"></button>
+                  </sc-for>
+                </div>
+              </div></div>
+                <div style="border-radius:20px;background:#fff;padding:0 16px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Username</div><div style="display:flex;align-items:center;gap:8px"><div style="font-size:16px;font-weight:600">@{{ username }}</div><button onClick="{{ onEditName }}" aria-label="Edit" style="width:32px;height:32px;border:none;border-radius:50%;background:#fff;color:oklch(0.56 0.17 45);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#ececf0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div></div>
+                  <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Signed in with</div><div style="font-size:16px;font-weight:600">{{ loginMethod }}</div></div>
+                  <div style="display:flex;justify-content:space-between;gap:12px;padding:14px 0"><div style="font-size:16px;color:#6e6e73">{{ loginIdLabel }}</div><div style="font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ loginId }}</div></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em;padding:0 4px">SAFETY</div>
+                  <div style="border-radius:20px;background:#fff;padding:0 16px">
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #ECE9E2">
+                      <div style="width:36px;height:36px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ trusteeInitialTxt }}</div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:16px;font-weight:700">{{ trusteeName }}</div><div style="font-size:13px;color:#6e6e73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ trusteeContact }}</div></div>
+                      <div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ trusteeBadgeBg }};color:{{ trusteeBadgeFg }};flex:none">{{ trusteeBadge }}</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Asks {{ trusteeName }} above</div><div style="font-size:16px;font-weight:600">{{ rulesLimitFmt }}</div></div>
+                    <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">How often</div><div style="font-size:16px;font-weight:600">{{ rulesModeLabel }}</div></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0"><div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;color:#6e6e73">Daily max</div><div style="font-size:13px;color:#6e6e73">{{ dailyLeftText }}</div></div><div style="font-size:16px;font-weight:600">{{ rulesDailyFmt }}</div></div>
+                  </div>
+                  <div style="font-size:13px;line-height:1.45;color:#6e6e73;padding:0 4px">Set by {{ trusteeName }}. Only your trustee can change these.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em;padding:0 4px">WALLET</div>
+                  <div style="border-radius:20px;background:#fff;padding:0 16px">
+                    <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Address</div><div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">0x4c1d…a7e2</div></div>
+                    <div onClick="{{ onExport }}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 0;cursor:pointer" style-active="opacity:.6"><div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:600">Export wallet key</div><div style="font-size:13px;color:#6e6e73">{{ exportSub }}</div></div><div style="color:#c4c4ca;font-size:20px">›</div></div>
+                  </div>
+                </div>
+                <button onClick="{{ onSignOut }}" style="flex:none;height:54px;min-height:54px;margin-top:4px;border:none;border-radius:16px;background:#fff;color:oklch(0.53 0.2 22);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center" style-active="background:oklch(0.96 0.03 20)">Sign out</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.rules }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onSettings }}" aria-label="Settings" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:22px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em">Safety rules</div>
+                  <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ trusteeName }} checks payments above this amount.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">ASK {{ trusteeNameCaps }} ABOVE</div>
+                  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+                    <sc-for list="{{ limitOpts }}" as="o" hint-placeholder-count="5">
+                      <button onClick="{{ o.onPick }}" style="height:46px;border:none;border-radius:12px;background:{{ o.bg }};color:{{ o.fg }};font-size:15px;font-weight:700;cursor:pointer">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">HOW OFTEN</div>
+                  <sc-for list="{{ modeOpts }}" as="o" hint-placeholder-count="2">
+                    <div onClick="{{ o.onPick }}" style="border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center;cursor:pointer;background:#fff;box-shadow:inset 0 0 0 2px {{ o.ring }};transition:box-shadow .15s">
+                      <div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ o.title }}</div><div style="font-size:13px;color:#6e6e73;line-height:1.4">{{ o.sub }}</div></div>
+                      <div style="width:22px;height:22px;border-radius:50%;box-sizing:border-box;border:2px solid {{ o.ring2 }};display:flex;align-items:center;justify-content:center;flex:none"><div style="width:10px;height:10px;border-radius:50%;background:{{ o.dot }}"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:14px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ rulesNote }}</div>
+              </div>
+              <button onClick="{{ onSaveRules }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ saveRulesOpacity }}">{{ saveRulesLabel }}</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ us.exportKey }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;margin-left:-8px"><button onClick="{{ onSettings }}" aria-label="Settings" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;padding:4px 0 8px">Your wallet key</div>
+              <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ trusteeName }} allowed this once. Never share it — anyone with it controls your money.</div>
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px">
+                <div style="position:relative;border-radius:22px;background:#25282B;padding:20px;min-height:210px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 40px -22px rgba(0,0,0,.55)">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.55);letter-spacing:.08em">PRIVATE KEY</div>
+                    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.08)">0x4c1d…a7e2</div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px">
+                    <sc-for list="{{ keyChunks }}" as="k" hint-placeholder-count="16">
+                      <div style="font-size:16px;font-weight:700;color:#fff;letter-spacing:.05em;font-variant-numeric:tabular-nums">{{ k }}</div>
+                    </sc-for>
+                  </div>
+                  {{ scratch }}
+                </div>
+                <sc-if value="{{ keyRevealed }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;animation:rowIn .35s ease-out both">
+                    <button onClick="{{ onHideKey }}" style="height:48px;border:none;border-radius:14px;background:#DCE7EA;color:#25282B;font-size:15px;font-weight:700;cursor:pointer">Hide again</button>
+                    <button onClick="{{ onCopyKey }}" style="height:48px;border:none;border-radius:14px;background:oklch(0.95 0.04 55);color:oklch(0.5 0.16 42);font-size:15px;font-weight:700;cursor:pointer">{{ copyKeyLabel }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ keyHidden }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:#6e6e73">
+                    <span>Scratch the card with your finger</span><span style="color:#d0d0d6">·</span>
+                    <button onClick="{{ onRevealKey }}" style="border:none;background:transparent;padding:0;font-size:14px;font-weight:700;color:oklch(0.56 0.17 45);cursor:pointer">Tap to reveal</button>
+                  </div>
+                </sc-if>
+              </div>
+              <button onClick="{{ onSettings }}" style="height:56px;border:none;border-radius:16px;background:#25282B;color:#fff;font-size:17px;font-weight:700;cursor:pointer">Done</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ signOutSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+              <div onClick="{{ onCancelSignOut }}" style="position:absolute;inset:0;background:rgba(37,40,43,.38);animation:fadeIn .2s ease-out"></div>
+              <div style="position:relative;background:#fff;border-radius:30px 30px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;align-items:center;gap:18px;animation:sheetUp .36s cubic-bezier(.2,.9,.3,1);box-shadow:0 -10px 40px rgba(0,0,0,.12)">
+                <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de"></div>
+                <div style="position:relative;margin-top:8px;animation:pop .5s .05s cubic-bezier(.3,1.4,.5,1) both">
+                  <div style="width:76px;height:76px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px #fff,0 0 0 5.5px #ECE9E2">{{ userInitialTxt }}</div>
+                  <div style="position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;background:oklch(0.96 0.03 20);border:3px solid #fff;color:oklch(0.53 0.2 22);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12H4"></path><path d="M8 8l-4 4 4 4"></path><path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"></path></svg></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;text-align:center;padding:0 6px">
+                  <div style="font-size:24px;font-weight:800;letter-spacing:-0.025em">Sign out?</div>
+                  <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">Your money and trustee stay safe. Sign back in with Google anytime.</div>
+                </div>
+                <div style="width:100%;box-sizing:border-box;border-radius:18px;background:#F7F6F2;padding:12px 14px;display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ userInitialTxt }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:700">@{{ username }}</div><div style="font-size:13px;color:#6e6e73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ loginId }}</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" style="flex:none"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg>
+                </div>
+                <div style="width:100%;display:flex;flex-direction:column;gap:8px">
+                  <button onClick="{{ onConfirmSignOut }}" style="height:56px;border:none;border-radius:16px;background:oklch(0.53 0.2 22);color:#fff;font-size:17px;font-weight:700;cursor:pointer">Sign out</button>
+                  <button onClick="{{ onCancelSignOut }}" style="height:54px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Stay signed in</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ nameSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+              <div onClick="{{ onCancelName }}" style="position:absolute;inset:0;background:rgba(0,0,0,.34);animation:fadeIn .2s ease-out"></div>
+              <div style="position:relative;background:#fff;border-radius:30px 30px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;gap:18px;animation:sheetUp .36s cubic-bezier(.2,.9,.3,1);box-shadow:0 -10px 40px rgba(0,0,0,.12)">
+                <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de;align-self:center"></div>
+                <div style="display:flex;align-items:center;gap:14px;padding-top:4px">
+                  <div style="width:52px;height:52px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;animation:pop .5s .05s cubic-bezier(.3,1.4,.5,1) both">{{ userInitialTxt }}</div>
+                  <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:22px;font-weight:800;letter-spacing:-0.025em">Change username</div><div style="font-size:14px;color:#6e6e73">How people find and pay you</div></div>
+                </div>
+                <div style="height:62px;border-radius:18px;background:#F7F6F2;display:flex;align-items:center;padding:0 10px 0 18px;gap:2px;box-shadow:inset 0 0 0 2px {{ nameRing }};transition:box-shadow .2s">
+                  <div style="font-size:22px;color:#a3a3aa;font-weight:700">@</div>
+                  <input value="{{ nameDraft }}" onChange="{{ onNameDraft }}" autoFocus="{{ true }}" spellCheck="false" style="flex:1;min-width:0;border:none;background:transparent;font-size:22px;font-weight:700;letter-spacing:-0.01em;outline:none;color:#25282B">
+                  <div style="width:30px;height:30px;border-radius:50%;background:{{ nameIconBg }};color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;transition:background .2s">{{ nameIcon }}</div>
+                </div>
+                <div style="font-size:14px;font-weight:600;margin-top:-8px;padding:0 4px;min-height:18px;color:{{ nameDraftColor }}">{{ nameDraftMsg }}</div>
+                <sc-if value="{{ hasNameSugg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em;padding:0 4px">SUGGESTIONS</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <sc-for list="{{ nameSugg }}" as="g" hint-placeholder-count="3">
+                      <button onClick="{{ g.onPick }}" style="height:36px;padding:0 14px;border:none;border-radius:999px;background:oklch(0.96 0.035 55);color:oklch(0.56 0.17 45);font-size:14px;font-weight:700;cursor:pointer">{{ g.label }}</button>
+                    </sc-for>
+                  </div>
+                </div></sc-if>
+                <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding-top:4px">
+                  <button onClick="{{ onCancelName }}" style="height:56px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Cancel</button>
+                  <button onClick="{{ onSaveName }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ nameSaveOpacity }}">Save</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ hasSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+              <div onClick="{{ onSheetClose }}" style="position:absolute;inset:0;background:rgba(0,0,0,.32);animation:fadeIn .2s ease-out"></div>
+              <div style="position:relative;background:#fff;border-radius:28px 28px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;gap:16px;animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)">
+                <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de;align-self:center"></div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding-top:6px">
+                  <div style="font-size:24px;font-weight:800;letter-spacing:-0.025em">{{ sheetTitle }}</div>
+                  <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ sheetBody }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
+                  <button onClick="{{ onSheetBtn }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ sheetBtn }}</button>
+                  <sc-if value="{{ sheetCancel }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ onSheetClose }}" style="height:52px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:16px;font-weight:700;cursor:pointer">Cancel</button>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#25282B;z-index:50"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:13px;font-weight:700">Trustee's phone</div><div style="font-size:12px;color:#6e6e73">{{ trusteeCaption }}</div></div>
+      <div data-phone="trustee" style="width:412px;height:866px;border-radius:60px;background:#0b0b0d;padding:11px;box-sizing:border-box;box-shadow:0 40px 80px -30px rgba(0,0,0,.4),0 0 0 1px rgba(0,0,0,.25);flex:none">
+        <div style="position:relative;width:100%;height:100%;border-radius:50px;overflow:hidden;background:#F7F6F2">
+          <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px 0 40px;z-index:20;pointer-events:none">
+            <div style="font-size:16px;font-weight:700">9:41</div>
+            <div style="position:absolute;left:50%;top:11px;transform:translateX(-50%);width:122px;height:35px;border-radius:20px;background:#000"></div>
+            <div style="width:26px;height:12px;border-radius:4px;border:1.5px solid #25282B;box-sizing:border-box;padding:1.5px"><div style="width:80%;height:100%;background:#25282B;border-radius:1.5px"></div></div>
+          </div>
+          {{ tBanner }}
+
+          <sc-if value="{{ ts.login }}" hint-placeholder-val="{{ true }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+                <div style="width:64px;height:64px;border-radius:20px;background:#E55B00;display:flex;align-items:center;justify-content:center"><div style="width:26px;height:26px;border-radius:50%;border:5px solid #fff"></div></div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:40px;font-weight:800;letter-spacing:-0.035em;line-height:1.05">Look out for<br>someone you love.</div>
+                  <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ tLoginMsg }}</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;opacity:{{ tLoginOpacity }}">
+                <button onClick="{{ onTLoginGoogle }}" style="height:58px;border:none;border-radius:18px;background:#25282B;color:#fff;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 20px 0 8px;box-shadow:0 10px 24px -12px rgba(37,40,43,.6)" style-active="transform:scale(.97);opacity:.9"><span style="width:42px;height:42px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg></span><span style="flex:1;text-align:center;margin-right:42px">Continue with Google</span></button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.invite }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+                <div style="width:72px;height:72px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center">{{ userInitialTxt }}</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;line-height:1.12">@{{ username }} added you as their trustee</div>
+                  <div style="font-size:17px;line-height:1.5;color:#6e6e73;text-wrap:pretty">You'll check risky payments before they go out. You can't touch their money.</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button onClick="{{ onAccept }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer">Accept</button>
+                <button onClick="{{ onTLogout }}" style="height:48px;border:none;background:transparent;color:#6e6e73;font-size:16px;font-weight:600;cursor:pointer">Not now</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.tprofile }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 24px 44px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="display:flex;flex-direction:column;gap:8px;padding:60px 0 26px">
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em">Set up your profile</div>
+                <div style="font-size:17px;line-height:1.5;color:#6e6e73">So @{{ username }} knows it's you.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:18px;padding-bottom:20px"><div style="align-self:center;width:88px;height:88px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-size:35px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .25s">{{ trusteeInitialTxt }}</div><div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">CHOOSE AN AVATAR</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+                  <sc-for list="{{ trusteeAvatars }}" as="a" hint-placeholder-count="8">
+                    <button onClick="{{ a.onPick }}" style="aspect-ratio:1;width:100%;border:none;border-radius:50%;background:{{ a.bg }};cursor:pointer;padding:0;box-shadow:0 0 0 3px #fff,0 0 0 5.5px {{ a.ring }};transition:box-shadow .2s,transform .14s"></button>
+                  </sc-for>
+                </div>
+              </div></div>
+              <input value="{{ tNameDraft }}" onChange="{{ onTNameDraft }}" placeholder="Your name" style="height:56px;border:none;border-radius:16px;background:#fff;box-shadow:inset 0 0 0 1px #E6E2D8;padding:0 16px;font-size:17px;font-weight:600;outline:none;color:#25282B">
+              <div style="flex:1"></div>
+              <button onClick="{{ onTProfileDone }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ tNameBtnOpacity }}">Continue</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.home }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 0 0;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="flex:1;overflow-y:auto;padding:8px 20px 40px;display:flex;flex-direction:column;gap:22px">
+                <div style="display:flex;align-items:center;justify-content:space-between;height:52px">
+                  <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:13px;font-weight:600;color:#6e6e73">Trustee</div><div style="font-size:18px;font-weight:800;letter-spacing:-0.01em">{{ trusteeName }}</div></div>
+                  <button onClick="{{ onTSettings }}" aria-label="Settings" style="width:44px;height:44px;border-radius:50%;border:none;padding:0;cursor:pointer;background:{{ trusteeAvatarBg }};box-shadow:0 0 0 2px #fff,0 0 0 3.5px #e6e6ea;color:oklch(0.5 0.16 42);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center" style-active="transform:scale(.9)">{{ trusteeInitialTxt }}</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em;line-height:1.1">People you look after</div>
+                  <div style="font-size:15px;color:#6e6e73">{{ peopleSummary }}</div>
+                </div>
+                <sc-if value="{{ hasReview }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em">Needs you</div>
+                    <sc-for list="{{ reviewList }}" as="r" hint-placeholder-count="0">
+                      <div onClick="{{ r.onOpen }}" style="animation:rowIn .3s ease-out both;border-radius:18px;background:oklch(0.96 0.035 55);padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;transition:transform .15s" style-active="transform:scale(.98)">
+                        <div style="width:40px;height:40px;border-radius:50%;background:#fff;color:oklch(0.56 0.17 45);font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ r.icon }}</div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ r.title }}</div><div style="font-size:13px;color:#6b4a33">{{ r.sub }}</div></div>
+                        <div style="font-size:20px;color:#6b4a33">›</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ people }}" as="p" hint-placeholder-count="3">
+                    <div onClick="{{ p.onOpen }}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #ECE9E2;cursor:pointer;transition:opacity .15s;animation:rowIn .3s ease-out both" style-active="opacity:.55">
+                      <div style="width:48px;height:48px;border-radius:50%;background:{{ p.avatar }};color:{{ p.avFg }};font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;flex:none">{{ p.initial }}</div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:17px;font-weight:700">@{{ p.username }}</div><div style="font-size:13px;color:#6e6e73;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.last }}</div></div>
+                      <div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ p.badgeBg }};color:{{ p.badgeFg }};flex:none">{{ p.badge }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.person }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 0 0;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;padding:0 12px"><button onClick="{{ onTHome }}" aria-label="People" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="flex:1;overflow-y:auto;padding:8px 20px 40px;display:flex;flex-direction:column;gap:22px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:60px;height:60px;border-radius:50%;background:{{ pd.avatar }};color:{{ pd.avFg }};font-weight:800;font-size:24px;display:flex;align-items:center;justify-content:center;flex:none">{{ pd.initial }}</div>
+                  <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:26px;font-weight:800;letter-spacing:-0.03em">@{{ pd.username }}</div><div style="font-size:14px;color:#6e6e73">{{ pd.since }}</div></div>
+                </div>
+                <sc-if value="{{ pd.hasReview }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em">Needs you</div>
+                    <sc-for list="{{ pd.review }}" as="r" hint-placeholder-count="0">
+                      <div onClick="{{ r.onOpen }}" style="animation:rowIn .3s ease-out both;border-radius:18px;background:oklch(0.96 0.035 55);padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;transition:transform .15s" style-active="transform:scale(.98)">
+                        <div style="width:40px;height:40px;border-radius:50%;background:#fff;color:oklch(0.56 0.17 45);font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ r.icon }}</div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;font-weight:700">{{ r.title }}</div><div style="font-size:13px;color:#6b4a33">{{ r.sub }}</div></div>
+                        <div style="font-size:20px;color:#6b4a33">›</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font-size:20px;font-weight:800;letter-spacing:-0.02em">Rules you set</div><div style="font-size:12px;font-weight:600;color:#6e6e73">Saves instantly</div></div>
+                  <div style="border-radius:20px;background:#fff;padding:0 14px">
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #ECE9E2">
+                      <div style="width:36px;height:36px;border-radius:11px;background:oklch(0.95 0.04 55);color:oklch(0.5 0.16 42);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">$</div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:700">Ask me above</div><div style="font-size:12px;line-height:1.35;color:#6e6e73">Payments bigger than this need your OK</div></div>
+                      <div style="display:flex;align-items:center;gap:2px;background:#F7F6F2;border-radius:999px;padding:3px;flex:none">
+                        <button onClick="{{ pdLimitDec }}" aria-label="Less" style="width:30px;height:30px;border:none;border-radius:50%;background:#fff;color:#25282B;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.08);opacity:{{ pdLimitDecOp }}">−</button>
+                        <div style="min-width:54px;text-align:center;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">{{ pdLimitFmt }}</div>
+                        <button onClick="{{ pdLimitInc }}" aria-label="More" style="width:30px;height:30px;border:none;border-radius:50%;background:#fff;color:#25282B;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.08);opacity:{{ pdLimitIncOp }}">+</button>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;padding:14px 0;border-bottom:1px solid #ECE9E2">
+                      <div style="display:flex;align-items:center;gap:12px">
+                        <div style="width:36px;height:36px;border-radius:11px;background:oklch(0.95 0.04 55);color:oklch(0.5 0.16 42);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">↻</div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:700">How often</div><div style="font-size:12px;line-height:1.35;color:#6e6e73">{{ pdModeHelp }}</div></div>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:12px;background:#F7F6F2">
+                        <sc-for list="{{ pdModeOpts }}" as="o" hint-placeholder-count="2">
+                          <button onClick="{{ o.onPick }}" style="height:34px;border:none;border-radius:9px;background:{{ o.bg }};color:#25282B;font-size:13px;font-weight:700;cursor:pointer;box-shadow:{{ o.shadow }};transition:background .2s,box-shadow .2s">{{ o.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 0">
+                      <div style="width:36px;height:36px;border-radius:11px;background:oklch(0.95 0.04 55);color:oklch(0.5 0.16 42);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">◷</div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:700">Daily max</div><div style="font-size:12px;line-height:1.35;color:#6e6e73">{{ pdDailyHelp }}</div></div>
+                      <div style="display:flex;align-items:center;gap:2px;background:#F7F6F2;border-radius:999px;padding:3px;flex:none">
+                        <button onClick="{{ pdDailyDec }}" aria-label="Less" style="width:30px;height:30px;border:none;border-radius:50%;background:#fff;color:#25282B;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.08);opacity:{{ pdDailyDecOp }}">−</button>
+                        <div style="min-width:54px;text-align:center;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">{{ pdDailyFmt }}</div>
+                        <button onClick="{{ pdDailyInc }}" aria-label="More" style="width:30px;height:30px;border:none;border-radius:50%;background:#fff;color:#25282B;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.08);opacity:{{ pdDailyIncOp }}">+</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em;padding-bottom:6px">Activity</div>
+                  <sc-if value="{{ pd.noFeed }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:15px;line-height:1.5;color:#6e6e73">Nothing yet.</div>
+                  </sc-if>
+                  <sc-for list="{{ pd.feed }}" as="f" hint-placeholder-count="0">
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #ECE9E2;animation:rowIn .3s ease-out both">
+                      <div style="width:42px;height:42px;border-radius:50%;background:{{ f.iconBg }};color:{{ f.iconFg }};font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ f.icon }}</div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:700;line-height:1.3">{{ f.title }}</div><div style="font-size:13px;color:#6e6e73">{{ f.sub }}</div></div>
+                      <div style="font-size:12px;color:#6e6e73;flex:none">{{ f.time }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.request }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 20px 40px;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;justify-content:space-between;margin-left:-8px"><button onClick="{{ onTHome }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><div style="font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:{{ rq.chipBg }};color:{{ rq.chipFg }};font-variant-numeric:tabular-nums">{{ rq.chip }}</div></div>
+              <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:20px;padding:6px 0 28px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="width:44px;height:44px;border-radius:50%;background:{{ userAvatarBg }};color:oklch(0.5 0.16 42);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;flex:none">{{ userInitialTxt }}</div>
+                  <div style="font-size:15px;color:#6e6e73">Request from <span style="color:#25282B;font-weight:700">@{{ username }}</span></div>
+                </div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:1.12">{{ rq.title }}</div>
+                <div style="border-radius:20px;background:#fff;padding:4px 16px">
+                  <sc-for list="{{ rq.rows }}" as="w" hint-placeholder-count="2">
+                    <div style="display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:{{ w.bd }}"><div style="font-size:15px;color:#6e6e73">{{ w.k }}</div><div style="font-size:15px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">{{ w.v }}</div></div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ rq.hasReasons }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">WHY IT CAME TO YOU</div>
+                    <div style="border-radius:20px;background:#fff;padding:4px 16px">
+                      <sc-for list="{{ rq.reasons }}" as="r" hint-placeholder-count="1">
+                        <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:{{ r.bd }}">
+                          <div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:700">{{ r.title }}</div><div style="font-size:13px;line-height:1.45;color:#6e6e73">{{ r.detail }}</div></div>
+                          <div style="font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px;background:{{ r.tagBg }};color:{{ r.tagFg }};flex:none;letter-spacing:.03em">{{ r.tag }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ rq.hasAnswers }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">THEIR ANSWERS</div>
+                    <div style="border-radius:20px;background:#fff;padding:4px 16px">
+                      <sc-for list="{{ rq.answers }}" as="a" hint-placeholder-count="3">
+                        <div style="display:flex;gap:12px;align-items:center;padding:13px 0;border-bottom:{{ a.bd }}">
+                          <div style="flex:1;font-size:14px;line-height:1.4">{{ a.q }}</div>
+                          <div style="font-size:13px;font-weight:800;padding:4px 10px;border-radius:999px;background:{{ a.bg }};color:{{ a.fg }};flex:none">{{ a.a }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ rq.hasNote }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:14px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ rq.note }}</div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ rq.actionable }}" hint-placeholder-val="{{ false }}">
+                <div style="position:relative;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 -20px;padding:14px 20px 4px;background:#F7F6F2;box-shadow:0 -18px 22px -10px #F7F6F2;border-top:1px solid #ECE9E2">
+                  <button onClick="{{ onDeny }}" style="height:56px;border:none;border-radius:16px;background:#25282B;color:#fff;font-size:16px;font-weight:700;cursor:pointer">{{ rq.denyLabel }}</button>
+                  <button onClick="{{ onAllow }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:16px;font-weight:700;cursor:pointer">{{ rq.allowLabel }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ hasConfirm }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+                  <div onClick="{{ onCancelConfirm }}" style="position:absolute;inset:0;background:rgba(0,0,0,.32);animation:fadeIn .2s ease-out"></div>
+                  <div style="position:relative;background:#fff;border-radius:28px 28px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;align-items:center;gap:14px;animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)">
+                    <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de"></div>
+                    <div style="animation:pop .45s .1s cubic-bezier(.3,1.4,.5,1) both;width:56px;height:56px;border-radius:50%;background:{{ confirmBg }};color:{{ confirmFg }};font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:8px">{{ confirmIcon }}</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;text-align:center;padding:0 8px">
+                      <div style="font-size:22px;font-weight:800;letter-spacing:-0.025em">{{ confirmTitle }}</div>
+                      <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">{{ confirmBody }}</div>
+                    </div>
+                    <div style="width:100%;display:flex;flex-direction:column;gap:8px;padding-top:8px">
+                      <button onClick="{{ onConfirmDecision }}" style="height:56px;border:none;border-radius:16px;background:{{ confirmBtnBg }};color:#fff;font-size:17px;font-weight:700;cursor:pointer">{{ confirmBtn }}</button>
+                      <button onClick="{{ onCancelConfirm }}" style="height:54px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ts.tsettings }}" hint-placeholder-val="{{ false }}">
+            <div style="animation:screenIn .32s cubic-bezier(.2,.8,.2,1);position:absolute;inset:0;padding:54px 0 0;display:flex;flex-direction:column;background:#F7F6F2">
+              <div style="height:48px;display:flex;align-items:center;padding:0 12px"><button onClick="{{ onTHome }}" aria-label="Back" style="width:40px;height:40px;margin-left:8px;border:none;border-radius:50%;background:#DCE7EA;color:#25282B;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#e8e8ec;transform:scale(.9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+              <div style="flex:1;overflow-y:auto;padding:0 20px 56px;display:flex;flex-direction:column;gap:20px">
+                <div style="font-size:30px;font-weight:800;letter-spacing:-0.03em">Settings</div>
+                <div style="display:flex;flex-direction:column;gap:18px"><div style="align-self:center;width:92px;height:92px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-size:37px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .25s">{{ trusteeInitialTxt }}</div><div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em">AVATAR</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+                  <sc-for list="{{ trusteeAvatars }}" as="a" hint-placeholder-count="8">
+                    <button onClick="{{ a.onPick }}" style="aspect-ratio:1;width:100%;border:none;border-radius:50%;background:{{ a.bg }};cursor:pointer;padding:0;box-shadow:0 0 0 3px #fff,0 0 0 5.5px {{ a.ring }};transition:box-shadow .2s,transform .14s"></button>
+                  </sc-for>
+                </div>
+              </div></div>
+                <div style="border-radius:20px;background:#fff;padding:0 16px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Name</div><div style="display:flex;align-items:center;gap:8px"><div style="font-size:16px;font-weight:600">{{ trusteeName }}</div><button onClick="{{ onEditTName }}" aria-label="Edit" style="width:32px;height:32px;border:none;border-radius:50%;background:#fff;color:oklch(0.56 0.17 45);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none" style-active="background:#ececf0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div></div>
+                  <div style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid #ECE9E2"><div style="font-size:16px;color:#6e6e73">Signed in with</div><div style="font-size:16px;font-weight:600">{{ tLoginMethod }}</div></div>
+                  <div style="display:flex;justify-content:space-between;gap:12px;padding:14px 0"><div style="font-size:16px;color:#6e6e73">Contact</div><div style="font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ trusteeContact }}</div></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;font-weight:800;color:#6e6e73;letter-spacing:.06em;padding:0 4px">TRUSTEE FOR</div><div style="border-radius:20px;background:#fff;padding:0 16px">
+                  <div style="display:flex;justify-content:space-between;padding:14px 0"><div style="font-size:16px;color:#6e6e73">People you look after</div><div style="font-size:16px;font-weight:600">{{ peopleCount }}</div></div>
+                </div></div>
+                <button onClick="{{ onTSignOut }}" style="flex:none;height:54px;min-height:54px;margin-top:4px;border:none;border-radius:16px;background:#fff;color:oklch(0.53 0.2 22);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center" style-active="background:oklch(0.96 0.03 20)">Sign out</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tSignOutSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+              <div onClick="{{ onCancelTSignOut }}" style="position:absolute;inset:0;background:rgba(37,40,43,.38);animation:fadeIn .2s ease-out"></div>
+              <div style="position:relative;background:#fff;border-radius:30px 30px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;align-items:center;gap:18px;animation:sheetUp .36s cubic-bezier(.2,.9,.3,1);box-shadow:0 -10px 40px rgba(0,0,0,.12)">
+                <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de"></div>
+                <div style="position:relative;margin-top:8px;animation:pop .5s .05s cubic-bezier(.3,1.4,.5,1) both">
+                  <div style="width:76px;height:76px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px #fff,0 0 0 5.5px #ECE9E2">{{ trusteeInitialTxt }}</div>
+                  <div style="position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;background:oklch(0.96 0.03 20);border:3px solid #fff;color:oklch(0.53 0.2 22);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12H4"></path><path d="M8 8l-4 4 4 4"></path><path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"></path></svg></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;text-align:center;padding:0 6px">
+                  <div style="font-size:24px;font-weight:800;letter-spacing:-0.025em">Sign out?</div>
+                  <div style="font-size:16px;line-height:1.5;color:#6e6e73;text-wrap:pretty">You won’t get alerts for {{ peopleCount }} people until you sign back in.</div>
+                </div>
+                <div style="width:100%;box-sizing:border-box;border-radius:18px;background:#F7F6F2;padding:12px 14px;display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ trusteeInitialTxt }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:700">{{ trusteeName }}</div><div style="font-size:13px;color:#6e6e73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ trusteeContact }}</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" style="flex:none"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg>
+                </div>
+                <div style="width:100%;display:flex;flex-direction:column;gap:8px">
+                  <button onClick="{{ onConfirmTSignOut }}" style="height:56px;border:none;border-radius:16px;background:oklch(0.53 0.2 22);color:#fff;font-size:17px;font-weight:700;cursor:pointer">Sign out</button>
+                  <button onClick="{{ onCancelTSignOut }}" style="height:54px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Stay signed in</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ tNameSheet }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+              <div onClick="{{ onCancelTName }}" style="position:absolute;inset:0;background:rgba(0,0,0,.34);animation:fadeIn .2s ease-out"></div>
+              <div style="position:relative;background:#fff;border-radius:30px 30px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;gap:18px;animation:sheetUp .36s cubic-bezier(.2,.9,.3,1);box-shadow:0 -10px 40px rgba(0,0,0,.12)">
+                <div style="width:36px;height:5px;border-radius:3px;background:#d9d9de;align-self:center"></div>
+                <div style="display:flex;align-items:center;gap:14px;padding-top:4px">
+                  <div style="width:52px;height:52px;border-radius:50%;background:{{ trusteeAvatarBg }};color:oklch(0.5 0.16 42);font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;animation:pop .5s .05s cubic-bezier(.3,1.4,.5,1) both">{{ trusteeInitialTxt }}</div>
+                  <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:22px;font-weight:800;letter-spacing:-0.025em">Change your name</div><div style="font-size:14px;color:#6e6e73">People you look after see this</div></div>
+                </div>
+                <div style="height:62px;border-radius:18px;background:#F7F6F2;display:flex;align-items:center;padding:0 10px 0 18px;gap:2px;box-shadow:inset 0 0 0 2px {{ tNameRing }};transition:box-shadow .2s">
+                  
+                  <input value="{{ tNameEdit }}" onChange="{{ onTNameEdit }}" autoFocus="{{ true }}" spellCheck="false" style="flex:1;min-width:0;border:none;background:transparent;font-size:22px;font-weight:700;letter-spacing:-0.01em;outline:none;color:#25282B">
+                  
+                </div>
+                <div style="font-size:14px;font-weight:600;margin-top:-8px;padding:0 4px;min-height:18px;color:{{ tNameMsgColor }}">{{ tNameMsg }}</div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding-top:4px">
+                  <button onClick="{{ onCancelTName }}" style="height:56px;border:none;border-radius:16px;background:#DCE7EA;color:#25282B;font-size:17px;font-weight:700;cursor:pointer">Cancel</button>
+                  <button onClick="{{ onSaveTName }}" style="height:56px;border:none;border-radius:16px;background:#E55B00;color:#fff;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ tNameSaveOpacity }}">Save</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#25282B;z-index:50"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
+    <div style="font-size:13px;font-weight:700;color:#6e6e73">Paste a sample address:</div>
+    <sc-for list="{{ demoChips }}" as="d" hint-placeholder-count="5">
+      <button onClick="{{ d.onPick }}" style="border:1px solid #d6d6dc;background:#fff;border-radius:999px;padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer">{{ d.label }}</button>
+    </sc-for>
+    <div style="width:1px;height:20px;background:#d6d6dc"></div>
+    <button onClick="{{ onSkip24 }}" style="border:1px solid #d6d6dc;background:#fff;border-radius:999px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer">Skip 24 hours</button>
+    <button onClick="{{ onReset }}" style="border:1px solid #d6d6dc;background:#fff;border-radius:999px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer">Restart demo</button>
+    <div style="font-size:13px;font-weight:600;color:#6e6e73">{{ clockLabel }}</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;appName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Haven&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  MOM = '0x51b0c3d9a8e74f2b6c1d0e9f8a7b6c5d4e3f2a10';
+  ARI = '0x8f2c41b9e07d3a6c5512e9a04b7d1c3e6f0a92d4';
+  SCAM = '0x7a3f00c1d2e4b5a6978812ab34cd56ef7890dead';
+  RISKY = '0x3e9d0bad1c2f4a5b6c7d8e9f0a1b2c3d4e5f6071';
+  LOOK = '0x51b0c3e0a1f2b3c4d5e6f708192a3b4c5d6e2a10';
+  RUMOR = '0x9c4e7d1a2b3c4d5e6f708192a3b4c5d6e7f8beef';
+  QS = ['Did someone contact you first and ask for this money?', 'Are you being rushed, or promised more money back?', 'Do you know this person in real life?'];
+  BAD = [true, true, false];
+  C = { acc: '#E55B00', accFg: 'oklch(0.56 0.17 45)', accBg: 'oklch(0.96 0.035 55)', amber: ['oklch(0.96 0.05 90)', 'oklch(0.47 0.1 75)'], red: ['oklch(0.96 0.03 20)', 'oklch(0.53 0.2 22)'], green: ['#DCE7EA', '#2F4A52'], gray: ['#ececf0', '#55555b'] };
+  AV = [
+    'radial-gradient(circle at 34% 34%, #fff 0 20%, transparent 21%), oklch(0.68 0.18 45)',
+    'linear-gradient(135deg, #ffd9b8 50%, oklch(0.62 0.19 40) 50%)',
+    'repeating-radial-gradient(circle at 50% 50%, #23304d 0 5px, #ffb27a 5px 10px)',
+    'repeating-linear-gradient(45deg, #5fa38f 0 5px, #dff0ea 5px 10px)',
+    'radial-gradient(circle at 50% 100%, #ffcc4d 0 42%, transparent 43%), #3d5a80',
+    'radial-gradient(#fff 22%, transparent 24%) 0 0/11px 11px, #9b7ede',
+    'conic-gradient(#ef6f5e 0 25%, #ffd166 0 50%, #4cc9a0 0 75%, #4a90c8 0)',
+    'radial-gradient(circle at 64% 38%, #2b2d42 0 28%, transparent 29%), radial-gradient(circle at 50% 50%, #f1ede4 0 40%, transparent 41%), #2b2d42'
+  ];
+  capLeft(a) { const p = this.payeeBy(a), since = p ? p.addedAt : this.now(); const sent = this.state.payments.filter(x => (x.address || '').toLowerCase() === (a || '').toLowerCase() && x.time >= since).reduce((t, x) => t + x.amount, 0); return Math.max(0, Math.round((10 - sent) * 100) / 100); }
+  Scratch = (props) => {
+    const ref = React.useRef(null), cb = React.useRef(props.onDone); cb.current = props.onDone;
+    React.useEffect(() => {
+      const c = ref.current; if (!c) return; let done = false, down = false, last = null, n = 0, x;
+      const paint = () => {
+        const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1; c.width = r.width * d; c.height = r.height * d;
+        x = c.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.globalCompositeOperation = 'source-over';
+        x.fillStyle = '#E55B00'; x.fillRect(0, 0, r.width, r.height);
+        x.fillStyle = 'rgba(255,255,255,0.14)'; for (let i = 8; i < r.width; i += 14) for (let j = 8; j < r.height; j += 14) { x.beginPath(); x.arc(i, j, 1.6, 0, 6.3); x.fill(); }
+        x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = '800 21px Manrope, sans-serif'; x.fillText('Scratch to reveal', r.width / 2, r.height / 2 - 4);
+        x.font = '600 13px Manrope, sans-serif'; x.fillStyle = 'rgba(255,255,255,0.88)'; x.fillText('Make sure no one is watching', r.width / 2, r.height / 2 + 20);
+      };
+      const pos = e => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+      const check = () => { const img = x.getImageData(0, 0, c.width, c.height).data; let cl = 0, t = 0; for (let i = 3; i < img.length; i += 160) { t++; if (img[i] < 20) cl++; } if (!done && cl / t > 0.5) { done = true; c.style.opacity = '0'; c.style.transform = 'scale(1.04)'; setTimeout(() => cb.current && cb.current(), 420); } };
+      const draw = p => { x.globalCompositeOperation = 'destination-out'; x.lineWidth = 40; x.lineCap = 'round'; x.lineJoin = 'round'; x.beginPath(); const l = last || [p[0] + .1, p[1]]; x.moveTo(l[0], l[1]); x.lineTo(p[0], p[1]); x.stroke(); last = p; if (++n % 6 === 0) check(); if (n % 9 === 0) { try { navigator.vibrate && navigator.vibrate(4); } catch (_) {} } };
+      const pd = e => { down = true; last = null; c.style.cursor = 'grabbing'; try { c.setPointerCapture(e.pointerId); } catch (_) {} draw(pos(e)); };
+      const pm = e => { if (down) draw(pos(e)); };
+      const pu = () => { if (!down) return; down = false; last = null; c.style.cursor = 'grab'; check(); };
+      paint(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!done && n === 0) paint(); });
+      c.addEventListener('pointerdown', pd); c.addEventListener('pointermove', pm); c.addEventListener('pointerup', pu); c.addEventListener('pointercancel', pu);
+      return () => { c.removeEventListener('pointerdown', pd); c.removeEventListener('pointermove', pm); c.removeEventListener('pointerup', pu); c.removeEventListener('pointercancel', pu); };
+    }, []);
+    return React.createElement('canvas', { ref, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', borderRadius: 22, cursor: 'grab', touchAction: 'none', transition: 'opacity .42s ease, transform .42s ease' } });
+  };
+  sentToday() { const d = new Date(this.now()); d.setHours(0, 0, 0, 0); return this.state.payments.filter(p => p.time >= d.getTime()).reduce((t, p) => t + p.amount, 0); }
+  handleFrom(email) { let h = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 15) || 'user'; if (h.length < 3) h = h + '_' + Math.floor(Math.random() * 90 + 10); return h; }
+  initial() {
+    const t = Date.now();
+    return { uScreen: 'login', tScreen: 'login', loginMethod: 'Google', tLoginMethod: 'Google', username: '', userAvatar: 0, trusteeAvatar: 3, trusteeContact: '', trusteeStatus: 'none', tDisplayName: '', tNameDraft: '', 
+      balance: 250, firstDone: false, rules: { limit: 100, mode: 'first_per_payee', daily: 200 }, mockRules: { p2: { limit: 50, mode: 'every_time', daily: 100 }, p3: { limit: 100, mode: 'first_per_payee', daily: 500 } },
+      payees: [{ id: 'mom', name: 'Mom', address: this.MOM, unlockAt: t - 2 * 864e5, overCleared: false, addedAt: t - 2 * 864e5 }],
+      payments: [], requests: [], intents: [], reports: [], events: [],
+      toVal: '', toName: '', amountStr: '', cur: null, result: null, answers: [null, null, null], reqId: null, sentText: '',
+      offset: 0, uBanner: null, tBanner: null, tReqId: null, tConfirm: null, tPerson: null, notice: null, sheet: null, ruleDraft: null, copied: false };
+  }
+  state = this.initial();
+  componentDidMount() {
+    this.tick = setInterval(() => this.forceUpdate(), 1000);
+    this.onTap = e => {
+      let t = e.target; while (t && t !== document.body) { if (t.tagName === 'BUTTON' || t.tagName === 'LABEL' || (t.style && t.style.cursor === 'pointer')) break; t = t.parentElement; }
+      if (!t || t === document.body || t.disabled) return;
+      const ph = t.closest && t.closest('[data-phone]'); if (!ph) return;
+      const dim = parseFloat(getComputedStyle(t).opacity) < 0.5;
+      this.haptic(dim ? 'error' : 'light', ph.dataset.phone, dim ? null : t);
+    };
+    document.addEventListener('pointerdown', this.onTap, true);
+  }
+  haptic(kind, phone, target) {
+    const pat = { selection: [5], light: [9], medium: [16], heavy: [26], success: [12, 60, 24], warning: [22, 80, 22], error: [30, 45, 30, 45, 30] };
+    try { if (navigator.vibrate) navigator.vibrate(pat[kind] || pat.light); } catch (_) {}
+    if (target && target.animate && kind === 'light') target.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(.93)' }, { filter: 'brightness(1)' }], { duration: 180, easing: 'ease-out' });
+    const el = phone && document.querySelector('[data-phone="' + phone + '"]'); if (!el || !el.animate) return;
+    const amp = { medium: 0.8, heavy: 1.4, warning: 2, error: 2.6 }[kind];
+    if (kind === 'success') el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.008)' }, { transform: 'scale(0.998)' }, { transform: 'scale(1)' }], { duration: 340, easing: 'cubic-bezier(.3,1.5,.5,1)' });
+    else if (amp) el.animate([0, -1, 1, -0.8, 0.6, -0.3, 0].map(v => ({ transform: 'translateX(' + (v * amp) + 'px)' })), { duration: kind === 'error' ? 380 : 300, easing: 'ease-out' });
+  }
+  componentWillUnmount() { document.removeEventListener('pointerdown', this.onTap, true); clearInterval(this.tick); clearTimeout(this.ub); clearTimeout(this.tb); clearTimeout(this.ck); }
+  now() { return Date.now() + this.state.offset; }
+  money(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  m0(n) { return this.money(n).replace('.00', ''); }
+  short(a) { return !a ? '' : a.startsWith('@') ? a : a.slice(0, 6) + '…' + a.slice(-4); }
+  dur(ms) { ms = Math.max(0, ms); const h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3); return h ? `${h}h ${m}m` : m ? `${m}m` : `${s}s`; }
+  mmss(ms) { ms = Math.max(0, ms); const m = Math.floor(ms / 6e4), s = Math.floor(ms % 6e4 / 1e3); return `${m}:${String(s).padStart(2, '0')}`; }
+  when(t) { const d = new Date(t), n = new Date(this.now()), tm = new Date(n.getTime() + 864e5); const day = d.toDateString() === n.toDateString() ? 'Today' : d.toDateString() === tm.toDateString() ? 'Tomorrow' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); return `${day}, ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`; }
+  ago(t) { const s = (this.now() - t) / 1000; if (s < 60) return 'Now'; if (s < 3600) return Math.floor(s / 60) + 'm'; if (s < 86400) return Math.floor(s / 3600) + 'h'; return Math.floor(s / 86400) + 'd'; }
+  tName() { const st = this.state; if (st.tDisplayName) return st.tDisplayName; const c = st.trusteeContact; if (c.includes('@')) { const p = c.split('@')[0].replace(/[^a-z]/gi, ' ').trim().split(' ')[0] || 'Trustee'; return p[0].toUpperCase() + p.slice(1).toLowerCase(); } return 'Your trustee'; }
+  rules() { let r = { ...this.state.rules }; this.state.requests.filter(q => q.kind === 'rules' && q.status === 'allowed' && this.now() >= q.validFrom).sort((a, b) => a.validFrom - b.validFrom).forEach(q => { r = { ...r, ...q.newRules }; }); return r; }
+  modeLabel(m) { return m === 'every_time' ? 'Every time' : 'First time per person'; }
+  reqStatus(r) { return r.status; }
+  payeeBy(a) { return this.state.payees.find(p => p.address.toLowerCase() === (a || '').toLowerCase()); }
+  reportsFor(a) { a = a.toLowerCase(); return { v: (a === this.SCAM ? 3 : 0) + this.state.reports.filter(x => x === a).length, u: a === this.SCAM ? 2 : a === this.RUMOR ? 2 : 0 }; }
+  flags(a) {
+    a = a.toLowerCase(); const out = [], C = this.C, rep = this.reportsFor(a);
+    if (rep.v) out.push({ title: 'Reported as a scam', detail: `${rep.v} verified report${rep.v > 1 ? 's' : ''}${rep.u ? ` · ${rep.u} unverified` : ''}`, tag: 'VERIFIED', tagBg: C.red[0], tagFg: C.red[1] });
+    if (!a.startsWith('@') && a.includes('bad')) out.push({ title: 'Failed the security check', detail: 'Linked to phishing activity', tag: 'RISK CHECK', tagBg: C.red[0], tagFg: C.red[1] });
+    const look = this.state.payees.find(p => p.address.toLowerCase() !== a && p.address.slice(0, 6).toLowerCase() === a.slice(0, 6) && p.address.slice(-4).toLowerCase() === a.slice(-4));
+    if (look) out.push({ title: `Looks like ${look.name}'s address`, detail: 'Same start and end, different middle. A common trick.', tag: 'LOOK-ALIKE', tagBg: C.amber[0], tagFg: C.amber[1] });
+    return out;
+  }
+  evaluate(a, amt) {
+    const st = this.state, now = this.now(), al = a.toLowerCase(), payee = this.payeeBy(a), R = this.rules();
+    if (!st.firstDone && amt > 10) return { verdict: 'refused' };
+    const appr = st.requests.find(r => r.kind === 'payment' && r.address.toLowerCase() === al && r.amount === amt && r.status === 'allowed' && !r.used && now < r.validFrom + 36e5);
+    if (appr) return now < appr.validFrom ? { verdict: 'cooldown', unlockAt: appr.validFrom, reqId: appr.id } : { verdict: 'safe', reqId: appr.id };
+    const pend = st.requests.find(r => r.kind === 'payment' && r.address.toLowerCase() === al && this.reqStatus(r) === 'pending');
+    if (pend) return { verdict: 'waiting', reqId: pend.id };
+    const reasons = this.flags(a);
+    if (reasons.length) return { verdict: 'needs_trustee', why: 'flagged', reasons };
+    const today = this.sentToday();
+    if (R.daily && today + amt > R.daily) return { verdict: 'needs_trustee', why: 'daily', reasons: [{ title: `Over the ${this.m0(R.daily)} daily max`, detail: `Already sent ${this.money(today)} today. This would make ${this.money(today + amt)}.`, tag: 'DAILY', tagBg: this.C.amber[0], tagFg: this.C.amber[1] }] };
+    if (amt > R.limit && (R.mode === 'every_time' || !(payee && payee.overCleared))) return { verdict: 'needs_trustee', why: 'limit', reasons: [{ title: `Over the ${this.m0(R.limit)} limit`, detail: R.mode === 'every_time' ? 'Every payment above the limit needs an OK.' : 'First time above the limit to this person.', tag: 'LIMIT', tagBg: this.C.amber[0], tagFg: this.C.amber[1] }] };
+    if (!payee || now < payee.unlockAt) { const unlockAt = payee ? payee.unlockAt : now + 864e5; const left = this.capLeft(a); return amt <= left ? { verdict: 'safe', newPayee: !payee, capped: true, unlockAt } : { verdict: 'cooldown', unlockAt, newPayee: !payee, left }; }
+    return { verdict: 'safe' };
+  }
+  uBan(title, body) { setTimeout(() => this.haptic('medium', 'user'), 200); this.setState({ uBanner: { id: Math.random(), title, body } }); clearTimeout(this.ub); this.ub = setTimeout(() => this.setState({ uBanner: null }), 5000); }
+  tBan(body, reqId) { if (this.state.trusteeStatus !== 'active') return; setTimeout(() => this.haptic('heavy', 'trustee'), 250); this.setState({ tBanner: { id: Math.random(), title: this.props.appName ?? 'Haven', body, reqId } }); clearTimeout(this.tb); this.tb = setTimeout(() => this.setState({ tBanner: null }), 6000); }
+  ev(e) { this.setState(s => ({ events: [{ id: Math.random(), time: this.now(), ...e }, ...s.events] })); }
+  go(s, extra) { this.setState({ uScreen: s, sheet: null, ...extra }); }
+  runCheck(cur) {
+    this.setState({ uScreen: 'checking', cur });
+    clearTimeout(this.ck);
+    this.ck = setTimeout(() => {
+      const res = this.evaluate(cur.address, cur.amount), now = this.now();
+      if (res.verdict === 'refused') { this.haptic('warning', 'user'); return this.go('refused', { result: res }); }
+      if (res.verdict === 'waiting') return this.go('waiting', { reqId: res.reqId });
+      if (res.verdict === 'needs_trustee') { this.haptic(res.why === 'flagged' ? 'error' : 'warning', 'user'); } if (res.verdict === 'needs_trustee') return this.go('flagged', { result: res, answers: [null, null, null] });
+      if (res.verdict === 'safe') { if (res.newPayee) { this.setState(s => ({ payees: [...s.payees, { id: 'p' + now, name: cur.name, address: cur.address, unlockAt: res.unlockAt, overCleared: false, addedAt: now }] })); this.ev({ icon: '+', title: `Added ${cur.name}`, sub: 'New person · $10 max for 24h' }); } return this.go('review', { result: res }); }
+      if (res.newPayee) {
+        this.setState(s => ({ payees: [...s.payees, { id: 'p' + now, name: cur.name, address: cur.address, unlockAt: res.unlockAt, overCleared: false, addedAt: now }] }));
+        this.ev({ icon: '+', title: `Added ${cur.name}`, sub: 'New person · unlocks in 24h' });
+      }
+      if (!res.reqId) this.setState(s => ({ intents: [{ id: 'i' + now, address: cur.address, name: cur.name, amount: cur.amount, unlockAt: res.unlockAt }, ...s.intents.filter(i => !(i.address === cur.address && i.amount === cur.amount))] }));
+      this.haptic('medium', 'user'); this.go('cooldown', { result: res });
+    }, 1100);
+  }
+  submitQ() { this.haptic('medium', 'user');
+    const st = this.state, cur = st.cur, now = this.now(), id = 'r' + now;
+    const req = { id, kind: 'payment', address: cur.address, name: cur.name, amount: cur.amount, reasons: st.result.reasons, why: st.result.why, answers: st.answers, createdAt: now, status: 'pending', newPayee: !this.payeeBy(cur.address) };
+    this.setState(s => ({ requests: [req, ...s.requests], reqId: id, uScreen: 'waiting' }));
+    this.tBan('A payment needs you. Tap to review.', id);
+  }
+  confirmSend() { this.haptic('success', 'user');
+    const st = this.state, cur = st.cur, now = this.now(), reqId = st.result && st.result.reqId;
+    this.setState(s => ({ balance: s.balance - cur.amount, firstDone: true, payments: [{ id: now, to: cur.name, address: cur.address, amount: cur.amount, time: now }, ...s.payments],
+      requests: s.requests.map(r => r.id === reqId ? { ...r, used: true } : r), intents: s.intents.filter(i => !(i.address === cur.address && i.amount === cur.amount)),
+      uScreen: 'sent', sentText: `${this.money(cur.amount)} to ${cur.name}` }));
+    this.ev({ icon: '↑', title: `Sent ${this.money(cur.amount)} to ${cur.name}`, sub: reqId ? 'Approved by you' : 'Passed all checks' });
+  }
+  resume(x) { this.runCheck({ address: x.address, name: x.name, amount: x.amount }); }
+  decide(allow) {
+    const st = this.state, r = st.requests.find(x => x.id === st.tReqId); if (!r || this.reqStatus(r) !== 'pending') return;
+    const now = this.now(), tn = this.tName(); let patch = { status: allow ? 'allowed' : 'denied', decidedAt: now };
+    if (r.kind === 'payment') {
+      if (allow) {
+        const isNew = !this.payeeBy(r.address); patch.validFrom = isNew ? now + 864e5 : now;
+        const R = this.rules(), over = r.amount > R.limit;
+        this.setState(s => ({ payees: isNew ? [...s.payees, { id: 'p' + now, name: r.name, address: r.address, unlockAt: patch.validFrom, overCleared: over, addedAt: now }] : s.payees.map(p => p.address === r.address && over ? { ...p, overCleared: true } : p) }));
+        this.uBan(`${tn} said yes`, isNew ? `${r.name} is new, so it unlocks in 24 hours.` : 'You can send it now.');
+        this.ev({ icon: '✓', title: `You allowed ${this.money(r.amount)} to ${r.name}`, sub: isNew ? 'Unlocks after 24h' : 'One time' });
+      } else {
+        this.setState(s => ({ reports: [...s.reports, r.address.toLowerCase()] }));
+        this.uBan(`${tn} said no`, `The payment to ${r.name} won't go out.`);
+        this.ev({ icon: '✕', title: `You denied ${this.money(r.amount)} to ${r.name}`, sub: 'Address reported' });
+      }
+    } else if (r.kind === 'export') {
+      this.uBan(allow ? `${tn} allowed key export` : `${tn} said no`, allow ? 'Open Settings to view it.' : 'Your key stays hidden.');
+      this.ev({ icon: '⚿', title: allow ? 'You allowed a key export' : 'You denied a key export', sub: 'Wallet key' });
+    } else {
+      if (allow) patch.validFrom = now + 864e5;
+      this.uBan(allow ? `${tn} allowed new rules` : `${tn} said no`, allow ? 'They start in 24 hours.' : 'Your rules stay the same.');
+      this.ev({ icon: '⚙', title: allow ? 'You allowed looser rules' : 'You denied looser rules', sub: allow ? 'Starts in 24h' : 'No change' });
+    }
+    this.haptic(allow ? 'success' : 'heavy', 'trustee'); this.setState(s => ({ requests: s.requests.map(x => x.id === r.id ? { ...x, ...patch } : x), tConfirm: null }));
+  }
+  makeBanner(b, onTap) {
+    if (!b) return null;
+    return React.createElement('div', { key: b.id, onClick: onTap, style: { position: 'absolute', top: 52, left: 10, right: 10, zIndex: 45, borderRadius: 22, padding: '12px 14px', background: 'rgba(246,246,248,0.95)', backdropFilter: 'blur(20px)', boxShadow: '0 10px 30px rgba(0,0,0,.16)', display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', animation: 'drop .45s cubic-bezier(.2,.9,.3,1.1)', fontFamily: 'Manrope, sans-serif' } },
+      React.createElement('div', { style: { width: 38, height: 38, borderRadius: 11, background: this.C.acc, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' } }, React.createElement('div', { style: { width: 14, height: 14, borderRadius: '50%', border: '3px solid #fff' } })),
+      React.createElement('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6e6e73' } }, React.createElement('span', { style: { fontWeight: 700, color: '#25282B' } }, b.title), React.createElement('span', null, 'now')),
+        b.body2 ? React.createElement('div', { style: { fontSize: 15, fontWeight: 700 } }, b.body2) : null,
+        React.createElement('div', { style: { fontSize: 14, color: '#3a3a3f' } }, b.body)));
+  }
+  renderVals() {
+    const st = this.state, S = st.uScreen, T = st.tScreen, C = this.C, now = this.now(), tn = this.tName(), u = st.username, R = this.rules();
+    const appName = this.props.appName ?? 'Haven';
+    const taken = ['admin', 'satoshi', 'wallet'].includes(u);
+    let unameMsg = '', unameColor = '#6e6e73', unameOk = false;
+    if (u && !/^[a-z0-9_]{3,15}$/.test(u)) { unameMsg = u.length < 3 ? 'At least 3 characters' : 'Only lowercase letters, numbers and _'; unameColor = C.red[1]; }
+    else if (u && taken) { unameMsg = 'Taken. Try another.'; unameColor = C.red[1]; }
+    else if (u) { unameMsg = '✓ Available'; unameColor = C.green[1]; unameOk = true; }
+    const contactOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(st.trusteeContact) || /^\+?[\d\s()-]{7,}$/.test(st.trusteeContact);
+    const active = st.trusteeStatus === 'active';
+    const userPhotoCss = 'none';
+    const userInitialTxt = st.userAvatar != null ? '' : (u[0] || '').toUpperCase(), trusteeInitialTxt = st.trusteeAvatar != null ? '' : tn[0];
+    // pending list
+    const pendingList = [];
+    st.requests.filter(r => r.kind === 'payment' && !r.used && !r.dismissed).forEach(r => {
+      const s = this.reqStatus(r), title = `${this.m0(r.amount)} to ${r.name}`, toWait = () => this.go('waiting', { reqId: r.id });
+      if (s === 'pending') pendingList.push({ title, sub: `Waiting on ${tn}`, chip: 'Waiting', chipBg: C.amber[0], chipFg: C.amber[1], onOpen: toWait });
+      else if (s === 'allowed') {
+        if (now < r.validFrom) pendingList.push({ title, sub: `Approved · unlocks ${this.when(r.validFrom)}`, chip: 'Locked', chipBg: C.gray[0], chipFg: C.gray[1], onOpen: toWait });
+        else if (now < r.validFrom + 36e5) pendingList.push({ title, sub: `Approved · send within ${this.dur(r.validFrom + 36e5 - now)}`, chip: 'Ready', chipBg: C.green[0], chipFg: C.green[1], onOpen: () => this.resume(r) });
+        else pendingList.push({ title, sub: 'The 1-hour window passed', chip: 'Expired', chipBg: C.gray[0], chipFg: C.gray[1], onOpen: toWait });
+      } else if (s === 'denied') pendingList.push({ title, sub: `${tn} said no`, chip: 'Declined', chipBg: C.red[0], chipFg: C.red[1], onOpen: toWait });
+      else if (s === 'expired') pendingList.push({ title, sub: 'No answer in 30 minutes', chip: 'Expired', chipBg: C.gray[0], chipFg: C.gray[1], onOpen: toWait });
+    });
+    st.intents.forEach(i => {
+      const title = `${this.m0(i.amount)} to ${i.name}`;
+      if (now < i.unlockAt) pendingList.push({ title, sub: `New person · unlocks ${this.when(i.unlockAt)}`, chip: 'Locked', chipBg: C.gray[0], chipFg: C.gray[1], onOpen: () => this.go('cooldown', { cur: i, result: { unlockAt: i.unlockAt } }) });
+      else pendingList.push({ title, sub: 'Unlocked · ready to send', chip: 'Ready', chipBg: C.green[0], chipFg: C.green[1], onOpen: () => this.resume(i) });
+    });
+    // to screen
+    const tv = st.toVal.trim(), toValid = /^0x[0-9a-fA-F]{40}$/.test(tv) || /^@[a-z0-9_]{3,}$/i.test(tv), toPayee = toValid && this.payeeBy(tv);
+    const pick = p => this.go('amount', { cur: { address: p.address, name: p.name }, amountStr: '' });
+    const payeesView = st.payees.map(p => { const lk = now < p.unlockAt; return { name: p.name, initial: p.name[0].toUpperCase(), sub: this.short(p.address), chip: lk ? `${this.m0(this.capLeft(p.address))} left · ${this.dur(p.unlockAt - now)}` : 'Ready', chipBg: lk ? C.amber[0] : C.green[0], chipFg: lk ? C.amber[1] : C.green[1], onPick: () => pick(p) }; });
+    const demoTone = { ok: [C.green[0], C.green[1], '✓'], bad: [C.red[0], C.red[1], '!'], warn: [C.amber[0], C.amber[1], '≈'], info: ['#DCE7EA', '#55555b', '?'] };
+    const demo = (label, addr, name, sub, tone) => { const on = st.toVal.toLowerCase() === addr.toLowerCase(), t = demoTone[tone]; return { label, sub, bg: t[0], fg: t[1], icon: t[2], ring: on ? t[1] : 'transparent', onPick: () => this.setState({ toVal: addr, toName: name, ...(st.uScreen === 'home' ? { uScreen: 'to' } : {}) }) }; };
+    // amount
+    const cur = st.cur || {}, amt = parseFloat(st.amountStr) || 0, overBal = amt > st.balance;
+    const hintFirst = !st.firstDone; const curPayee = cur.address && this.payeeBy(cur.address); const curIsNew = !!cur.address && (!curPayee || now < curPayee.unlockAt); const capLeftCur = cur.address ? this.capLeft(cur.address) : 10;
+    // waiting
+    const wr = st.requests.find(r => r.id === st.reqId); let w = { wIcon: '', wTitle: '', wBody: '', wBg: C.accBg, wFg: C.accFg, wAnim: 'none', wIconSize: '36px', wPrimary: false, wPrimaryLabel: '', onWaitPrimary: null, wDoneLabel: 'Back to home', wAmount: '', wTo: '' };
+    if (wr) {
+      const s = this.reqStatus(wr); w.wAmount = this.money(wr.amount); w.wTo = wr.name;
+      const again = () => this.go('questions', { cur: { address: wr.address, name: wr.name, amount: wr.amount }, result: { reasons: wr.reasons, why: wr.why }, answers: [null, null, null], requests: st.requests.map(x => x.id === wr.id ? { ...x, dismissed: true } : x) });
+      if (s === 'pending') Object.assign(w, { wIcon: '•••', wIconSize: '24px', wAnim: 'pulse 2s ease-in-out infinite', wTitle: `Waiting on ${tn}`, wBody: `We let ${tn} know. You'll get a notification as soon as they answer.` });
+      else if (s === 'allowed' && now < wr.validFrom) Object.assign(w, { wIcon: '✓', wBg: C.green[0], wFg: C.green[1], wAnim: 'pop .5s both', wTitle: `${tn} said yes`, wBody: `${wr.name} is new, so it unlocks ${this.when(wr.validFrom)}. You'll then have 1 hour to send.`, wDoneLabel: 'OK' });
+      else if (s === 'allowed' && now < wr.validFrom + 36e5) Object.assign(w, { wIcon: '✓', wBg: C.green[0], wFg: C.green[1], wAnim: 'pop .5s both', wTitle: `${tn} said yes`, wBody: `You can send it now. This OK works once, for the next ${this.dur(wr.validFrom + 36e5 - now)}.`, wPrimary: true, wPrimaryLabel: 'Continue', onWaitPrimary: () => this.resume(wr), wDoneLabel: 'Later' });
+      else if (s === 'allowed') Object.assign(w, { wIcon: '◷', wBg: C.gray[0], wFg: C.gray[1], wTitle: 'Approval expired', wBody: 'The 1-hour window passed. Ask again if you still want to send.', wPrimary: true, wPrimaryLabel: 'Ask again', onWaitPrimary: again, wDoneLabel: 'Not now' });
+      else if (s === 'denied') Object.assign(w, { wIcon: '✕', wBg: C.red[0], wFg: C.red[1], wAnim: 'pop .5s both', wTitle: `${tn} said no`, wBody: 'The payment won\u2019t go out. They reported the address, so other wallets are warned too.', wDoneLabel: 'OK' });
+      else Object.assign(w, { wIcon: '◷', wBg: C.gray[0], wFg: C.gray[1], wTitle: 'Request expired', wBody: `${tn} didn't answer in 30 minutes.`, wPrimary: true, wPrimaryLabel: 'Ask again', onWaitPrimary: again, wDoneLabel: 'Not now' });
+    }
+    const onWaitDone = () => { const s = wr && this.reqStatus(wr); this.go('home', { requests: st.requests.map(x => x.id === st.reqId && (s === 'denied' || s === 'expired' || (s === 'allowed' && now >= x.validFrom + 36e5)) ? { ...x, dismissed: true } : x) }); };
+    // flagged
+    const res = st.result || {}, isLimit = res.why === 'limit' || res.why === 'daily', isDaily = res.why === 'daily';
+    const rep = cur.address ? this.reportsFor(cur.address) : { v: 0, u: 0 };
+    // rules
+    const rd = st.ruleDraft || R, looser = rd.limit > R.limit || (R.mode === 'every_time' && rd.mode === 'first_per_payee'), changed = rd.limit !== R.limit || rd.mode !== R.mode;
+    const pendingRule = st.requests.find(r => r.kind === 'rules' && (this.reqStatus(r) === 'pending' || (r.status === 'allowed' && now < r.validFrom)));
+    const exportReq = st.requests.filter(r => r.kind === 'export')[0], exS = exportReq ? this.reqStatus(exportReq) : null;
+    // trustee side
+    const reqIcon = r => r.kind === 'payment' ? '$' : r.kind === 'export' ? '⚿' : '⚙';
+    const reqTitle = r => r.kind === 'payment' ? `${this.m0(r.amount)} to ${r.name}` : r.kind === 'export' ? 'Export wallet key' : 'Looser safety rules';
+    const reviewRaw = st.requests.filter(r => this.reqStatus(r) === 'pending');
+    const reviewList = reviewRaw.map(r => ({ icon: reqIcon(r), title: `@${u} · ${reqTitle(r)}`, sub: 'Waiting for your answer', onOpen: () => this.setState({ tScreen: 'request', tReqId: r.id }) }));
+    const evView = st.events.map(e => ({ icon: e.icon, iconBg: e.icon === '✕' ? C.red[0] : e.icon === '✓' ? C.green[0] : '#DCE7EA', iconFg: e.icon === '✕' ? C.red[1] : e.icon === '✓' ? C.green[1] : '#25282B', title: e.title, sub: e.sub, time: this.ago(e.time) }));
+    const avs = [[C.accBg, C.accFg], ['oklch(0.95 0.035 300)', 'oklch(0.45 0.12 300)'], ['oklch(0.95 0.035 230)', 'oklch(0.45 0.1 230)']];
+    const mock = [
+      { id: 'p2', username: 'nana_rose', since: 'Trustee since March', feed: [{ icon: '↑', iconBg: '#DCE7EA', iconFg: '#25282B', title: 'Sent $15.00 to Dr. Patel', sub: 'Passed all checks', time: '1h' }, { icon: '+', iconBg: '#DCE7EA', iconFg: '#25282B', title: 'Added Dr. Patel', sub: 'New person · unlocked', time: '2d' }] },
+      { id: 'p3', username: 'leo_k', since: 'Trustee since June', feed: [{ icon: '+', iconBg: '#DCE7EA', iconFg: '#25282B', title: 'Added Coffee Club', sub: 'New person · unlocked', time: '3d' }] }
+    ];
+    const all = [{ id: 'p1', username: u, since: 'Trustee since today', avatar: this.AV[st.userAvatar] || avs[0][0], feed: evView, review: reviewList.map(r => ({ ...r, title: r.title.replace(`@${u} · `, '') })) }, ...mock.map((m, j) => ({ ...m, avatar: this.AV[5 + j], review: [] }))];
+    const people = all.map((p, i) => { const n = p.review.length; return { ...p, initial: '', avBg: avs[i % 3][0], avFg: avs[i % 3][1], last: p.feed[0] ? p.feed[0].title : 'No activity yet', badge: n ? `${n} needs you` : 'All good', badgeBg: n ? C.accBg : C.green[0], badgeFg: n ? C.accFg : C.green[1], hasReview: n > 0, noFeed: !p.feed.length, onOpen: () => this.setState({ tScreen: 'person', tPerson: p.id }) }; });
+    const pd = people.find(p => p.id === st.tPerson) || people[0];
+    const pdRules = pd.id === 'p1' ? R : st.mockRules[pd.id];
+    const setPdRules = nr => pd.id === 'p1' ? this.setState(s => ({ rules: { ...s.rules, ...nr } })) : this.setState(s => ({ mockRules: { ...s.mockRules, [pd.id]: { ...s.mockRules[pd.id], ...nr } } }));
+    const needCount = reviewRaw.length;
+    // request context card
+    const r = st.requests.find(x => x.id === st.tReqId); let rq = { title: '', rows: [], reasons: [], answers: [], hasReasons: false, hasAnswers: false, hasNote: false, note: '', actionable: false, chip: '', chipBg: C.gray[0], chipFg: C.gray[1], denyLabel: 'Deny', allowLabel: 'Allow' };
+    if (r) {
+      const s = this.reqStatus(r);
+      rq.actionable = s === 'pending';
+      rq.chip = s === 'pending' ? 'Needs you' : s === 'allowed' ? 'Allowed' : s === 'denied' ? 'Denied' : 'Expired';
+      [rq.chipBg, rq.chipFg] = s === 'pending' ? C.amber : s === 'allowed' ? C.green : s === 'denied' ? C.red : C.gray;
+      if (r.kind === 'payment') {
+        rq.title = `Send ${this.money(r.amount)} to ${r.name}?`;
+        rq.rows = [{ k: 'To', v: `${r.name} · ${this.short(r.address)}` }, { k: 'Amount', v: this.money(r.amount) }, { k: 'New person', v: r.newPayee ? 'Yes · 24h wait after OK' : 'No' }];
+        rq.reasons = r.reasons; rq.hasReasons = true;
+        rq.answers = this.QS.map((q, i) => { const a = r.answers[i], bad = a === this.BAD[i]; return { q, a: a ? 'Yes' : 'No', bg: bad ? C.red[0] : C.green[0], fg: bad ? C.red[1] : C.green[1] }; });
+        rq.hasAnswers = true; rq.denyLabel = 'Deny & report'; rq.allowLabel = 'Allow once';
+      } else if (r.kind === 'export') {
+        rq.title = 'Show their wallet key?'; rq.rows = [{ k: 'Request', v: 'Export wallet key' }];
+        rq.hasNote = true; rq.note = 'Anyone with the key controls the money. Scammers often ask for it. Only allow if they asked you in person.';
+      } else {
+        rq.title = 'Loosen their safety rules?';
+        rq.rows = [{ k: 'Ask above', v: `${this.m0(r.oldRules.limit)} → ${this.m0(r.newRules.limit)}` }, { k: 'How often', v: `${this.modeLabel(r.oldRules.mode)} → ${this.modeLabel(r.newRules.mode)}` }];
+        rq.hasNote = true; rq.note = 'If you allow it, the new rules start 24 hours later.';
+      }
+    }
+    const addBd = a => (a || []).map((x, i, arr) => ({ ...x, bd: i === arr.length - 1 ? 'none' : '1px solid #ECE9E2' }));
+    rq.rows = addBd(rq.rows); rq.reasons = addBd(rq.reasons); rq.answers = addBd(rq.answers);
+    const tc = st.tConfirm, risky = r && r.kind === 'payment' && r.why === 'flagged';
+    let cf = {};
+    if (tc === 'allow' && r) {
+      if (r.kind === 'payment') cf = { confirmIcon: risky ? '!' : '✓', confirmBg: risky ? C.red[0] : C.accBg, confirmFg: risky ? C.red[1] : C.accFg, confirmTitle: `Allow ${this.m0(r.amount)} once?`, confirmBody: (risky ? `We found warning signs. If it's a scam, @${u} could lose this money.` : `@${u} can send it to ${r.name} once.`) + (r.newPayee ? ' It unlocks 24 hours after you allow it.' : ''), confirmBtn: 'Yes, allow once', confirmBtnBg: risky ? C.red[1] : C.acc };
+      else if (r.kind === 'export') cf = { confirmIcon: '!', confirmBg: C.red[0], confirmFg: C.red[1], confirmTitle: 'Allow key export?', confirmBody: `@${u} will see their key once. Only allow if they asked you directly.`, confirmBtn: 'Allow export', confirmBtnBg: C.red[1] };
+      else cf = { confirmIcon: '⚙', confirmBg: C.accBg, confirmFg: C.accFg, confirmTitle: 'Allow looser rules?', confirmBody: 'The new rules start in 24 hours.', confirmBtn: 'Allow', confirmBtnBg: C.acc };
+    } else if (tc === 'deny' && r) {
+      cf = r.kind === 'payment' ? { confirmIcon: '✕', confirmBg: '#DCE7EA', confirmFg: '#25282B', confirmTitle: 'Deny and report?', confirmBody: 'The payment won\u2019t go out, and the address gets reported so other wallets are warned.', confirmBtn: 'Deny & report', confirmBtnBg: '#25282B' } : { confirmIcon: '✕', confirmBg: '#DCE7EA', confirmFg: '#25282B', confirmTitle: 'Deny this request?', confirmBody: `@${u} will be told you said no.`, confirmBtn: 'Deny', confirmBtnBg: '#25282B' };
+    }
+    const sheet = st.sheet;
+    const keyLabels = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+    const press = k => { let s = st.amountStr; if (k === '⌫') s = s.slice(0, -1); else if (k === '.') { if (s.includes('.')) return; s = (s || '0') + '.'; } else { if (s.includes('.') && s.split('.')[1].length >= 2) return; if (s.replace('.', '').length >= 6) return; s = s === '0' ? k : s + k; } this.setState({ amountStr: s }); };
+    const nd = st.nameDraft || '', ndValid = /^[a-z0-9_]{3,15}$/.test(nd), ndTaken = ['admin', 'satoshi', 'wallet'].includes(nd), ndOk = ndValid && !ndTaken && nd !== u;
+    const keyHex = '7f3a9c21e84b06d5fa1c3e87b2049d6ac5e1f08b73d29a64e0c5b18f2d7a4c93';
+    return {
+      appName,
+      keyChunks: keyHex.match(/.{4}/g), keyRevealed: !!st.keyRevealed, keyHidden: !st.keyRevealed,
+      scratch: st.keyRevealed ? null : React.createElement(this.Scratch, { key: st.scratchKey || 'k', onDone: () => { this.haptic('success', 'user'); this.setState({ keyRevealed: true }); } }),
+      onRevealKey: () => this.setState({ keyRevealed: true }), onHideKey: () => this.setState({ keyRevealed: false, keyCopied: false, scratchKey: Math.random() }),
+      copyKeyLabel: st.keyCopied ? 'Copied ✓' : 'Copy key', onCopyKey: () => this.setState({ keyCopied: true }),
+      nameSheet: !!st.nameSheet, nameDraft: nd,
+      onEditName: () => this.setState({ nameSheet: true, nameDraft: u }), onCancelName: () => this.setState({ nameSheet: false }),
+      nameRing: nd === u ? 'transparent' : ndOk ? C.green[1] : C.red[1], nameIcon: nd === u ? '' : ndOk ? '✓' : '✕', nameIconBg: nd === u ? 'transparent' : ndOk ? C.green[1] : C.red[1],
+      nameSugg: (() => { const b = (nd || u).replace(/_+$/, '').slice(0, 11); return [b + '_', b + '1', 'its' + b, b + '_pay'].filter(x => /^[a-z0-9_]{3,15}$/.test(x) && x !== u && x !== nd && !['admin', 'satoshi', 'wallet'].includes(x)).slice(0, 3).map(x => ({ label: '@' + x, onPick: () => this.setState({ nameDraft: x }) })); })(),
+      hasNameSugg: true,
+      tNameSheet: !!st.tNameSheet, tNameEdit: st.tNameEdit || '',
+      onEditTName: () => this.setState({ tNameSheet: true, tNameEdit: tn === 'Your trustee' ? '' : tn }), onCancelTName: () => this.setState({ tNameSheet: false }),
+      onTNameEdit: e => this.setState({ tNameEdit: e.target.value }),
+      tNameRing: (st.tNameEdit || '').trim() && (st.tNameEdit || '').trim() !== tn ? C.green[1] : 'transparent',
+      tNameMsg: !(st.tNameEdit || '').trim() ? 'Enter a name' : (st.tNameEdit || '').trim() === tn ? 'This is your current name' : 'Looks good',
+      tNameMsgColor: (st.tNameEdit || '').trim() && (st.tNameEdit || '').trim() !== tn ? C.green[1] : '#6e6e73',
+      tNameSaveOpacity: (st.tNameEdit || '').trim() && (st.tNameEdit || '').trim() !== tn ? 1 : 0.35,
+      onSaveTName: () => { const n = (st.tNameEdit || '').trim(); if (!n || n === tn) return; this.setState({ tDisplayName: n, tNameSheet: false }); },
+      onNameDraft: e => this.setState({ nameDraft: e.target.value.toLowerCase().replace(/\s/g, '') }),
+      nameDraftMsg: nd === u ? 'This is your current username' : !ndValid ? '3–15 lowercase letters, numbers or _' : ndTaken ? 'Taken. Try another.' : '✓ Available',
+      nameDraftColor: nd === u ? '#6e6e73' : ndOk ? C.green[1] : C.red[1], nameSaveOpacity: ndOk ? 1 : 0.35,
+      onSaveName: () => { if (!ndOk) return; this.haptic('success', 'user'); this.setState({ username: nd, nameSheet: false }); this.uBan('Username updated', '@' + nd); },
+      us: { login: S === 'login', username: S === 'username', trustee: S === 'trustee', ready: S === 'ready', home: S === 'home', to: S === 'to', amount: S === 'amount', checking: S === 'checking', refused: S === 'refused', cooldown: S === 'cooldown', flagged: S === 'flagged', questions: S === 'questions', waiting: S === 'waiting', review: S === 'review', sent: S === 'sent', receive: S === 'receive', settings: S === 'settings', rules: S === 'rules', exportKey: S === 'exportKey' },
+      ts: { login: T === 'login', invite: T === 'invite', tprofile: T === 'tprofile', home: T === 'home', person: T === 'person', request: T === 'request', tsettings: T === 'tsettings' },
+      onLoginGoogle: () => this.go(u ? 'home' : 'username', { loginMethod: 'Google', username: u || this.handleFrom('alex.rivera@gmail.com') }), onLoginPhone: () => this.go(u ? 'home' : 'username', { loginMethod: 'Phone', username: u || 'user2290' }),
+      loginSource: st.loginMethod === 'Phone' ? 'phone number' : 'email',
+      userAvatarBg: this.AV[st.userAvatar] || C.accBg, trusteeAvatarBg: this.AV[st.trusteeAvatar] || C.accBg,
+      userAvatars: this.AV.map((bg, i) => ({ bg, ring: st.userAvatar === i ? C.acc : 'transparent', onPick: () => this.setState({ userAvatar: i }) })),
+      trusteeAvatars: this.AV.map((bg, i) => ({ bg, ring: st.trusteeAvatar === i ? C.acc : 'transparent', onPick: () => this.setState({ trusteeAvatar: i }) })),
+      username: u, unameMsg, unameColor, unameBtnOpacity: 1,
+      onUsername: e => this.setState({ username: e.target.value.toLowerCase().replace(/\s/g, '') }),
+      onUsernameNext: () => u && this.go(st.trusteeStatus === 'none' ? 'trustee' : 'home'),
+      userInitialTxt,
+      trusteeInitialTxt,
+      
+      
+      trusteeContact: st.trusteeContact, onTrusteeContact: e => this.setState({ trusteeContact: e.target.value }), contactBtnOpacity: contactOk ? 1 : 0.35,
+      onInvite: () => contactOk && this.go('ready', { trusteeStatus: 'pending', trusteeContact: st.trusteeContact.trim() }),
+      readyIcon: active ? '✓' : '…', readyBg: active ? C.green[0] : C.accBg, readyFg: active ? C.green[1] : C.accFg, readyAnim: active ? 'pop .5s both' : 'pulse 2s ease-in-out infinite',
+      readyTitle: active ? `${tn} is on board` : `Waiting for ${tn}`, readyBody: active ? 'Your wallet is ready.' : `We sent an invite to ${st.trusteeContact}. You can look around while you wait.`, readyBtn: active ? 'Open my wallet' : 'Continue',
+      onHome: () => this.go('home'), onSettings: () => this.go('settings', { nameSheet: false }), onSend: () => this.go('to', { toVal: '', toName: '' }), onReceive: () => this.go('receive', { copied: false }),
+      balanceFmt: this.money(st.balance), balanceWhole: Math.floor(st.balance).toLocaleString('en-US'), balanceCents: this.money(st.balance).split('.')[1], trusteeName: tn, trusteeNameCaps: tn.toUpperCase(),
+      trusteeSub: active ? 'Checks risky payments' : `Invite sent · ${st.trusteeContact}`, trusteeBadge: active ? 'Active' : 'Invited', trusteeBadgeBg: active ? C.green[0] : C.amber[0], trusteeBadgeFg: active ? C.green[1] : C.amber[1],
+      hasNotice: !!st.notice, noticeTitle: st.notice && st.notice.title, noticeBody: st.notice && st.notice.body, noticeIcon: st.notice && st.notice.icon, noticeBg: C.green[0], noticeFg: C.green[1], onDismissNotice: () => this.setState({ notice: null }),
+      hasPending: pendingList.length > 0, pendingList,
+      noPayments: !st.payments.length, paymentsView: st.payments.map(a => ({ title: `Sent to ${a.to}`, time: this.ago(a.time) === 'Now' ? 'Just now' : this.ago(a.time) + ' ago', amount: '−' + this.money(a.amount) })),
+      toVal: st.toVal, onTo: e => this.setState({ toVal: e.target.value.trim() }), toName: st.toName, onToName: e => this.setState({ toName: e.target.value }),
+      toIsNew: toValid && !toPayee, toBtnOpacity: toValid ? 1 : 0.35,
+      onToNext: () => { if (!toValid) return; pick(toPayee || { address: tv, name: st.toName.trim() || (tv.startsWith('@') ? tv : 'New person') }); },
+      demoChips: [demo('New person', this.ARI, 'Ari', '$10 max for 24h', 'ok'), demo('Reported scam', this.SCAM, 'Crypto Support', 'Goes to trustee', 'bad'), demo('Risky address', this.RISKY, 'Airdrop', 'Fails security check', 'bad'), demo('Mom look-alike', this.LOOK, 'Mom (new)', 'Copycat address', 'warn'), demo('Unconfirmed', this.RUMOR, 'Jules', 'Reports not verified', 'info')],
+      payeesView,
+      sendName: cur.name || '', sendAddr: this.short(cur.address), amountDisplay: '$' + (st.amountStr || '0'), amountNum: st.amountStr || '0',
+      amountColor: overBal ? C.red[1] : ((hintFirst && amt > 10) || (curIsNew && amt > capLeftCur)) ? C.amber[1] : '#25282B',
+      hintText: hintFirst ? 'First payment: $10 max' : curIsNew ? (capLeftCur < 10 ? `New person: ${this.m0(capLeftCur)} left for 24h` : 'New person: $10 max for 24h') : `Over ${this.m0(R.limit)} asks ${tn}`, hintBg: hintFirst || curIsNew ? C.amber[0] : '#DCE7EA', hintFg: hintFirst || curIsNew ? C.amber[1] : '#55555b',
+      balLine: overBal ? 'Not enough money' : `Balance ${this.money(st.balance)} · ${this.m0(Math.max(0, R.daily - this.sentToday()))} left today`, balColor: overBal ? C.red[1] : '#6e6e73',
+      onHintInfo: () => this.setState({ sheet: curIsNew && !hintFirst ? { title: 'Why $10 for new people?', body: `Most scams happen with someone you just added. For the first 24 hours you can send up to $10 to ${cur.name || 'them'}. If an address looks like a scam, even $10 needs ${tn}'s OK.`, btn: 'Got it' } : hintFirst ? { title: 'Why $10?', body: 'Your very first payment is capped at $10 so you can try things out safely. After that, the cap goes away.', btn: 'Got it' } : { title: `When does ${tn} check?`, body: `${R.mode === 'every_time' ? 'Every payment' : 'The first payment to a person'} above ${this.m0(R.limit)}. Also anything that looks like a scam. New people always unlock 24 hours after you first try to pay them.`, btn: 'Got it' } }),
+      keys: keyLabels.map(k => ({ label: k, onPress: () => press(k) })), amtBtnOpacity: amt > 0 && !overBal ? 1 : 0.35,
+      onAmountNext: () => amt > 0 && !overBal && this.runCheck({ ...cur, amount: amt }),
+      spinner: React.createElement('div', { style: { width: 56, height: 56, borderRadius: '50%', border: '4px solid ' + C.accBg, borderTopColor: C.acc, animation: 'spin .8s linear infinite' } }),
+      onChangeAmount: () => this.go('amount'), onBackAmount: () => this.go('amount', { amountStr: String(cur.amount || st.amountStr) }),
+      cdTitle: res.reqId ? `${tn} said yes` : capLeftCur > 0 ? `${this.m0(capLeftCur)} left for now` : 'Limit reached for now', cdBody: res.reqId ? `${cur.name} is new, so the payment unlocks after 24 hours.` : `${cur.name || 'This person'} is new. For the first 24 hours you can send up to $10 in total${capLeftCur < 10 ? ` (${this.m0(capLeftCur)} left)` : ''}. The full ${cur.amount ? this.m0(cur.amount) : 'amount'} unlocks later.`,
+      cdCanCap: !res.reqId && capLeftCur > 0, capBtnLabel: `Send ${this.m0(capLeftCur)} now`, onSendCap: () => this.runCheck({ ...cur, amount: capLeftCur }),
+      cdOkLabel: res.reqId ? 'OK' : 'Send full amount later', cdOkBg: res.reqId ? '#25282B' : '#DCE7EA', cdOkFg: res.reqId ? '#fff' : '#25282B',
+      cdAmount: cur.amount ? this.m0(cur.amount) : '', cdName: cur.name || '', cdWhen: res.unlockAt ? this.when(res.unlockAt) : '',
+      hasUnverified: rep.u > 0 && rep.v === 0, unverifiedText: `${rep.u} unverified reports mention this address. We couldn't confirm them, so they don't block it.`,
+      flagIcon: isLimit ? '$' : '!', flagIconBg: isLimit ? C.amber[0] : C.red[0], flagIconFg: isLimit ? C.amber[1] : C.red[1],
+      flagTitle: isDaily ? `Over today's ${this.m0(R.daily)} max` : isLimit ? `Over your ${this.m0(R.limit)} limit` : 'This might be a scam', flagBody: isDaily ? `${tn} set a daily max. They need to OK going over it.` : isLimit ? `${tn} needs to OK this one before it goes out.` : `We found warning signs. ${tn} has to check it before it can go out.`,
+      reasonsView: res.reasons || [], amountFmt: this.money(cur.amount || 0),
+      onAskTrustee: () => this.go('questions', { answers: [null, null, null] }), onBackFlag: () => this.go('flagged'),
+      qList: this.QS.map((q, i) => { const a = st.answers[i]; const set = v => this.setState(s => { const n = [...s.answers]; n[i] = v; return { answers: n }; }); return { q, yesBg: a === true ? '#25282B' : '#F7F6F2', yesFg: a === true ? '#fff' : '#25282B', noBg: a === false ? '#25282B' : '#F7F6F2', noFg: a === false ? '#fff' : '#25282B', onYes: () => set(true), onNo: () => set(false) }; }),
+      qBtnOpacity: st.answers.every(a => a !== null) ? 1 : 0.35, onSubmitQ: () => st.answers.every(a => a !== null) && this.submitQ(),
+      ...w, onWaitDone,
+      reviewApproved: !!res.reqId, onConfirm: () => this.confirmSend(),
+      amtWhole: Math.floor(cur.amount || 0).toLocaleString('en-US'), amtCents: this.money(cur.amount || 0).split('.')[1], sendInitial: (cur.name || '?')[0].toUpperCase(),
+      holdW: st.holding ? '100%' : '0%', holdT: st.holding ? 'width .9s linear' : 'width .25s ease-out', holdLabel: st.holding ? 'Keep holding…' : `Hold to send ${this.money(cur.amount || 0)}`,
+      onHoldStart: () => { if (st.holding) return; this.haptic('light', 'user'); this.setState({ holding: true }); clearTimeout(this.hold); this.hold = setTimeout(() => { this.setState({ holding: false }); this.confirmSend(); }, 900); },
+      onHoldEnd: () => { if (!this.state.holding) return; clearTimeout(this.hold); this.setState({ holding: false }); }, sentText: st.sentText,
+      copyLabel: st.copied ? 'Copied ✓' : 'Copy address', onCopy: () => this.setState({ copied: true }),
+      loginMethod: st.loginMethod, loginIdLabel: st.loginMethod === 'Phone' ? 'Phone' : 'Email', loginId: st.loginMethod === 'Phone' ? '+1 (555) 014-2290' : 'alex.rivera@gmail.com',
+      rulesLimitFmt: this.m0(R.limit), rulesDailyFmt: this.m0(R.daily), dailyLeftText: `${this.m0(Math.max(0, R.daily - this.sentToday()))} left today`, rulesModeLabel: this.modeLabel(R.mode), rulesSummary: `Ask above ${this.m0(R.limit)} · ${this.modeLabel(R.mode)}`,
+      onRules: () => this.go('rules', { ruleDraft: { ...R } }),
+      hasPendingRules: !!pendingRule, pendingRulesText: pendingRule ? (pendingRule.status === 'pending' ? `Waiting on ${tn} to OK: ask above ${this.m0(pendingRule.newRules.limit)}, ${this.modeLabel(pendingRule.newRules.mode).toLowerCase()}.` : `${tn} said yes. New rules start ${this.when(pendingRule.validFrom)}.`) : '',
+      limitOpts: [25, 50, 100, 250, 500].map(v => ({ label: '$' + v, bg: rd.limit === v ? '#25282B' : '#DCE7EA', fg: rd.limit === v ? '#fff' : '#25282B', onPick: () => this.setState({ ruleDraft: { ...rd, limit: v } }) })),
+      modeOpts: [{ m: 'first_per_payee', title: 'First time per person', sub: 'Once someone is OK’d, bigger payments to them go through.' }, { m: 'every_time', title: 'Every time', sub: 'Every payment above the limit needs an OK.' }].map(o => ({ title: o.title, sub: o.sub, ring: rd.mode === o.m ? C.acc : 'transparent', ring2: rd.mode === o.m ? C.acc : '#c9c9cf', dot: rd.mode === o.m ? C.acc : 'transparent', onPick: () => this.setState({ ruleDraft: { ...rd, mode: o.m } }) })),
+      rulesNote: !changed ? 'Stricter rules apply right away. Looser rules need ' + tn + '\u2019s OK and start 24 hours later.' : looser ? `This is looser, so ${tn} has to OK it. It starts 24 hours after they do.` : 'This is stricter, so it applies right away.',
+      saveRulesLabel: looser ? `Ask ${tn}` : 'Save', saveRulesOpacity: changed && !(looser && pendingRule) ? 1 : 0.35,
+      onSaveRules: () => {
+        if (!changed || (looser && pendingRule)) return;
+        if (looser) { const id = 'r' + now; this.setState(s => ({ requests: [{ id, kind: 'rules', oldRules: { ...R }, newRules: { ...rd }, createdAt: now, status: 'pending' }, ...s.requests] })); this.tBan('A request needs you. Tap to review.', id); this.go('settings'); }
+        else { this.setState({ rules: { ...rd } }); this.ev({ icon: '⚙', title: 'Made rules stricter', sub: `Ask above ${this.m0(rd.limit)} · ${this.modeLabel(rd.mode)}` }); this.go('settings'); }
+      },
+      exportSub: !exportReq ? `Needs ${tn}'s OK` : exS === 'pending' ? `Waiting on ${tn}` : exS === 'allowed' && !exportReq.used ? 'Allowed · tap to view once' : exS === 'denied' ? `${tn} said no · tap to ask again` : exS === 'expired' ? 'Request expired · tap to ask again' : `Needs ${tn}'s OK`,
+      onExport: () => {
+        if (exS === 'pending') return;
+        if (exS === 'allowed' && !exportReq.used) { this.setState(s => ({ requests: s.requests.map(x => x.id === exportReq.id ? { ...x, used: true } : x) })); return this.go('exportKey', { keyRevealed: false, keyCopied: false, scratchKey: Math.random() }); }
+        this.setState({ sheet: { title: 'Export your wallet key?', body: `Anyone with your key controls your money. Scammers often ask for it, so ${tn} has to OK this first.`, btn: `Ask ${tn}`, action: 'export', cancel: true } });
+      },
+      hasSheet: !!sheet, sheetTitle: sheet && sheet.title, sheetBody: sheet && sheet.body, sheetBtn: sheet && sheet.btn, sheetCancel: !!(sheet && sheet.cancel),
+      onSheetClose: () => this.setState({ sheet: null }),
+      onSheetBtn: () => { if (sheet && sheet.action === 'export') { const id = 'r' + now; this.setState(s => ({ requests: [{ id, kind: 'export', createdAt: now, status: 'pending' }, ...s.requests], sheet: null })); this.tBan('A request needs you. Tap to review.', id); } else this.setState({ sheet: null }); },
+      onSignOut: () => { this.haptic('medium', 'user'); this.setState({ signOutSheet: true }); },
+      signOutSheet: !!st.signOutSheet && S === 'settings', onCancelSignOut: () => this.setState({ signOutSheet: false }),
+      onConfirmSignOut: () => { this.haptic('heavy', 'user'); this.go('login', { signOutSheet: false }); },
+      tSignOutSheet: !!st.tSignOutSheet && T === 'tsettings', onCancelTSignOut: () => this.setState({ tSignOutSheet: false }),
+      onConfirmTSignOut: () => { this.haptic('heavy', 'trustee'); this.setState({ tSignOutSheet: false, tScreen: 'login' }); },
+      uBanner: this.makeBanner(st.uBanner, () => this.setState({ uBanner: null })),
+      tBanner: ['login', 'invite', 'tprofile'].includes(T) ? null : this.makeBanner(st.tBanner && { ...st.tBanner }, () => this.setState({ tBanner: null, tScreen: st.tBanner.reqId ? 'request' : 'home', tReqId: st.tBanner.reqId })),
+      trusteeCaption: st.trusteeStatus === 'none' ? 'Waiting for an invite' : st.trusteeStatus === 'pending' ? `Invite sent to ${st.trusteeContact}` : `Signed in · ${st.trusteeContact}`,
+      tLoginMsg: st.trusteeStatus === 'none' ? 'No invites yet. Finish signing up on the other phone first.' : st.trusteeStatus === 'pending' ? `@${u} invited you to be their trustee. Sign in with ${st.trusteeContact}.` : 'Welcome back.',
+      tLoginOpacity: st.trusteeStatus === 'none' ? 0.35 : 1,
+      onTLoginGoogle: () => this.tLogin('Google'), onTLoginPhone: () => this.tLogin('Phone'),
+      onTLogout: () => this.setState({ tScreen: 'login' }),
+      onAccept: () => { this.setState({ trusteeStatus: 'active', tScreen: 'tprofile', tNameDraft: tn === 'Your trustee' ? '' : tn }); },
+      tNameDraft: st.tNameDraft, onTNameDraft: e => this.setState({ tNameDraft: e.target.value }), tNameBtnOpacity: st.tNameDraft.trim() ? 1 : 0.35,
+      onTProfileDone: () => { const n = st.tNameDraft.trim(); if (!n) return; this.setState({ tDisplayName: n, tScreen: 'home', notice: { icon: n[0].toUpperCase(), title: `${n} is now your trustee`, body: 'They\u2019ll check risky payments before they go out.' } }); this.uBan(`${n} accepted`, 'Your trustee is set up.'); },
+      peopleSummary: `${people.length} people · ${needCount ? needCount + ' need' + (needCount > 1 ? '' : 's') + ' you' : 'all good'}`, hasReview: needCount > 0, reviewList, people, pd, peopleCount: String(people.length),
+      pdLimitOpts: [25, 50, 100, 250, 500].map(v => ({ label: '$' + v, bg: pdRules.limit === v ? '#25282B' : '#DCE7EA', fg: pdRules.limit === v ? '#fff' : '#25282B', onPick: () => setPdRules({ limit: v }) })),
+      pdModeOpts: [['first_per_payee', 'First time per person'], ['every_time', 'Every time']].map(([m, l]) => ({ label: l, bg: pdRules.mode === m ? '#fff' : 'transparent', shadow: pdRules.mode === m ? '0 1px 3px rgba(0,0,0,.12)' : 'none', onPick: () => setPdRules({ mode: m }) })),
+      pdDailyOpts: [50, 100, 200, 500, 1000].map(v => ({ label: v >= 1000 ? '$1k' : '$' + v, bg: pdRules.daily === v ? '#25282B' : '#DCE7EA', fg: pdRules.daily === v ? '#fff' : '#25282B', onPick: () => setPdRules({ daily: v }) })),
+      pdDailyHelp: 'Total per day. Going over needs your OK.',
+      ...(() => { const L = [25, 50, 100, 250, 500], D = [50, 100, 200, 500, 1000], li = Math.max(0, L.indexOf(pdRules.limit)), di = Math.max(0, D.indexOf(pdRules.daily));
+        const f = v => v >= 1000 ? '$' + (v / 1000) + 'k' : '$' + v;
+        return { pdLimitFmt: f(pdRules.limit), pdDailyFmt: f(pdRules.daily),
+          pdLimitDec: () => li > 0 && setPdRules({ limit: L[li - 1] }), pdLimitInc: () => li < L.length - 1 && setPdRules({ limit: L[li + 1] }),
+          pdDailyDec: () => di > 0 && setPdRules({ daily: D[di - 1] }), pdDailyInc: () => di < D.length - 1 && setPdRules({ daily: D[di + 1] }),
+          pdLimitDecOp: li > 0 ? 1 : 0.35, pdLimitIncOp: li < L.length - 1 ? 1 : 0.35, pdDailyDecOp: di > 0 ? 1 : 0.35, pdDailyIncOp: di < D.length - 1 ? 1 : 0.35 }; })(),
+      pdModeHelp: pdRules.mode === 'every_time' ? `You check every payment above ${this.m0(pdRules.limit)}.` : `You check the first payment above ${this.m0(pdRules.limit)} to each person.`,
+      onTHome: () => this.setState({ tScreen: st.tScreen === 'request' && st.tPerson ? 'person' : 'home', tConfirm: null }),
+      onTSettings: () => this.setState({ tScreen: 'tsettings' }), onTSignOut: () => { this.haptic('medium', 'trustee'); this.setState({ tSignOutSheet: true }); }, tLoginMethod: st.tLoginMethod,
+      rq, onAllow: () => this.setState({ tConfirm: 'allow' }), onDeny: () => this.setState({ tConfirm: 'deny' }),
+      hasConfirm: !!tc && !!r, ...cf, onConfirmDecision: () => this.decide(tc === 'allow'), onCancelConfirm: () => this.setState({ tConfirm: null }),
+      onSkip30: () => this.setState(s => ({ offset: s.offset + 18e5 })), onSkip24: () => this.setState(s => ({ offset: s.offset + 864e5 })), onReset: () => { clearTimeout(this.ck); this.setState(this.initial()); },
+      clockLabel: st.offset ? `Simulated +${this.dur(st.offset)}` : ''
+    };
+  }
+  tLogin(m) { const s = this.state.trusteeStatus; if (s === 'pending') this.setState({ tScreen: 'invite', tLoginMethod: m }); else if (s === 'active') this.setState({ tScreen: this.state.tDisplayName ? 'home' : 'tprofile', tLoginMethod: m }); }
+}
+</script>
+</body>
+</html>
