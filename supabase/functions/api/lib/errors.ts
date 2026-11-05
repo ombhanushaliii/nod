@@ -20,6 +20,7 @@ const STATUS: Record<RepoErrorCode, [HttpStatus, string]> = {
   check_stale: [409, "Check this payment again before sending."],
   approval_not_usable: [409, "The trustee's approval is used or outside its time window."],
   not_sending: [409, "This payment isn't being sent."],
+  not_your_pair: [404, "You're not this user's trustee."],
 };
 
 export function statusOf(code: RepoErrorCode): [HttpStatus, string] {

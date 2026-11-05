@@ -23,13 +23,18 @@ export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
 
+export type RuleChange = { from: Rules; to: Rules; at: Date };
+export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
+export type ProtectedUser = { pairId: string; walletAddress: string; rules: Rules };
+
 // Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
 export type ApprovalError =
   | "payment_not_found" | "trustee_not_needed" | "already_requested" | "no_active_trustee"
   | "request_key_used" | "not_awaiting_trustee" | "decision_key_used"
   | "still_cooling_down" | "not_ready" | "check_stale" | "approval_not_usable" | "not_sending";
-export type RepoErrorCode = InviteError | ApprovalError;
+export type RulesError = "not_your_pair";
+export type RepoErrorCode = InviteError | ApprovalError | RulesError;
 
 export class RepoError extends Error {
   constructor(readonly code: RepoErrorCode) {
@@ -71,6 +76,14 @@ export interface Repo {
   markSubmitted(paymentId: string, r: { transactionId: string | null; userOperationHash: string | null; hash: string | null }): Promise<void>;
   // Privy refused: back to ready, approval usable again.
   releasePayment(paymentId: string): Promise<void>;
+
+  // Rules: only the trustee changes them, and changes apply at once.
+  // History is newest first.
+  rulesView(userId: string, historyLimit: number): Promise<RulesView>;
+  // Users this person is the trustee for.
+  protectedUsers(trusteeId: string): Promise<ProtectedUser[]>;
+  // Null = keep. Throws not_your_pair unless trusteeId is this pair's active trustee.
+  setRules(pairId: string, trusteeId: string, patch: { amountLimit: bigint | null; notifyMode: NotifyMode | null }): Promise<Rules>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -80,6 +93,7 @@ const KNOWN: RepoErrorCode[] = [
   "payment_not_found", "trustee_not_needed", "already_requested", "no_active_trustee",
   "request_key_used", "not_awaiting_trustee", "decision_key_used",
   "still_cooling_down", "not_ready", "check_stale", "approval_not_usable", "not_sending",
+  "not_your_pair",
 ];
 
 // deno-lint-ignore no-explicit-any
@@ -91,6 +105,9 @@ function toPayment(data: any): Payment {
     createdAt: new Date(data.created_at),
   };
 }
+
+// deno-lint-ignore no-explicit-any
+const toRules = (r: any): Rules => ({ amountLimit: BigInt(r.amount_limit), notifyMode: r.notify_mode });
 
 function rethrow(error: { message: string }): never {
   const code = KNOWN.find((k) => error.message === k);
@@ -247,6 +264,51 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     async releasePayment(paymentId) {
       const { error } = await db.rpc("release_payment", { p_payment_id: paymentId });
       if (error) rethrow(error);
+    },
+
+    async rulesView(userId, historyLimit) {
+      const [rules, history] = await Promise.all([
+        db.from("rules").select("amount_limit, notify_mode, updated_at, updated_by").eq("user_id", userId).single(),
+        db.from("rule_history").select("*").eq("user_id", userId)
+          .order("created_at", { ascending: false }).limit(historyLimit),
+      ]);
+      if (rules.error) rethrow(rules.error);
+      if (history.error) rethrow(history.error);
+      return {
+        ...toRules(rules.data),
+        updatedAt: new Date(rules.data.updated_at),
+        setByTrustee: rules.data.updated_by !== null,
+        history: history.data.map((h) => ({
+          from: { amountLimit: BigInt(h.old_amount_limit), notifyMode: h.old_notify_mode },
+          to: { amountLimit: BigInt(h.new_amount_limit), notifyMode: h.new_notify_mode },
+          at: new Date(h.created_at),
+        })),
+      };
+    },
+    async protectedUsers(trusteeId) {
+      const pairs = await db.from("pairs").select("pair_id, user_id").eq("trustee_id", trusteeId).eq("status", "active");
+      if (pairs.error) rethrow(pairs.error);
+      if (pairs.data.length === 0) return [];
+      const ids = pairs.data.map((p) => p.user_id);
+      const [users, rules] = await Promise.all([
+        db.from("users").select("id, wallet_address").in("id", ids),
+        db.from("rules").select("user_id, amount_limit, notify_mode").in("user_id", ids),
+      ]);
+      if (users.error) rethrow(users.error);
+      if (rules.error) rethrow(rules.error);
+      return pairs.data.map((p) => ({
+        pairId: p.pair_id,
+        walletAddress: users.data.find((u) => u.id === p.user_id)!.wallet_address,
+        rules: toRules(rules.data.find((r) => r.user_id === p.user_id)!),
+      }));
+    },
+    async setRules(pairId, trusteeId, patch) {
+      const { data, error } = await db.rpc("set_rules", {
+        p_pair_id: pairId, p_trustee_id: trusteeId,
+        p_amount_limit: patch.amountLimit?.toString() ?? null, p_notify_mode: patch.notifyMode,
+      });
+      if (error) rethrow(error);
+      return toRules(data);
     },
   };
 }

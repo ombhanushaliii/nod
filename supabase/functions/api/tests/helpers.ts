@@ -3,8 +3,10 @@ import { exportSPKI, generateKeyPair, SignJWT } from "jose";
 import { createApp } from "../app.ts";
 import { privyAuth } from "../lib/auth.ts";
 import {
-  type NewPayment, type Payee, type Payment, type PaymentStatus, type Repo, RepoError, type Rules, type User,
+  type NewPayment, type Payee, type Payment, type PaymentStatus, type Repo, RepoError, type RuleChange, type Rules,
+  type User,
 } from "../lib/repo.ts";
+import type { NotifyMode } from "../lib/rules.ts";
 import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError } from "../lib/privySigner.ts";
@@ -41,6 +43,8 @@ export class MemoryRepo implements Repo {
   pairs: Pair[] = [];
   invites: Invite[] = [];
   rules = new Map<string, Rules>();
+  rulesMeta = new Map<string, { updatedAt: Date; updatedBy: string | null }>();
+  ruleHistory: (RuleChange & { userId: string })[] = [];
   payees = new Map<string, Payee>(); // key: userId|address
   payments: Payment[] = [];
   approvals: Approval[] = [];
@@ -151,6 +155,34 @@ export class MemoryRepo implements Repo {
     if (!this.payees.has(k)) this.payees.set(k, { firstAttemptAt: this.clock(), firstPaidAt: null, overLimitApprovedAt: null });
     return Promise.resolve({ ...this.payees.get(k)! });
   }
+  rulesView(userId: string, historyLimit: number) {
+    const meta = this.rulesMeta.get(userId)!;
+    return Promise.resolve({
+      ...this.rules.get(userId)!, updatedAt: meta.updatedAt, setByTrustee: meta.updatedBy !== null,
+      history: this.ruleHistory.filter((h) => h.userId === userId).reverse().slice(0, historyLimit)
+        .map(({ from, to, at }) => ({ from, to, at })),
+    });
+  }
+  protectedUsers(trusteeId: string) {
+    return Promise.resolve(this.pairs.filter((p) => p.trusteeId === trusteeId && p.status === "active").map((p) => ({
+      pairId: p.pairId,
+      walletAddress: this.users.find((u) => u.id === p.userId)!.wallet_address,
+      rules: { ...this.rules.get(p.userId)! },
+    })));
+  }
+  // Same as set_rules in the trustee_rules migration.
+  setRules(pairId: string, trusteeId: string, patch: { amountLimit: bigint | null; notifyMode: NotifyMode | null }) {
+    const pair = this.pairs.find((p) => p.pairId === pairId && p.trusteeId === trusteeId && p.status === "active");
+    if (!pair) return Promise.reject(new RepoError("not_your_pair"));
+    const from = this.rules.get(pair.userId)!;
+    const to = { amountLimit: patch.amountLimit ?? from.amountLimit, notifyMode: patch.notifyMode ?? from.notifyMode };
+    this.rules.set(pair.userId, to);
+    this.rulesMeta.set(pair.userId, { updatedAt: this.clock(), updatedBy: trusteeId });
+    if (to.amountLimit !== from.amountLimit || to.notifyMode !== from.notifyMode) {
+      this.ruleHistory.push({ userId: pair.userId, from, to, at: this.clock() });
+    }
+    return Promise.resolve({ ...to });
+  }
   getRules(userId: string) {
     return Promise.resolve({ ...this.rules.get(userId)! });
   }
@@ -181,6 +213,7 @@ export class MemoryRepo implements Repo {
     };
     this.users.push(user);
     this.rules.set(user.id, { amountLimit: 100_000_000n, notifyMode: "first_per_payee" });
+    this.rulesMeta.set(user.id, { updatedAt: this.clock(), updatedBy: null });
     return Promise.resolve(user);
   }
   createInvite(a: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }) {

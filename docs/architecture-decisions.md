@@ -55,7 +55,7 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
    - A new payee alone no longer needs the trustee. **[team, changed from the original plan]**
 5. Otherwise → `safe`.
 
-- Who can change the rules: the trustee sets the limit and the toggle. The user can tighten them freely; loosening is an approval request (`kind = rules`) plus the 24h cooldown. **[team + from original plan]**
+- Who can change the rules: **only the trustee**, and their change applies at once. The user can see the rules and a history of the trustee's changes, but can't change them or propose changes, not even to tighten them. **[team]**
 - Where they live: rules, the known-payee list and pending cooldowns are kept in Supabase. They're private to the user, so they stay off Arkiv.
 - Payment asset: **test USDC on Base Sepolia. [team]** Limits are compared directly in USDC (1 USDC = $1), so no price feed is needed. Payments are ERC-20 `transfer` calls.
 
@@ -74,7 +74,7 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
   - Open: whether the user can remove the signer, and what the app shows if they do. Privy's add-signer page doesn't say.
 
 ### D4. Approval request = Arkiv entity, owned by the user, expires in 30 min, encrypted. [team]
-- `kind`: `payment` | `export` | `rules`. **[proposed]**
+- `kind`: `payment` | `export`. **[proposed]** (No `rules` kind: the user can't ask to change rules.)
 - The payload (amount, recipient, the user's answers to the 3 questions, the reason it was flagged) is **encrypted to the trustee** with tweetnacl `box`.
 - Why Arkiv: the trustee's app and the backend find it with one query. It disappears on its own when stale, so no cleanup job is needed.
 

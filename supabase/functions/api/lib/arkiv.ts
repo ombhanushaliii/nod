@@ -5,7 +5,7 @@ export type ArkivRequest = {
   entityKey: string;
   owner: string; // lower-case address that wrote it
   pairId: string;
-  kind: "payment" | "export" | "rules";
+  kind: "payment" | "export";
   createdAt: Date;
 };
 

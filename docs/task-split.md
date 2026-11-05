@@ -40,7 +40,7 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `useApprovalStatus(requestKey)` | D | `pending` / `allowed` (+ `validFrom`) / `denied` / `expired` |
 | `usePendingRequests()` (trustee) | D | decrypted requests for this trustee |
 | `useDecide(requestKey, allow / deny)` (trustee) | B + D | done |
-| `useRules()` | C | limit, toggle, who can edit |
+| `useRules()` | C | limit, toggle, trustee's change history |
 | `useScamReports(address)` | D | verified and unverified reports |
 
 ### 2. Backend API (C owns) [draft]
@@ -54,7 +54,8 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `POST /onboarding/invite` `{trusteeEmail or trusteePhone}` | Required step; sends the invite |
 | `POST /pairs/accept` `{pairId, pairKeyAddress, encPubKey}` | Trustee accepts; tops up the per-pair key with tGLM |
 | `POST /push/register` `{expoToken}` | Saves the push token |
-| `GET /rules`, `PATCH /rules` | Tighten freely; loosening creates a `rules` request |
+| `GET /rules` | The user's rules and the trustee's change history (read-only for the user) |
+| `GET /trustee/users`, `PATCH /trustee/users/:pairId/rules` `{amountLimit?, notifyMode?}` | Trustee only: list who they protect, change their rules (applies at once) |
 
 ### 3. `packages/arkiv` (D owns) [draft]
 
@@ -85,7 +86,7 @@ Screens, all in Expo against mocked hooks:
 - [ ] The 3 scam questions
 - [ ] Waiting for trustee: 30-min countdown; then allowed (with a 24h unlock time if the payee is new), denied, or expired
 - [ ] Trustee: accept invite, alerts list, context card (amount, payee, answers, why flagged), **Allow once / Deny & report**
-- [ ] Settings: limit and toggle (trustee edits; user can only tighten), export-key request
+- [ ] Settings: limit and toggle (trustee edits; read-only for the user), export-key request
 - [ ] Copy for the push notification. It must carry no payment details.
 
 Done when: every screen works on mocks, and swapping a hook's implementation needs no screen changes.
@@ -112,7 +113,7 @@ Done when: a fresh phone can log in, see its USDC, and write to Arkiv. The backe
 - [ ] `POST /payments/:id/approval`: verify via D's `getDecision` (owner = `pair_key_address`, `intentHash`, `validFrom`, expiry, unused)
 - [ ] Onboarding and invites (email/SMS sender), pair accept, tGLM top-ups
 - [ ] Expo push sender, triggered by D's watcher
-- [ ] Rules endpoints: tighten freely; loosen → `rules` request + 24h
+- [x] Rules endpoints: trustee-only edits, applied at once; user reads rules + history
 
 Done when: the full flow works through the API using a test script, without the app.
 
