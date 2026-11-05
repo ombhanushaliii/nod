@@ -2,7 +2,15 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { BackHandler } from 'react-native';
 
-export const goWalletHome = () => router.dismissTo('/wallet');
+/**
+ * Back to the wallet home. Every wallet screen lives in one stack whose first screen is home,
+ * so pop the whole stack. (dismissTo('/wallet') did nothing on iOS after the check screens
+ * had replaced each other.)
+ */
+export const goWalletHome = () => {
+  if (router.canDismiss()) router.dismissAll();
+  else router.replace('/wallet');
+};
 
 /**
  * Result screens (sent, waiting, cooldown, ...) have swipe-back turned off, since going
