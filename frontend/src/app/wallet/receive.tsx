@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Button, NavRow, Screen, Txt } from '@/components';
-import { MY_ADDRESS } from '@/data/engine';
 import { useAuth } from '@/hooks/api';
 import { short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
@@ -14,9 +13,10 @@ import { colors } from '@/theme';
 export default function Receive() {
   const { user, walletAddress } = useAuth();
   const [copied, setCopied] = useState(false);
-  const address = walletAddress ?? MY_ADDRESS;
+  const address = walletAddress;
 
   const copy = async () => {
+    if (!address) return;
     await Clipboard.setStringAsync(address);
     haptic('success');
     setCopied(true);
@@ -33,7 +33,7 @@ export default function Receive() {
       </Txt>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <View style={{ width: 220, height: 220, borderRadius: 24, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>
-          <QRCode value={`ethereum:${address}@84532`} size={176} color={colors.ink} backgroundColor={colors.white} />
+          {address ? <QRCode value={`ethereum:${address}@84532`} size={176} color={colors.ink} backgroundColor={colors.white} /> : <Txt>Connecting wallet…</Txt>}
         </View>
         <Txt size={24} w={800}>
           @{user?.username}
@@ -42,7 +42,7 @@ export default function Receive() {
           {short(address)} · Base
         </Txt>
       </View>
-      <Button label={copied ? 'Copied ✓' : 'Copy address'} onPress={() => void copy()} />
+      <Button label={copied ? 'Copied ✓' : 'Copy address'} disabled={!address} onPress={() => void copy()} />
     </Screen>
   );
 }

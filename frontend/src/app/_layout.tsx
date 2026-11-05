@@ -13,16 +13,23 @@ import { useEffect } from 'react';
 
 import { AppLock, BannerHost } from '@/components';
 import { useHydrated } from '@/data/clock';
-import { useStore } from '@/data/store';
 import { colors } from '@/theme';
+import { useAuth } from '@/hooks/api';
+import { WalletProvider } from '@/wallet/WalletProvider';
 
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
+  return <WalletProvider><AppLayout /></WalletProvider>;
+}
+
+function AppLayout() {
   const [fontsLoaded, fontError] = useFonts({ Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold });
   const hydrated = useHydrated();
-  const role = useStore((s) => s.session?.role ?? null);
-  const ready = (fontsLoaded || !!fontError) && hydrated;
+  const { role, ready: authReady } = useAuth();
+  const ready = (fontsLoaded || !!fontError) && hydrated && authReady;
 
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();

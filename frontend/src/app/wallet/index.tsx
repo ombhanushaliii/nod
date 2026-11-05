@@ -20,11 +20,11 @@ type PendingRow = { key: string; title: string; sub: string; chip: string; tone:
 function Home() {
   const now = useNow();
   const { user } = useAuth();
-  const { balance } = useBalance();
+  const { balance, hasBalance, loading, error: balanceError, refresh } = useBalance();
   const s = useStore();
   const tn = trusteeName(s);
   const active = s.trusteeStatus === 'active';
-  const bal = moneyParts(balance);
+  const bal = hasBalance ? moneyParts(balance) : { whole: '—', cents: '—' };
 
   const openWaiting = (id: string) => {
     s.setWaiting(id);
@@ -104,8 +104,9 @@ function Home() {
           </Txt>
         </View>
         <Txt size={13} color={colors.sub}>
-          USDC · 1 USDC = $1
+          {loading ? 'Refreshing balance…' : 'USDC · Base Sepolia'}
         </Txt>
+        {balanceError && <Tap onPress={refresh}><Txt size={14} color={colors.accFg}>{balanceError}</Txt></Tap>}
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>

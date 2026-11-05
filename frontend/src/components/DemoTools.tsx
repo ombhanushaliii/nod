@@ -5,6 +5,7 @@ import { useStore } from '@/data/store';
 import { DAY, dur } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
+import { isDemo } from '@/wallet/config';
 import { Button } from './Button';
 import { Sheet } from './Sheet';
 import { Tap } from './Tap';
@@ -19,6 +20,8 @@ export function DemoTools() {
   const skip = useStore((s) => s.skip);
   const reset = useStore((s) => s.resetDemo);
   const [confirm, setConfirm] = useState(false);
+
+  if (!isDemo) return null;
 
   return (
     <View style={{ gap: 8 }}>

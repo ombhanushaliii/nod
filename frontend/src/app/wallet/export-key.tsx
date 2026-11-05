@@ -8,6 +8,7 @@ import { MY_ADDRESS } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
 import { short } from '@/lib/format';
 import { colors } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 // Mock key. With Privy, this screen shows Privy's own export UI after the trustee allows it.
 const KEY_HEX = '7f3a9c21e84b06d5fa1c3e87b2049d6ac5e1f08b73d29a64e0c5b18f2d7a4c93';
@@ -15,6 +16,21 @@ const CHUNKS = KEY_HEX.match(/.{4}/g) ?? [];
 
 /** Shown once, after the trustee allowed the export request. */
 export default function ExportKey() {
+  return isDemo ? <DemoExportKey /> : <LiveExportKey />;
+}
+
+function LiveExportKey() {
+  return <Screen>
+    <NavRow onBack={() => router.back()} backLabel="Settings" />
+    <Txt size={30} w={800}>Export your wallet</Txt>
+    <Txt size={16} lh={1.5} color={colors.sub}>
+      Wallet export needs verified approval from your trustee. Export will be available when trustee approval is connected.
+    </Txt>
+    <Button label="Back to settings" onPress={() => router.back()} />
+  </Screen>;
+}
+
+function DemoExportKey() {
   const tn = useStore(trusteeName);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);

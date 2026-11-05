@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button, NavRow, Screen, Tap, Txt } from '@/components';
@@ -15,11 +16,19 @@ export default function Questions() {
   const tn = useStore(trusteeName);
   const requestApproval = useRequestApproval();
   const done = answers.every((a) => a !== null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    haptic('medium');
-    await requestApproval();
-    router.replace('/wallet/waiting');
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      haptic('medium');
+      await requestApproval();
+      router.replace('/wallet/waiting');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not request approval.');
+    } finally { setBusy(false); }
   };
 
   return (
@@ -58,7 +67,8 @@ export default function Questions() {
           </View>
         ))}
       </ScrollView>
-      <Button label={`Send to ${tn}`} disabled={!done} style={{ marginTop: 14 }} onPress={() => void submit()} />
+      {error && <Txt size={14} color={colors.accFg} accessibilityRole="alert">{error}</Txt>}
+      <Button label={busy ? 'Requesting…' : `Send to ${tn}`} disabled={!done || busy} style={{ marginTop: 14 }} onPress={() => void submit()} />
     </Screen>
   );
 }

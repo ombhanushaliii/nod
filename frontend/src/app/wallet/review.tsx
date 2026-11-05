@@ -19,6 +19,9 @@ export default function Review() {
   const send = useSendPayment();
   const reports = useScamReports(draft?.address);
   const [holding, setHolding] = useState(false);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
   const [progress] = useState(() => new Animated.Value(0));
 
   const amount = draft?.amount ?? 0;
@@ -31,16 +34,28 @@ export default function Review() {
     if (timer.current) clearTimeout(timer.current);
   }, []);
   const start = () => {
-    if (timer.current) return;
+    if (timer.current || sendingRef.current) return;
+    setError(null);
     haptic('light');
     setHolding(true);
     Animated.timing(progress, { toValue: 1, duration: HOLD_MS, easing: Easing.linear, useNativeDriver: false }).start();
     timer.current = setTimeout(async () => {
       timer.current = null;
       setHolding(false);
-      haptic('success');
-      await send();
-      router.replace('/wallet/sent');
+      sendingRef.current = true;
+      setSending(true);
+      try {
+        await send();
+        haptic('success');
+        router.replace('/wallet/sent');
+      } catch (err) {
+        haptic('error');
+        setError(err instanceof Error ? err.message : 'The payment could not be sent.');
+      } finally {
+        sendingRef.current = false;
+        setSending(false);
+        progress.setValue(0);
+      }
     }, HOLD_MS);
   };
   const cancel = () => {
@@ -136,6 +151,7 @@ export default function Review() {
       </ScrollView>
 
       <View style={{ gap: 12 }}>
+        {error && <Txt size={14} color={colors.accFg} accessibilityRole="alert">{error}</Txt>}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <InfoDot color={colors.sub} glyph="!" size={16} />
           <Txt size={13} color={colors.sub}>
@@ -143,6 +159,7 @@ export default function Review() {
           </Txt>
         </View>
         <Pressable
+          disabled={sending}
           onPressIn={start}
           onPressOut={cancel}
           accessibilityRole="button"
@@ -157,7 +174,7 @@ export default function Review() {
               </Svg>
             </View>
             <Txt size={17} w={700} color={colors.white}>
-              {holding ? 'Keep holding…' : `Hold to send ${money(amount)}`}
+              {sending ? 'Confirming payment…' : holding ? 'Keep holding…' : `Hold to send ${money(amount)}`}
             </Txt>
           </View>
         </Pressable>

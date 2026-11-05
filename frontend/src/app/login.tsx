@@ -9,10 +9,16 @@ import type { Role } from '@/data/types';
 import { useAuth } from '@/hooks/api';
 import { haptic } from '@/lib/haptics';
 import { colors, type Tone } from '@/theme';
+import { isDemo } from '@/wallet/config';
+import { WalletLogin } from '@/wallet/WalletLogin';
 
 type Account = { role: Role; name: string; email: string; chip: string; tone: Tone; enabled: boolean };
 
 export default function Login() {
+  return isDemo ? <DemoLogin /> : <WalletLogin />;
+}
+
+function DemoLogin() {
   const params = useLocalSearchParams<{ as?: string }>();
   const [mode, setMode] = useState<Role>(params.as === 'trustee' ? 'trustee' : 'user');
   const [choosing, setChoosing] = useState(false);
