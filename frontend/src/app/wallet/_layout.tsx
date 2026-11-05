@@ -29,6 +29,8 @@ export default function WalletLayout() {
         <Stack.Screen name="questions" />
         <Stack.Screen name="waiting" options={noSwipe} />
         <Stack.Screen name="receive" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="export-key" />
       </Stack.Protected>
     </Stack>
   );

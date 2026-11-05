@@ -5,3 +5,5 @@ export * from './motion';
 export * from './Sheet';
 export * from './Tap';
 export * from './Txt';
+export * from './ScratchCard';
+export * from './SignOutSheet';
