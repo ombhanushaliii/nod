@@ -1,8 +1,8 @@
 // Outside services the API calls. Each is an interface so tests can fake it.
 
 export interface PrivyApi {
-  // Lower-case addresses of the user's Privy embedded Ethereum wallets.
-  embeddedEthWallets(privyUserId: string): Promise<string[]>;
+  // The user's Privy embedded Ethereum wallets (lower-case address + Privy wallet id).
+  embeddedEthWallets(privyUserId: string): Promise<{ address: string; id: string }[]>;
 }
 
 export interface Mailer {
@@ -25,11 +25,11 @@ export function privyApi(appId: string, appSecret: string): PrivyApi {
       });
       if (!res.ok) throw new Error(`Privy user lookup failed: ${res.status}`);
       const user = await res.json() as {
-        linked_accounts?: Array<{ type?: string; chain_type?: string; wallet_client_type?: string; address?: string }>;
+        linked_accounts?: Array<{ id?: string; type?: string; chain_type?: string; wallet_client_type?: string; address?: string }>;
       };
       return (user.linked_accounts ?? [])
-        .filter((a) => a.type === "wallet" && a.chain_type === "ethereum" && a.wallet_client_type === "privy" && a.address)
-        .map((a) => a.address!.toLowerCase());
+        .filter((a) => a.type === "wallet" && a.chain_type === "ethereum" && a.wallet_client_type === "privy" && a.address && a.id)
+        .map((a) => ({ address: a.address!.toLowerCase(), id: a.id! }));
     },
   };
 }

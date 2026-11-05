@@ -6,6 +6,7 @@ import { randomHex32 } from "../lib/crypto.ts";
 import { mapRepoError } from "../lib/errors.ts";
 import { checkDecision, REQUEST_TTL_MS } from "../lib/approval.ts";
 import type { ArkivApprovals } from "../lib/arkiv.ts";
+import { type PaymentSender, SendError } from "../lib/privySigner.ts";
 import type { PaymentStatus } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
 import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
@@ -15,8 +16,13 @@ export type PaymentDeps = {
   scamReports: ScamReports;
   goPlus: GoPlus;
   arkiv: ArkivApprovals;
+  sender: PaymentSender;
   now?: () => Date;
 };
+
+// A payment with no trustee approval must be sent soon after its check, so a
+// scam report that appears in between isn't missed.
+export const MAX_CHECK_AGE_MS = 10 * 60 * 1000;
 
 const statusFor: Record<Verdict, PaymentStatus> = {
   refused: "refused",
@@ -158,6 +164,39 @@ export function paymentRoutes(deps: PaymentDeps) {
       status,
       unlockAt: check.verdict === "allow" ? check.validFrom.toISOString() : null,
       validUntil: check.verdict === "allow" ? check.validUntil.toISOString() : null,
+    });
+  });
+
+  // Sends the payment from the user's wallet as the backend signer, gas
+  // sponsored by Privy. The backend builds the USDC transfer itself, so the
+  // app can't change the recipient or amount after the check.
+  r.post("/payments/:id/send", async (c) => {
+    const user = await requireUser(c);
+    if (!user.privy_wallet_id) fail(409, "wallet_not_linked", "Register again so the backend knows your Privy wallet id.");
+    const repo = c.var.repo;
+
+    const payment = await repo.claimPayment(c.req.param("id"), user.id, MAX_CHECK_AGE_MS).catch(mapRepoError);
+
+    let result;
+    try {
+      result = await deps.sender.sendUsdc({
+        walletId: user.privy_wallet_id, to: payment.toAddress, amount: payment.amount, referenceId: payment.id,
+      });
+    } catch (err) {
+      // Nothing went out, or Privy will reject a repeat of this reference id,
+      // so it's safe to let the user retry.
+      await repo.releasePayment(payment.id);
+      console.error(err);
+      const status = err instanceof SendError ? err.status : null;
+      fail(502, "send_failed", status && status < 500 ? "Privy refused the transaction." : "Couldn't reach Privy. Try again.");
+    }
+
+    await repo.markSubmitted(payment.id, result);
+    return c.json({
+      status: "submitted",
+      transactionId: result.transactionId,
+      userOperationHash: result.userOperationHash,
+      txHash: result.hash,
     });
   });
 

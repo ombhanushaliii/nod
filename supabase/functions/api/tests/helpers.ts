@@ -7,6 +7,7 @@ import {
 } from "../lib/repo.ts";
 import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
+import type { SendError } from "../lib/privySigner.ts";
 
 type Approval = {
   id: string; pairRowId: string; requestKey: string; createdAt: Date;
@@ -89,6 +90,53 @@ export class MemoryRepo implements Repo {
     }
     return Promise.resolve(status);
   }
+  // Mirrors claim_payment.
+  claimPayment(paymentId: string, userId: string, maxCheckAgeMs: number) {
+    const p = this.payments.find((x) => x.id === paymentId && x.userId === userId);
+    const now = this.clock();
+    if (!p) return Promise.reject(new RepoError("payment_not_found"));
+    let status = p.status;
+    if (status === "cooling_down") {
+      if (p.unlockAt! > now) return Promise.reject(new RepoError("still_cooling_down"));
+      status = "ready";
+    }
+    if (status !== "ready") return Promise.reject(new RepoError("not_ready"));
+    if (!p.approvalId) {
+      if (p.verdict !== "safe" || p.createdAt.getTime() < now.getTime() - maxCheckAgeMs) {
+        return Promise.reject(new RepoError("check_stale"));
+      }
+    } else {
+      const a = this.approvals.find((x) => x.id === p.approvalId)!;
+      if (a.verdict !== "allow" || a.usedAt || now < a.validFrom! || now >= a.validUntil!) {
+        return Promise.reject(new RepoError("approval_not_usable"));
+      }
+      a.usedAt = now;
+    }
+    p.status = "sending";
+    return Promise.resolve({ ...p });
+  }
+  // Mirrors mark_payment_submitted.
+  markSubmitted(paymentId: string, r: { transactionId: string | null; userOperationHash: string | null; hash: string | null }) {
+    const p = this.payments.find((x) => x.id === paymentId && x.status === "sending");
+    if (!p) return Promise.reject(new RepoError("not_sending"));
+    Object.assign(p, { status: "submitted", submitted: r });
+    const payee = this.payees.get(`${p.userId}|${p.toAddress}`);
+    if (payee) {
+      payee.firstPaidAt ??= this.clock();
+      if (p.approvalId && p.reasons.includes("over_limit")) payee.overLimitApprovedAt ??= this.clock();
+    }
+    return Promise.resolve();
+  }
+  // Mirrors release_payment.
+  releasePayment(paymentId: string) {
+    const p = this.payments.find((x) => x.id === paymentId && x.status === "sending");
+    if (p) {
+      p.status = "ready";
+      const a = this.approvals.find((x) => x.id === p.approvalId);
+      if (a) a.usedAt = undefined;
+    }
+    return Promise.resolve();
+  }
   expirePayment(paymentId: string) {
     const p = this.payments.find((x) => x.id === paymentId && x.status === "awaiting_trustee");
     if (p) p.status = "expired";
@@ -107,7 +155,7 @@ export class MemoryRepo implements Repo {
     return Promise.resolve({ ...this.rules.get(userId)! });
   }
   hasSentPayment(userId: string) {
-    return Promise.resolve(this.payments.some((p) => p.userId === userId && p.status === "sent"));
+    return Promise.resolve(this.payments.some((p) => p.userId === userId && (p.status === "sent" || p.status === "submitted")));
   }
   paidPayees(userId: string) {
     return Promise.resolve(
@@ -126,8 +174,11 @@ export class MemoryRepo implements Repo {
   findUserByWallet(a: string) {
     return Promise.resolve(this.users.find((u) => u.wallet_address === a) ?? null);
   }
-  createUser(privyUserId: string, walletAddress: string) {
-    const user = { id: crypto.randomUUID(), privy_user_id: privyUserId, wallet_address: walletAddress, created_at: new Date().toISOString() };
+  createUser(privyUserId: string, walletAddress: string, privyWalletId: string) {
+    const user = {
+      id: crypto.randomUUID(), privy_user_id: privyUserId, wallet_address: walletAddress,
+      privy_wallet_id: privyWalletId, created_at: new Date().toISOString(),
+    };
     this.users.push(user);
     this.rules.set(user.id, { amountLimit: 100_000_000n, notifyMode: "first_per_payee" });
     return Promise.resolve(user);
@@ -182,16 +233,22 @@ export function makeTestApp() {
     // Fake Arkiv: entities by key.
     arkivRequests: Map<string, ArkivRequest>;
     arkivDecisions: ArkivDecision[];
+    // Fake Privy sender: every call, and whether the next one fails.
+    sent: { walletId: string; to: string; amount: bigint; referenceId: string }[];
+    sendFails: SendError | null;
   } = {
     mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
-    arkivRequests: new Map(), arkivDecisions: [],
+    arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null,
   };
   repo.clock = () => state.now;
 
   const app = createApp({
     auth: privyAuth({ appId: APP_ID, verificationKey: PEM }),
     repo,
-    privy: { embeddedEthWallets: (did) => Promise.resolve(privyWallets.get(did) ?? []) },
+    privy: {
+      embeddedEthWallets: (did) =>
+        Promise.resolve((privyWallets.get(did) ?? []).map((a) => ({ address: a.toLowerCase(), id: `wallet-${a.toLowerCase()}` }))),
+    },
     mailer: {
       sendTrusteeInvite(to, url) {
         if (state.mailFails) return Promise.reject(new Error("resend down"));
@@ -207,6 +264,13 @@ export function makeTestApp() {
       getRequest: (k) => Promise.resolve(state.arkivRequests.get(k) ?? null),
       findDecision: (rk, owner) =>
         Promise.resolve(state.arkivDecisions.find((d) => d.requestKey === rk && d.owner === owner) ?? null),
+    },
+    sender: {
+      sendUsdc(args) {
+        if (state.sendFails) return Promise.reject(state.sendFails);
+        state.sent.push(args);
+        return Promise.resolve({ transactionId: `tx-${state.sent.length}`, userOperationHash: "0xop", hash: null });
+      },
     },
     now: () => state.now,
   });

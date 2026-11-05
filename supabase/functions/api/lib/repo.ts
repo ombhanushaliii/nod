@@ -3,13 +3,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotifyMode, Verdict } from "./rules.ts";
 
-export type User = { id: string; privy_user_id: string; wallet_address: string; created_at: string };
+export type User = {
+  id: string; privy_user_id: string; wallet_address: string; privy_wallet_id: string | null; created_at: string;
+};
 
 export type Payee = { firstAttemptAt: Date; firstPaidAt: Date | null; overLimitApprovedAt: Date | null };
 export type Rules = { amountLimit: bigint; notifyMode: NotifyMode };
 export type PaymentStatus =
   | "checked" | "refused" | "awaiting_trustee" | "denied" | "cooling_down"
-  | "ready" | "sent" | "failed" | "expired";
+  | "ready" | "sending" | "submitted" | "sent" | "failed" | "expired";
 export type NewPayment = {
   userId: string; toAddress: string; amount: bigint; verdict: Verdict; reasons: string[];
   status: PaymentStatus; unlockAt: Date | null; nonce: string;
@@ -25,7 +27,8 @@ export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
 export type ApprovalError =
   | "payment_not_found" | "trustee_not_needed" | "already_requested" | "no_active_trustee"
-  | "request_key_used" | "not_awaiting_trustee" | "decision_key_used";
+  | "request_key_used" | "not_awaiting_trustee" | "decision_key_used"
+  | "still_cooling_down" | "not_ready" | "check_stale" | "approval_not_usable" | "not_sending";
 export type RepoErrorCode = InviteError | ApprovalError;
 
 export class RepoError extends Error {
@@ -38,7 +41,7 @@ export interface Repo {
   findUserByPrivyId(privyUserId: string): Promise<User | null>;
   findUserByWallet(address: string): Promise<User | null>;
   // Creates the user and their default rules.
-  createUser(privyUserId: string, walletAddress: string): Promise<User>;
+  createUser(privyUserId: string, walletAddress: string, privyWalletId: string): Promise<User>;
   createInvite(args: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   findInvite(tokenHash: string): Promise<InviteView | null>;
   // Returns the Arkiv pairId.
@@ -62,6 +65,12 @@ export interface Repo {
   recordDecision(paymentId: string, d: { decisionKey: string; verdict: "allow" | "deny"; validFrom: Date | null; validUntil: Date | null }): Promise<PaymentStatus>;
   // Request ran out with no decision. Returns false if the status had moved on.
   expirePayment(paymentId: string): Promise<boolean>;
+
+  // Sending (D3a). claim: ready -> sending and marks the approval used, or throws.
+  claimPayment(paymentId: string, userId: string, maxCheckAgeMs: number): Promise<Payment>;
+  markSubmitted(paymentId: string, r: { transactionId: string | null; userOperationHash: string | null; hash: string | null }): Promise<void>;
+  // Privy refused: back to ready, approval usable again.
+  releasePayment(paymentId: string): Promise<void>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -70,7 +79,18 @@ const KNOWN: RepoErrorCode[] = [
   "pair_active", "invite_not_found", "invite_used", "invite_expired", "self_trustee",
   "payment_not_found", "trustee_not_needed", "already_requested", "no_active_trustee",
   "request_key_used", "not_awaiting_trustee", "decision_key_used",
+  "still_cooling_down", "not_ready", "check_stale", "approval_not_usable", "not_sending",
 ];
+
+// deno-lint-ignore no-explicit-any
+function toPayment(data: any): Payment {
+  return {
+    id: data.id, userId: data.user_id, toAddress: data.to_address, amount: BigInt(data.amount),
+    verdict: data.verdict, reasons: data.reasons, status: data.status,
+    unlockAt: date(data.unlock_at), nonce: data.nonce, approvalId: data.approval_id,
+    createdAt: new Date(data.created_at),
+  };
+}
 
 function rethrow(error: { message: string }): never {
   const code = KNOWN.find((k) => error.message === k);
@@ -90,9 +110,10 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       if (error) rethrow(error);
       return data;
     },
-    async createUser(privyUserId, walletAddress) {
+    async createUser(privyUserId, walletAddress, privyWalletId) {
       const { data, error } = await db.from("users")
-        .insert({ privy_user_id: privyUserId, wallet_address: walletAddress }).select("*").single();
+        .insert({ privy_user_id: privyUserId, wallet_address: walletAddress, privy_wallet_id: privyWalletId })
+        .select("*").single();
       if (error) rethrow(error);
       const rules = await db.from("rules").insert({ user_id: data.id });
       if (rules.error) rethrow(rules.error);
@@ -153,7 +174,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     },
     async hasSentPayment(userId) {
       const { count, error } = await db.from("payments").select("id", { count: "exact", head: true })
-        .eq("user_id", userId).eq("status", "sent");
+        .eq("user_id", userId).in("status", ["submitted", "sent"]);
       if (error) rethrow(error);
       return (count ?? 0) > 0;
     },
@@ -176,13 +197,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     async getPayment(id, userId) {
       const { data, error } = await db.from("payments").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
       if (error) rethrow(error);
-      if (!data) return null;
-      return {
-        id: data.id, userId: data.user_id, toAddress: data.to_address, amount: BigInt(data.amount),
-        verdict: data.verdict, reasons: data.reasons, status: data.status,
-        unlockAt: date(data.unlock_at), nonce: data.nonce, approvalId: data.approval_id,
-        createdAt: new Date(data.created_at),
-      };
+      return data ? toPayment(data) : null;
     },
     async getActivePair(userId) {
       const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address")
@@ -214,6 +229,24 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         .eq("id", paymentId).eq("status", "awaiting_trustee").select("id");
       if (error) rethrow(error);
       return data.length > 0;
+    },
+    async claimPayment(paymentId, userId, maxCheckAgeMs) {
+      const { data, error } = await db.rpc("claim_payment", {
+        p_payment_id: paymentId, p_user_id: userId, p_max_check_age: `${Math.floor(maxCheckAgeMs / 1000)} seconds`,
+      });
+      if (error) rethrow(error);
+      return toPayment(data);
+    },
+    async markSubmitted(paymentId, r) {
+      const { error } = await db.rpc("mark_payment_submitted", {
+        p_payment_id: paymentId, p_transaction_id: r.transactionId,
+        p_user_op_hash: r.userOperationHash, p_tx_hash: r.hash,
+      });
+      if (error) rethrow(error);
+    },
+    async releasePayment(paymentId) {
+      const { error } = await db.rpc("release_payment", { p_payment_id: paymentId });
+      if (error) rethrow(error);
     },
   };
 }

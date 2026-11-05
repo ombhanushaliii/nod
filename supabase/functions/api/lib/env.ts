@@ -5,6 +5,7 @@ export type Env = {
   privyAppId: string;
   privyAppSecret: string;
   privyVerificationKey: string;
+  privyAuthorizationKey: string;
   resendApiKey: string;
   inviteFromEmail: string;
   inviteUrlBase: string;
@@ -24,6 +25,8 @@ export function loadEnv(): Env {
     privyAppSecret: required("PRIVY_APP_SECRET"),
     // Stored with literal "\n" in secrets; turn them back into newlines.
     privyVerificationKey: required("PRIVY_VERIFICATION_KEY").replaceAll("\\n", "\n"),
+    // The backend signer's authorization key, "wallet-auth:..." (D3a).
+    privyAuthorizationKey: required("PRIVY_AUTHORIZATION_KEY"),
     resendApiKey: required("RESEND_API_KEY"),
     inviteFromEmail: required("INVITE_FROM_EMAIL"),
     inviteUrlBase: required("INVITE_URL_BASE"),

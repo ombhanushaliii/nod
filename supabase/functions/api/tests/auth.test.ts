@@ -3,7 +3,7 @@ import { generateKeyPair } from "jose";
 import { makeTestApp, signToken } from "./helpers.ts";
 
 const { app, repo } = makeTestApp();
-await repo.createUser("did:privy:known", "0xabc");
+await repo.createUser("did:privy:known", "0xabc", "wallet-1");
 
 const me = (auth?: string) => app.request("/api/me", { headers: auth ? { authorization: auth } : {} });
 

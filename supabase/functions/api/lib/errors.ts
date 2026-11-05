@@ -15,6 +15,11 @@ const STATUS: Record<RepoErrorCode, [HttpStatus, string]> = {
   request_key_used: [409, "That Arkiv request is already linked to a payment."],
   not_awaiting_trustee: [409, "This payment isn't waiting for the trustee."],
   decision_key_used: [409, "That decision was already used."],
+  still_cooling_down: [409, "This payment is still in its 24-hour wait."],
+  not_ready: [409, "This payment can't be sent."],
+  check_stale: [409, "Check this payment again before sending."],
+  approval_not_usable: [409, "The trustee's approval is used or outside its time window."],
+  not_sending: [409, "This payment isn't being sent."],
 };
 
 export function statusOf(code: RepoErrorCode): [HttpStatus, string] {

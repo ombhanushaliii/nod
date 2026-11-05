@@ -32,11 +32,11 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     }
 
     // Prove the wallet belongs to this Privy user before trusting it.
-    const owned = await deps.privy.embeddedEthWallets(c.var.privyUserId);
-    if (!owned.includes(walletAddress)) fail(403, "wallet_not_owned", "That wallet isn't this user's Privy embedded wallet.");
+    const owned = (await deps.privy.embeddedEthWallets(c.var.privyUserId)).find((w) => w.address === walletAddress);
+    if (!owned) fail(403, "wallet_not_owned", "That wallet isn't this user's Privy embedded wallet.");
     if (await c.var.repo.findUserByWallet(walletAddress)) fail(409, "wallet_taken");
 
-    const user = await c.var.repo.createUser(c.var.privyUserId, walletAddress);
+    const user = await c.var.repo.createUser(c.var.privyUserId, walletAddress, owned.id);
     await deps.funder.fund(walletAddress);
     return c.json({ user, created: true }, 201);
   });
