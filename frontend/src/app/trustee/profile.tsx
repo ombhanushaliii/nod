@@ -1,0 +1,49 @@
+import { useState } from 'react';
+import { View } from 'react-native';
+
+import { Avatar, AvatarPicker, Button, Label, Screen, TextField, Txt } from '@/components';
+import { trusteeName, useStore } from '@/data/store';
+import { haptic } from '@/lib/haptics';
+import { colors } from '@/theme';
+
+/** Trustee sets a name and avatar so the user recognises them. */
+export default function TrusteeProfile() {
+  const username = useStore((s) => s.username);
+  const avatar = useStore((s) => s.trusteeAvatar);
+  const setAvatar = useStore((s) => s.setTrusteeAvatar);
+  const setProfile = useStore((s) => s.setTrusteeProfile);
+  const tn = useStore(trusteeName);
+  const [name, setName] = useState(tn === 'Your trustee' ? '' : tn);
+  const ok = !!name.trim();
+
+  const done = () => {
+    if (!ok) return;
+    haptic('success');
+    setProfile(name.trim());
+  };
+
+  return (
+    <Screen keyboard>
+      <View style={{ gap: 8, paddingTop: 60, paddingBottom: 26 }}>
+        <Txt size={30} w={800} ls={-0.03}>
+          Set up your profile
+        </Txt>
+        <Txt size={17} lh={1.5} color={colors.sub}>
+          So @{username} knows it&apos;s you.
+        </Txt>
+      </View>
+      <View style={{ gap: 18, paddingBottom: 20 }}>
+        <View style={{ alignSelf: 'center' }}>
+          <Avatar index={avatar} size={88} />
+        </View>
+        <View style={{ gap: 12 }}>
+          <Label>CHOOSE AN AVATAR</Label>
+          <AvatarPicker value={avatar} onChange={setAvatar} />
+        </View>
+      </View>
+      <TextField value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" returnKeyType="done" onSubmitEditing={done} />
+      <View style={{ flex: 1 }} />
+      <Button label="Continue" disabled={!ok} onPress={done} />
+    </Screen>
+  );
+}
