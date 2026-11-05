@@ -1,13 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
+import { useStore } from '@/data/store';
+
+/** Entry point: send each role to its own home. */
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>Haven</Text>
-    </View>
-  );
+  const role = useStore((s) => s.session?.role ?? null);
+  if (role === 'user') return <Redirect href="/wallet" />;
+  if (role === 'trustee') return <Redirect href="/trustee" />;
+  return <Redirect href="/login" />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F6F2' },
-});
