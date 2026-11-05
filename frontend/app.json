@@ -41,7 +41,10 @@
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to unlock your wallet."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "react-native-quick-crypto"
     ],
     "experiments": {
       "typedRoutes": true,
