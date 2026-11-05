@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { Avatar, AvatarPicker, BackButton, Button, Card, Chip, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
+import { Avatar, AvatarPicker, BackButton, Button, Card, Chip, DemoTools, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { isValidUsername, modeLabel, MY_ADDRESS, reqState, sentToday, TAKEN_USERNAMES } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
@@ -139,6 +139,8 @@ export default function Settings() {
           </Tap>
         </Card>
       </View>
+
+      <DemoTools />
 
       <Button
         label="Sign out"

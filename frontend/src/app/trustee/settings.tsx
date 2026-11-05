@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { Avatar, AvatarPicker, BackButton, Button, Card, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
+import { Avatar, AvatarPicker, BackButton, Button, Card, DemoTools, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
 import { trusteeName, useStore } from '@/data/store';
 import { useAuth } from '@/hooks/api';
 import { haptic } from '@/lib/haptics';
@@ -70,6 +70,8 @@ export default function TrusteeSettings() {
           <KV k="People you look after" v={<Txt w={600}>{PEOPLE_COUNT}</Txt>} last />
         </Card>
       </View>
+
+      <DemoTools />
 
       <Button
         label="Sign out"
