@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { BannerHost } from '@/components';
 import { useHydrated } from '@/data/clock';
 import { useStore } from '@/data/store';
 import { colors } from '@/theme';
@@ -45,6 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="trustee" />
         </Stack.Protected>
       </Stack>
+      <BannerHost />
     </>
   );
 }

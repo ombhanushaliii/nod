@@ -312,8 +312,9 @@ export const useStore = create<Store>()(
     {
       name: 'haven-demo-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only durable data survives a restart; in-flight screens start fresh.
-      partialize: (s): Data => ({
+      // Durable data and undelivered banners survive a restart; in-flight screens start fresh.
+      partialize: (s): Data & Pick<Flow, 'banners'> => ({
+        banners: s.banners,
         session: s.session,
         offset: s.offset,
         username: s.username,
