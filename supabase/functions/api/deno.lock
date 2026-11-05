@@ -4,6 +4,7 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@supabase/functions-js@2": "2.119.0",
+    "npm:@noble/hashes@1.8.0": "1.8.0",
     "npm:@supabase/supabase-js@2": "2.119.0",
     "npm:hono@4": "4.13.16",
     "npm:jose@6": "6.2.15",
@@ -28,6 +29,9 @@
     }
   },
   "npm": {
+    "@noble/hashes@1.8.0": {
+      "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
+    },
     "@supabase/auth-js@2.119.0": {
       "integrity": "sha512-WI7KqJRxqZjm77PlRO/VfKretL4SG8g8stWfBmpyx9To+fFapZlSbXA8QkduoMvr72rRpIF24ZLrjktBrp+ZFA==",
       "dependencies": [
@@ -299,6 +303,7 @@
     "dependencies": [
       "jsr:@std/assert@1",
       "jsr:@supabase/functions-js@2",
+      "npm:@noble/hashes@1.8.0",
       "npm:@supabase/supabase-js@2",
       "npm:hono@4",
       "npm:jose@6",

@@ -15,13 +15,21 @@ export type NewPayment = {
   status: PaymentStatus; unlockAt: Date | null; nonce: string;
 };
 
+export type Payment = NewPayment & { id: string; approvalId: string | null; createdAt: Date };
+export type ActivePair = { id: string; pairId: string; pairKeyAddress: string };
+export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
+
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
 
-// Short codes raised by the SQL functions in the invite_functions migration.
+// Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
+export type ApprovalError =
+  | "payment_not_found" | "trustee_not_needed" | "already_requested" | "no_active_trustee"
+  | "request_key_used" | "not_awaiting_trustee" | "decision_key_used";
+export type RepoErrorCode = InviteError | ApprovalError;
 
 export class RepoError extends Error {
-  constructor(readonly code: InviteError) {
+  constructor(readonly code: RepoErrorCode) {
     super(code);
   }
 }
@@ -44,14 +52,28 @@ export interface Repo {
   hasSentPayment(userId: string): Promise<boolean>;
   paidPayees(userId: string): Promise<string[]>;
   createPayment(p: NewPayment): Promise<{ id: string }>;
+
+  // Approvals (D5).
+  getPayment(id: string, userId: string): Promise<Payment | null>;
+  getActivePair(userId: string): Promise<ActivePair | null>;
+  getApproval(id: string): Promise<ApprovalRow | null>;
+  attachRequest(paymentId: string, userId: string, requestKey: string): Promise<void>;
+  // Returns the payment's new status.
+  recordDecision(paymentId: string, d: { decisionKey: string; verdict: "allow" | "deny"; validFrom: Date | null; validUntil: Date | null }): Promise<PaymentStatus>;
+  // Request ran out with no decision. Returns false if the status had moved on.
+  expirePayment(paymentId: string): Promise<boolean>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
 
-const KNOWN: InviteError[] = ["pair_active", "invite_not_found", "invite_used", "invite_expired", "self_trustee"];
+const KNOWN: RepoErrorCode[] = [
+  "pair_active", "invite_not_found", "invite_used", "invite_expired", "self_trustee",
+  "payment_not_found", "trustee_not_needed", "already_requested", "no_active_trustee",
+  "request_key_used", "not_awaiting_trustee", "decision_key_used",
+];
 
 function rethrow(error: { message: string }): never {
-  const code = KNOWN.find((k) => error.message.includes(k));
+  const code = KNOWN.find((k) => error.message === k);
   if (code) throw new RepoError(code);
   throw new Error(error.message);
 }
@@ -149,6 +171,49 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       }).select("id").single();
       if (error) rethrow(error);
       return data;
+    },
+
+    async getPayment(id, userId) {
+      const { data, error } = await db.from("payments").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+      if (error) rethrow(error);
+      if (!data) return null;
+      return {
+        id: data.id, userId: data.user_id, toAddress: data.to_address, amount: BigInt(data.amount),
+        verdict: data.verdict, reasons: data.reasons, status: data.status,
+        unlockAt: date(data.unlock_at), nonce: data.nonce, approvalId: data.approval_id,
+        createdAt: new Date(data.created_at),
+      };
+    },
+    async getActivePair(userId) {
+      const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address")
+        .eq("user_id", userId).eq("status", "active").maybeSingle();
+      if (error) rethrow(error);
+      return data ? { id: data.id, pairId: data.pair_id, pairKeyAddress: data.pair_key_address } : null;
+    },
+    async getApproval(id) {
+      const { data, error } = await db.from("approvals").select("id, request_key, created_at").eq("id", id).maybeSingle();
+      if (error) rethrow(error);
+      return data ? { id: data.id, requestKey: data.request_key, createdAt: new Date(data.created_at) } : null;
+    },
+    async attachRequest(paymentId, userId, requestKey) {
+      const { error } = await db.rpc("attach_approval_request", {
+        p_payment_id: paymentId, p_user_id: userId, p_request_key: requestKey,
+      });
+      if (error) rethrow(error);
+    },
+    async recordDecision(paymentId, d) {
+      const { data, error } = await db.rpc("record_decision", {
+        p_payment_id: paymentId, p_decision_key: d.decisionKey, p_verdict: d.verdict,
+        p_valid_from: d.validFrom?.toISOString() ?? null, p_valid_until: d.validUntil?.toISOString() ?? null,
+      });
+      if (error) rethrow(error);
+      return data as PaymentStatus;
+    },
+    async expirePayment(paymentId) {
+      const { data, error } = await db.from("payments").update({ status: "expired" })
+        .eq("id", paymentId).eq("status", "awaiting_trustee").select("id");
+      if (error) rethrow(error);
+      return data.length > 0;
     },
   };
 }

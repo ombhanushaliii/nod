@@ -2,9 +2,9 @@
 // and let the trustee look up and accept the invite.
 import { Hono } from "hono";
 import { z } from "zod";
-import { type AppEnv, fail, type HttpStatus, requireUser } from "../lib/http.ts";
+import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { randomHex32, randomToken, sha256Hex } from "../lib/crypto.ts";
-import { RepoError, type InviteError } from "../lib/repo.ts";
+import { mapRepoError, statusOf } from "../lib/errors.ts";
 import type { ArkivFunder, Mailer, PrivyApi } from "../lib/services.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
 
@@ -17,22 +17,6 @@ export type OnboardingDeps = {
 };
 
 const INVITE_DAYS = 7;
-
-const inviteStatus: Record<InviteError, [HttpStatus, string]> = {
-  pair_active: [409, "You already have an active trustee."],
-  invite_not_found: [404, "This invite doesn't exist."],
-  invite_used: [410, "This invite was already used."],
-  invite_expired: [410, "This invite has expired."],
-  self_trustee: [409, "You can't be your own trustee."],
-};
-
-function mapRepoError(err: unknown): never {
-  if (err instanceof RepoError) {
-    const [status, message] = inviteStatus[err.code];
-    fail(status, err.code, message);
-  }
-  throw err;
-}
 
 export function onboardingRoutes(deps: OnboardingDeps) {
   const r = new Hono<AppEnv>();
@@ -84,7 +68,7 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   r.get("/invites/:token", async (c) => {
     await requireUser(c);
     const invite = await c.var.repo.findInvite(await sha256Hex(c.req.param("token")));
-    if (!invite) fail(404, "invite_not_found", inviteStatus.invite_not_found[1]);
+    if (!invite) fail(404, "invite_not_found", statusOf("invite_not_found")[1]);
     if (!invite.usable) fail(410, "invite_unusable", "This invite was used or has expired.");
     return c.json({ pairId: invite.pairId, expiresAt: invite.expiresAt });
   });

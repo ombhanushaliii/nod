@@ -2,8 +2,16 @@
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
 import { createApp } from "../app.ts";
 import { privyAuth } from "../lib/auth.ts";
-import { type NewPayment, type Payee, type Repo, RepoError, type Rules, type User } from "../lib/repo.ts";
+import {
+  type NewPayment, type Payee, type Payment, type PaymentStatus, type Repo, RepoError, type Rules, type User,
+} from "../lib/repo.ts";
 import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
+import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
+
+type Approval = {
+  id: string; pairRowId: string; requestKey: string; createdAt: Date;
+  decisionKey?: string; verdict?: "allow" | "deny"; validFrom?: Date | null; validUntil?: Date | null; usedAt?: Date;
+};
 
 export const APP_ID = "test-app-id";
 const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
@@ -33,8 +41,59 @@ export class MemoryRepo implements Repo {
   invites: Invite[] = [];
   rules = new Map<string, Rules>();
   payees = new Map<string, Payee>(); // key: userId|address
-  payments: (NewPayment & { id: string })[] = [];
+  payments: Payment[] = [];
+  approvals: Approval[] = [];
   clock = () => new Date();
+
+  getPayment(id: string, userId: string) {
+    const p = this.payments.find((x) => x.id === id && x.userId === userId);
+    return Promise.resolve(p ? { ...p } : null);
+  }
+  getActivePair(userId: string) {
+    const p = this.pairs.find((x) => x.userId === userId && x.status === "active");
+    return Promise.resolve(p ? { id: p.id, pairId: p.pairId, pairKeyAddress: p.pairKeyAddress! } : null);
+  }
+  getApproval(id: string) {
+    const a = this.approvals.find((x) => x.id === id);
+    return Promise.resolve(a ? { id: a.id, requestKey: a.requestKey, createdAt: a.createdAt } : null);
+  }
+  // Mirrors attach_approval_request.
+  attachRequest(paymentId: string, userId: string, requestKey: string) {
+    const p = this.payments.find((x) => x.id === paymentId && x.userId === userId);
+    if (!p) return Promise.reject(new RepoError("payment_not_found"));
+    if (p.verdict !== "needs_trustee") return Promise.reject(new RepoError("trustee_not_needed"));
+    if (p.status !== "checked") return Promise.reject(new RepoError("already_requested"));
+    const pair = this.pairs.find((x) => x.userId === userId && x.status === "active");
+    if (!pair) return Promise.reject(new RepoError("no_active_trustee"));
+    if (this.approvals.some((a) => a.requestKey === requestKey)) return Promise.reject(new RepoError("request_key_used"));
+    const a: Approval = { id: crypto.randomUUID(), pairRowId: pair.id, requestKey, createdAt: this.clock() };
+    this.approvals.push(a);
+    Object.assign(p, { approvalId: a.id, status: "awaiting_trustee" });
+    return Promise.resolve();
+  }
+  // Mirrors record_decision.
+  recordDecision(paymentId: string, d: { decisionKey: string; verdict: "allow" | "deny"; validFrom: Date | null; validUntil: Date | null }) {
+    const p = this.payments.find((x) => x.id === paymentId);
+    if (!p) return Promise.reject(new RepoError("payment_not_found"));
+    if (p.status !== "awaiting_trustee") return Promise.reject(new RepoError("not_awaiting_trustee"));
+    if (this.approvals.some((a) => a.decisionKey === d.decisionKey)) return Promise.reject(new RepoError("decision_key_used"));
+    const a = this.approvals.find((x) => x.id === p.approvalId)!;
+    Object.assign(a, d);
+    let status: PaymentStatus;
+    if (d.verdict === "deny") {
+      status = "denied";
+      Object.assign(p, { status, unlockAt: null });
+    } else {
+      status = d.validFrom! > this.clock() ? "cooling_down" : "ready";
+      Object.assign(p, { status, unlockAt: d.validFrom });
+    }
+    return Promise.resolve(status);
+  }
+  expirePayment(paymentId: string) {
+    const p = this.payments.find((x) => x.id === paymentId && x.status === "awaiting_trustee");
+    if (p) p.status = "expired";
+    return Promise.resolve(!!p);
+  }
 
   hasActivePair(userId: string) {
     return Promise.resolve(this.pairs.some((p) => p.userId === userId && p.status === "active"));
@@ -56,7 +115,7 @@ export class MemoryRepo implements Repo {
     );
   }
   createPayment(p: NewPayment) {
-    const row = { ...p, id: crypto.randomUUID() };
+    const row: Payment = { ...p, id: crypto.randomUUID(), approvalId: null, createdAt: this.clock() };
     this.payments.push(row);
     return Promise.resolve({ id: row.id });
   }
@@ -120,7 +179,13 @@ export function makeTestApp() {
     now: Date;
     reports: Map<string, ReportCounts>;
     goplus: Map<string, GoPlusResult>;
-  } = { mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map() };
+    // Fake Arkiv: entities by key.
+    arkivRequests: Map<string, ArkivRequest>;
+    arkivDecisions: ArkivDecision[];
+  } = {
+    mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
+    arkivRequests: new Map(), arkivDecisions: [],
+  };
   repo.clock = () => state.now;
 
   const app = createApp({
@@ -138,6 +203,11 @@ export function makeTestApp() {
     inviteUrlBase: "guardian://invite/",
     scamReports: { countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }) },
     goPlus: { check: (a) => Promise.resolve(state.goplus.get(a) ?? { flagged: [] }) },
+    arkiv: {
+      getRequest: (k) => Promise.resolve(state.arkivRequests.get(k) ?? null),
+      findDecision: (rk, owner) =>
+        Promise.resolve(state.arkivDecisions.find((d) => d.requestKey === rk && d.owner === owner) ?? null),
+    },
     now: () => state.now,
   });
 

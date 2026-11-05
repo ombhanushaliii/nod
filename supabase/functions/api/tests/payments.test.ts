@@ -12,7 +12,7 @@ async function setup({ firstPaymentDone = true } = {}) {
   if (firstPaymentDone) {
     t.repo.payments.push({
       id: "old", userId: user.id, toAddress: addr("f"), amount: 1n, verdict: "safe",
-      reasons: [], status: "sent", unlockAt: null, nonce: "0x0",
+      reasons: [], status: "sent", unlockAt: null, nonce: "0x0", approvalId: null, createdAt: new Date(0),
     });
   }
   const check = (to: string, amount: string) => t.call(USER, "POST", "/payments/check", { to, amount });
