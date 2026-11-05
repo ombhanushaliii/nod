@@ -9,6 +9,7 @@ export type Env = {
   resendApiKey: string;
   inviteFromEmail: string;
   inviteUrlBase: string;
+  webOrigins: string[];
 };
 
 function required(name: string): string {
@@ -30,5 +31,6 @@ export function loadEnv(): Env {
     resendApiKey: required("RESEND_API_KEY"),
     inviteFromEmail: required("INVITE_FROM_EMAIL"),
     inviteUrlBase: required("INVITE_URL_BASE"),
+    webOrigins: (Deno.env.get("WEB_ALLOWED_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   };
 }

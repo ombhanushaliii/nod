@@ -297,7 +297,7 @@ export class MemoryRepo implements Repo {
   }
 }
 
-export function makeTestApp() {
+export function makeTestApp(options: { webOrigins?: string[] } = {}) {
   const repo = new MemoryRepo();
   const mails: { to: string; url: string }[] = [];
   const funded: string[] = [];
@@ -329,6 +329,7 @@ export function makeTestApp() {
   repo.clock = () => state.now;
 
   const app = createApp({
+    webOrigins: options.webOrigins,
     auth: privyAuth({ appId: APP_ID, verificationKey: PEM }),
     repo,
     privy: {

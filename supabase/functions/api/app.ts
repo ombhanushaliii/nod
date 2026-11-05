@@ -1,6 +1,7 @@
 // Builds the API. Dependencies are passed in so tests can swap them.
 import { Hono, type MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { cors } from "hono/cors";
 import type { AppEnv } from "./lib/http.ts";
 import type { Repo } from "./lib/repo.ts";
 import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
@@ -11,10 +12,17 @@ import { type RulesDeps, rulesRoutes } from "./routes/rules.ts";
 export type AppDeps = OnboardingDeps & PaymentDeps & RulesDeps & {
   auth: MiddlewareHandler<AppEnv>;
   repo: Repo;
+  webOrigins?: string[];
 };
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>().basePath("/api");
+
+  app.use("*", cors({
+    origin: (origin) => deps.webOrigins?.includes(origin) ? origin : "",
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+  }));
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return err.getResponse();

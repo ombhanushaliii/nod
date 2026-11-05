@@ -15,6 +15,7 @@ import { noopArkivFunder, privyApi, resendMailer } from "./lib/services.ts";
 const env = loadEnv();
 
 const app = createApp({
+  webOrigins: env.webOrigins,
   auth: privyAuth({ appId: env.privyAppId, verificationKey: env.privyVerificationKey }),
   repo: supabaseRepo(createDb(env.supabaseUrl, env.supabaseServiceRoleKey)),
   privy: privyApi(env.privyAppId, env.privyAppSecret),
