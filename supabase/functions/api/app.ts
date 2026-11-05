@@ -1,12 +1,13 @@
 // Builds the API. Dependencies are passed in so tests can swap them.
 import { Hono, type MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppEnv } from "./lib/http.ts";
+import type { Repo } from "./lib/repo.ts";
+import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
 
-export type AppDeps = {
+export type AppDeps = OnboardingDeps & {
   auth: MiddlewareHandler<AppEnv>;
-  db: SupabaseClient;
+  repo: Repo;
 };
 
 export function createApp(deps: AppDeps) {
@@ -23,20 +24,17 @@ export function createApp(deps: AppDeps) {
   // Everything below needs a valid Privy token.
   app.use("*", deps.auth);
   app.use("*", async (c, next) => {
-    c.set("db", deps.db);
+    c.set("repo", deps.repo);
     await next();
   });
 
   // Who am I, and have I finished onboarding?
   app.get("/me", async (c) => {
-    const { data, error } = await c.var.db
-      .from("users")
-      .select("id, wallet_address, created_at")
-      .eq("privy_user_id", c.var.privyUserId)
-      .maybeSingle();
-    if (error) throw error;
-    return c.json({ privyUserId: c.var.privyUserId, user: data });
+    const user = await c.var.repo.findUserByPrivyId(c.var.privyUserId);
+    return c.json({ privyUserId: c.var.privyUserId, user });
   });
+
+  app.route("/", onboardingRoutes(deps));
 
   return app;
 }

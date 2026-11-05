@@ -1,43 +1,11 @@
 import { assertEquals } from "@std/assert";
-import { exportSPKI, generateKeyPair, SignJWT } from "jose";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createApp } from "../app.ts";
-import { privyAuth } from "../lib/auth.ts";
+import { generateKeyPair } from "jose";
+import { makeTestApp, signToken } from "./helpers.ts";
 
-const APP_ID = "test-app-id";
-const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
-const pem = await exportSPKI(publicKey);
+const { app, repo } = makeTestApp();
+await repo.createUser("did:privy:known", "0xabc");
 
-// Minimal stand-in for the one query /me makes.
-const fakeDb = {
-  from: () => ({
-    select: () => ({
-      eq: (_col: string, did: string) => ({
-        maybeSingle: () =>
-          Promise.resolve({
-            data: did === "did:privy:known" ? { id: "u1", wallet_address: "0xabc" } : null,
-            error: null,
-          }),
-      }),
-    }),
-  }),
-} as unknown as SupabaseClient;
-
-const app = createApp({ auth: privyAuth({ appId: APP_ID, verificationKey: pem }), db: fakeDb });
-
-function token(opts: { sub?: string; iss?: string; aud?: string; exp?: string; key?: CryptoKey } = {}) {
-  return new SignJWT({ sid: "s1" })
-    .setProtectedHeader({ alg: "ES256" })
-    .setSubject(opts.sub ?? "did:privy:known")
-    .setIssuer(opts.iss ?? "privy.io")
-    .setAudience(opts.aud ?? APP_ID)
-    .setIssuedAt()
-    .setExpirationTime(opts.exp ?? "1h")
-    .sign(opts.key ?? privateKey);
-}
-
-const me = (auth?: string) =>
-  app.request("/api/me", { headers: auth ? { authorization: auth } : {} });
+const me = (auth?: string) => app.request("/api/me", { headers: auth ? { authorization: auth } : {} });
 
 Deno.test("health needs no token", async () => {
   assertEquals((await app.request("/api/health")).status, 200);
@@ -50,15 +18,15 @@ Deno.test("missing token is 401", async () => {
 });
 
 Deno.test("valid token reaches the handler", async () => {
-  const res = await me(`Bearer ${await token()}`);
+  const res = await me(`Bearer ${await signToken("did:privy:known")}`);
   assertEquals(res.status, 200);
   const body = await res.json();
   assertEquals(body.privyUserId, "did:privy:known");
-  assertEquals(body.user.id, "u1");
+  assertEquals(body.user.wallet_address, "0xabc");
 });
 
 Deno.test("unknown user gets user: null", async () => {
-  const res = await me(`Bearer ${await token({ sub: "did:privy:new" })}`);
+  const res = await me(`Bearer ${await signToken("did:privy:new")}`);
   assertEquals((await res.json()).user, null);
 });
 
@@ -68,7 +36,7 @@ for (const [name, opts] of [
   ["expired", { exp: "-1m" }],
 ] as const) {
   Deno.test(`${name} is 401`, async () => {
-    const res = await me(`Bearer ${await token(opts)}`);
+    const res = await me(`Bearer ${await signToken("did:privy:known", opts)}`);
     assertEquals(res.status, 401);
     assertEquals((await res.json()).error, "invalid_token");
   });
@@ -76,7 +44,7 @@ for (const [name, opts] of [
 
 Deno.test("token signed by another key is 401", async () => {
   const other = await generateKeyPair("ES256");
-  const res = await me(`Bearer ${await token({ key: other.privateKey })}`);
+  const res = await me(`Bearer ${await signToken("did:privy:known", { key: other.privateKey })}`);
   assertEquals(res.status, 401);
 });
 

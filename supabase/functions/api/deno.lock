@@ -7,7 +7,8 @@
     "npm:@supabase/supabase-js@2": "2.119.0",
     "npm:hono@4": "4.13.16",
     "npm:jose@6": "6.2.15",
-    "npm:openai@^4.52.5": "4.104.0"
+    "npm:openai@^4.52.5": "4.104.0_zod@3.25.76",
+    "npm:zod@3": "3.25.76"
   },
   "jsr": {
     "@std/assert@1.0.19": {
@@ -251,7 +252,7 @@
         "whatwg-url"
       ]
     },
-    "openai@4.104.0": {
+    "openai@4.104.0_zod@3.25.76": {
       "integrity": "sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==",
       "dependencies": [
         "@types/node",
@@ -260,7 +261,11 @@
         "agentkeepalive",
         "form-data-encoder",
         "formdata-node",
-        "node-fetch"
+        "node-fetch",
+        "zod"
+      ],
+      "optionalPeers": [
+        "zod"
       ],
       "bin": true
     },
@@ -285,6 +290,9 @@
         "tr46",
         "webidl-conversions"
       ]
+    },
+    "zod@3.25.76": {
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     }
   },
   "workspace": {
@@ -293,7 +301,8 @@
       "jsr:@supabase/functions-js@2",
       "npm:@supabase/supabase-js@2",
       "npm:hono@4",
-      "npm:jose@6"
+      "npm:jose@6",
+      "npm:zod@3"
     ]
   }
 }
