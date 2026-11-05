@@ -25,6 +25,9 @@ export default function WalletLayout() {
         <Stack.Screen name="sent" options={noSwipe} />
         <Stack.Screen name="refused" />
         <Stack.Screen name="cooldown" options={noSwipe} />
+        <Stack.Screen name="flagged" />
+        <Stack.Screen name="questions" />
+        <Stack.Screen name="waiting" options={noSwipe} />
       </Stack.Protected>
     </Stack>
   );
