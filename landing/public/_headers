@@ -1,0 +1,9 @@
+# Vite puts a content hash in its file names under /assets, so they can be
+# cached forever. public/assets/nod-logo.png is cached the same way: give it a
+# new file name if it changes. index.html isn't cached, so deploys show at once.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

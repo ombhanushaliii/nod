@@ -18,6 +18,17 @@ npm run preview
 
 The build goes to `dist/`, a static site you can host anywhere.
 
+## Deploy (Cloudflare Pages)
+
+It's served at https://trynod.pages.dev from the Cloudflare Pages project `trynod` (set in `wrangler.toml`).
+
+```bash
+npx wrangler login   # once
+npm run deploy       # builds, then uploads dist/
+```
+
+`public/_headers` sets caching: files in `/assets` are cached for a year, `index.html` isn't.
+
 ## Where things are
 
 | Path | What |
