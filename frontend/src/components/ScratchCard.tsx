@@ -36,6 +36,16 @@ export function ScratchCard({ onDone }: { onDone: () => void }) {
     }
   };
 
+  // Count coverage along the whole stroke, not just the sampled touch points:
+  // a fast swipe only reports a few points, but the drawn line covers everything between them.
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const markTo = (x: number, y: number) => {
+    const from = last.current ?? { x, y };
+    const steps = Math.max(1, Math.ceil(Math.hypot(x - from.x, y - from.y) / (CELL / 2)));
+    for (let i = 1; i <= steps; i++) mark(from.x + ((x - from.x) * i) / steps, from.y + ((y - from.y) * i) / steps);
+    last.current = { x, y };
+  };
+
   const check = () => {
     const { w, h } = sizeRef.current;
     if (done.current || !w || !h) return;
@@ -59,12 +69,13 @@ export function ScratchCard({ onDone }: { onDone: () => void }) {
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
         const { locationX: x, locationY: y } = e.nativeEvent;
-        mark(x, y);
+        last.current = null;
+        markTo(x, y);
         setPath((p) => `${p} M${x.toFixed(1)} ${y.toFixed(1)} L${(x + 0.1).toFixed(1)} ${y.toFixed(1)}`);
       },
       onPanResponderMove: (e) => {
         const { locationX: x, locationY: y } = e.nativeEvent;
-        mark(x, y);
+        markTo(x, y);
         setPath((p) => `${p} L${x.toFixed(1)} ${y.toFixed(1)}`);
         moves.current++;
         if (moves.current % 6 === 0) check();
