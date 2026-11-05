@@ -17,6 +17,7 @@ export default function TrusteeLayout() {
         <Stack.Screen name="profile" options={{ gestureEnabled: false }} />
       </Stack.Protected>
       <Stack.Protected guard={status === 'active' && hasName}>
+        <Stack.Screen name="person/[id]" />
       </Stack.Protected>
     </Stack>
   );
