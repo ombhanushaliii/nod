@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { mapRepoError } from "../lib/errors.ts";
+import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import type { Rules } from "../lib/repo.ts";
 import { FIRST_PAYMENT_CAP, formatUsdc, parseUsdc } from "../lib/rules.ts";
 import { body, hex32 } from "../lib/validate.ts";
@@ -15,7 +16,9 @@ const notifyMode = z.enum(["first_per_payee", "every_time"]);
 
 const show = (r: Rules) => ({ amountLimit: formatUsdc(r.amountLimit), notifyMode: r.notifyMode });
 
-export function rulesRoutes() {
+export type RulesDeps = { push: PushSender };
+
+export function rulesRoutes(deps: RulesDeps) {
   const r = new Hono<AppEnv>();
 
   // The user's own rules, plus what their trustee changed.
@@ -59,9 +62,16 @@ export function rulesRoutes() {
       if (amountLimit === null) fail(422, "invalid_amount", "The limit must be a positive USDC value with at most 6 decimals.");
     }
 
-    const rules = await c.var.repo.setRules(pairId.data, me.id, {
+    const repo = c.var.repo;
+    const before = (await repo.protectedUsers(me.id)).find((u) => u.pairId === pairId.data);
+    if (!before) fail(404, "not_your_pair", "You're not this user's trustee.");
+    const rules = await repo.setRules(pairId.data, me.id, {
       amountLimit, notifyMode: input.notifyMode ?? null,
     }).catch(mapRepoError);
+
+    if (rules.amountLimit !== before.rules.amountLimit || rules.notifyMode !== before.rules.notifyMode) {
+      await notifyUser(repo, deps.push, before.userId, MESSAGES.rulesChanged());
+    }
     return c.json(show(rules));
   });
 

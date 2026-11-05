@@ -7,6 +7,7 @@ import { mapRepoError } from "../lib/errors.ts";
 import { checkDecision, REQUEST_TTL_MS } from "../lib/approval.ts";
 import type { ArkivApprovals } from "../lib/arkiv.ts";
 import { type PaymentSender, SendError } from "../lib/privySigner.ts";
+import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import type { PaymentStatus } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
 import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
@@ -17,6 +18,7 @@ export type PaymentDeps = {
   goPlus: GoPlus;
   arkiv: ArkivApprovals;
   sender: PaymentSender;
+  push: PushSender;
   now?: () => Date;
 };
 
@@ -96,7 +98,9 @@ export function paymentRoutes(deps: PaymentDeps) {
   });
 
   // The app wrote an approval_request on Arkiv for this payment. The backend
-  // checks it's really there, written by this user, for this user's pair.
+  // checks it's really there, written by this user, for this user's pair,
+  // then pushes the trustee (D9). No polling: every request comes through here,
+  // because the payment can't go ahead without it.
   r.post("/payments/:id/request", async (c) => {
     const user = await requireUser(c);
     const { requestKey } = await body(c, z.object({ requestKey: hex32 }));
@@ -114,6 +118,8 @@ export function paymentRoutes(deps: PaymentDeps) {
     if (req.kind !== "payment") fail(422, "request_wrong_kind");
 
     await repo.attachRequest(payment.id, user.id, requestKey).catch(mapRepoError);
+    // Awaited so the Edge Function doesn't stop before it's sent; never throws.
+    await notifyUser(repo, deps.push, pair.trusteeId, MESSAGES.approvalRequest(pair.pairId));
     return c.json({
       status: "awaiting_trustee",
       expiresAt: new Date(req.createdAt.getTime() + REQUEST_TTL_MS).toISOString(),

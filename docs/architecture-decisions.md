@@ -18,7 +18,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 | Smart contract | **None** | — | [team] |
 | Shared, expiring data | Approval requests, trustee decisions, live scam reports | Arkiv (Rabdi testnet, `@arkiv-network/sdk`) | [team] |
 | Permanent data | Users, user–trustee link, rules, push tokens, scam report archive | Supabase | [team] |
-| Backend | Payment checks, push watcher, report mirror + renewer, list importer, tGLM top-up | Node service | [team] |
+| Backend | Payment checks, trustee push, report mirror + renewer, list importer, tGLM top-up | Node service | [team] |
 | Live address check | Risk lookup for unknown addresses | GoPlus API, called by the backend | [team] |
 | Encryption | Request details readable only by the trustee | tweetnacl `box` (x25519) | [team] |
 | Optional | Verified-human trustees; report evidence files | World ID, Swarm (drawn dashed) | [from original plan] |
@@ -103,16 +103,17 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 - Privy wallets can't decrypt tweetnacl messages, so the trustee needs an x25519 keypair.
 - It's derived from a Privy signature over a fixed message, so the same key comes back on a new phone with no extra backup. The public half is stored in Supabase.
 
-### D9. Trustee alerts: the backend watches Arkiv and sends a push. [team]
-- The backend polls Arkiv for new `approval_request` entities, maps `pairId → trustee push token` in Supabase, and sends an Expo push saying "a payment needs you". The push carries no details.
+### D9. Trustee alerts: the backend pushes when the app hands it the request. [team]
+- After writing an `approval_request` to Arkiv, the app calls `POST /payments/:id/request` with its entity key. The backend checks the entity on Arkiv, maps `pairId → trustee push tokens` in Supabase, and sends an Expo push saying "a payment needs you". The push carries no details.
 - The trustee app reads and decrypts the request straight from Arkiv.
-- Why polling: Arkiv's watch API polls and its events carry no attributes, so we poll with a query instead.
+- Why not poll Arkiv: a poller runs all day even when nobody is paying, and alerts lag by the poll interval. Every request has to come through `POST /payments/:id/request` anyway (the payment can't go ahead without it), so pushing there costs nothing when idle and is instant. If the app crashes before that call, it retries it, and the push goes out then.
+- The user also gets a push when their trustee changes their rules.
 
 ## 3. Arkiv entities (draft for `/arkiv/schema.md`)
 
 | Entity | Owner | Expires | Indexed (filtered on) | Stored only | Who reads it |
 |---|---|---|---|---|---|
-| `approval_request` | User's Privy wallet | 30 min | `pairId`, `kind`, `createdAt` | encrypted payload (bytes) | Trustee app (decrypts), backend push watcher |
+| `approval_request` | User's Privy wallet | 30 min | `pairId`, `kind`, `createdAt` | encrypted payload (bytes) | Trustee app (decrypts), backend (verifies on attach) |
 | `trustee_decision` | Per-pair trustee key | Allow: 1 h (known payee) or 25 h (new payee, 24h cooldown) · Deny: 30 min | `pairId`, `requestKey`, `verdict` | `intentHash`, `validFrom`, `reportKey` | Backend (verifies), user app (shows result) |
 | `scam_report` | Reporter: per-pair trustee key or our seed wallet | 180 days, extendable by anyone | `address`, `source` (`trustee` / `ofac` / `list`), `category` | reason text, evidence ref (Swarm, optional) | Our backend before every payment; any other wallet |
 
@@ -135,7 +136,7 @@ Example query any judge can run: `select().from(ScamReport).where(eq("address", 
 2. The backend applies the rules in D3: first-payment cap, flags, amount limit, new-payee cooldown.
 3. **Safe:** the backend sends the USDC transfer as the wallet's signer, gas sponsored by Privy, and the app shows it as sent. Done. **Cooldown:** the app shows when the payment unlocks. **Refused:** the app shows the $10 first-payment cap.
 4. **Needs trustee (flagged or over limit):** the user answers the 3 questions. The app encrypts the details to the trustee's pubkey and writes an `approval_request` to Arkiv (30 min).
-5. The backend's watcher sees it and sends an Expo push to the trustee.
+5. The app hands the request's key to the backend, which checks it on Arkiv and sends an Expo push to the trustee.
 6. The trustee app reads and decrypts the request from Arkiv and shows the context card.
 7. **Allow once:** the per-pair key writes a `trustee_decision` (allow, 1 h, `intentHash`). **Deny & report:** a `trustee_decision` (deny) plus a public `scam_report`.
 8. The app asks the backend again. The backend verifies the decision (owner = pair key, hash, `validFrom`, expiry, unused). For a new payee the answer is `cooldown` until 24h after the Allow, then `safe`. The backend then sends the transfer as signer (sponsored). On deny, the app shows the denial.

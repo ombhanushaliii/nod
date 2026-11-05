@@ -5,9 +5,10 @@ import type { AppEnv } from "./lib/http.ts";
 import type { Repo } from "./lib/repo.ts";
 import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
 import { type PaymentDeps, paymentRoutes } from "./routes/payments.ts";
-import { rulesRoutes } from "./routes/rules.ts";
+import { pushRoutes } from "./routes/push.ts";
+import { type RulesDeps, rulesRoutes } from "./routes/rules.ts";
 
-export type AppDeps = OnboardingDeps & PaymentDeps & {
+export type AppDeps = OnboardingDeps & PaymentDeps & RulesDeps & {
   auth: MiddlewareHandler<AppEnv>;
   repo: Repo;
 };
@@ -38,7 +39,8 @@ export function createApp(deps: AppDeps) {
 
   app.route("/", onboardingRoutes(deps));
   app.route("/", paymentRoutes(deps));
-  app.route("/", rulesRoutes());
+  app.route("/", rulesRoutes(deps));
+  app.route("/", pushRoutes());
 
   return app;
 }

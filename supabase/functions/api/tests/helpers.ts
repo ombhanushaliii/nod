@@ -10,6 +10,7 @@ import type { NotifyMode } from "../lib/rules.ts";
 import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError } from "../lib/privySigner.ts";
+import type { PushMessage } from "../lib/push.ts";
 
 type Approval = {
   id: string; pairRowId: string; requestKey: string; createdAt: Date;
@@ -48,7 +49,24 @@ export class MemoryRepo implements Repo {
   payees = new Map<string, Payee>(); // key: userId|address
   payments: Payment[] = [];
   approvals: Approval[] = [];
+  pushTokens = new Map<string, string>(); // expo token -> user id
   clock = () => new Date();
+
+  registerPushToken(userId: string, token: string) {
+    this.pushTokens.set(token, userId);
+    return Promise.resolve();
+  }
+  removePushToken(userId: string, token: string) {
+    if (this.pushTokens.get(token) === userId) this.pushTokens.delete(token);
+    return Promise.resolve();
+  }
+  pushTokensFor(userId: string) {
+    return Promise.resolve([...this.pushTokens].filter(([, u]) => u === userId).map(([t]) => t));
+  }
+  deletePushTokens(tokens: string[]) {
+    tokens.forEach((t) => this.pushTokens.delete(t));
+    return Promise.resolve();
+  }
 
   getPayment(id: string, userId: string) {
     const p = this.payments.find((x) => x.id === id && x.userId === userId);
@@ -56,7 +74,7 @@ export class MemoryRepo implements Repo {
   }
   getActivePair(userId: string) {
     const p = this.pairs.find((x) => x.userId === userId && x.status === "active");
-    return Promise.resolve(p ? { id: p.id, pairId: p.pairId, pairKeyAddress: p.pairKeyAddress! } : null);
+    return Promise.resolve(p ? { id: p.id, pairId: p.pairId, pairKeyAddress: p.pairKeyAddress!, trusteeId: p.trusteeId! } : null);
   }
   getApproval(id: string) {
     const a = this.approvals.find((x) => x.id === id);
@@ -166,6 +184,7 @@ export class MemoryRepo implements Repo {
   protectedUsers(trusteeId: string) {
     return Promise.resolve(this.pairs.filter((p) => p.trusteeId === trusteeId && p.status === "active").map((p) => ({
       pairId: p.pairId,
+      userId: p.userId,
       walletAddress: this.users.find((u) => u.id === p.userId)!.wallet_address,
       rules: { ...this.rules.get(p.userId)! },
     })));
@@ -269,9 +288,14 @@ export function makeTestApp() {
     // Fake Privy sender: every call, and whether the next one fails.
     sent: { walletId: string; to: string; amount: bigint; referenceId: string }[];
     sendFails: SendError | null;
+    // Fake Expo push: every message sent, tokens Expo reports dead, and outages.
+    pushes: { to: string[]; message: PushMessage }[];
+    deadTokens: string[];
+    pushFails: boolean;
   } = {
     mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
     arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null,
+    pushes: [], deadTokens: [], pushFails: false,
   };
   repo.clock = () => state.now;
 
@@ -303,6 +327,13 @@ export function makeTestApp() {
         if (state.sendFails) return Promise.reject(state.sendFails);
         state.sent.push(args);
         return Promise.resolve({ transactionId: `tx-${state.sent.length}`, userOperationHash: "0xop", hash: null });
+      },
+    },
+    push: {
+      send(to, message) {
+        if (state.pushFails) return Promise.reject(new Error("expo down"));
+        state.pushes.push({ to, message });
+        return Promise.resolve({ deadTokens: to.filter((t) => state.deadTokens.includes(t)) });
       },
     },
     now: () => state.now,

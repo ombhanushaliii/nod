@@ -9,6 +9,7 @@ import { supabaseRepo } from "./lib/repo.ts";
 import { goPlusApi, noScamReports } from "./lib/risk.ts";
 import { noArkivApprovals } from "./lib/arkiv.ts";
 import { privySender } from "./lib/privySigner.ts";
+import { expoPush } from "./lib/push.ts";
 import { noopArkivFunder, privyApi, resendMailer } from "./lib/services.ts";
 
 const env = loadEnv();
@@ -27,6 +28,7 @@ const app = createApp({
   sender: privySender({
     appId: env.privyAppId, appSecret: env.privyAppSecret, authorizationKey: env.privyAuthorizationKey,
   }),
+  push: expoPush(),
 });
 
 Deno.serve(app.fetch);

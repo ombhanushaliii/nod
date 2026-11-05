@@ -18,14 +18,14 @@ export type NewPayment = {
 };
 
 export type Payment = NewPayment & { id: string; approvalId: string | null; createdAt: Date };
-export type ActivePair = { id: string; pairId: string; pairKeyAddress: string };
+export type ActivePair = { id: string; pairId: string; pairKeyAddress: string; trusteeId: string };
 export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
-export type ProtectedUser = { pairId: string; walletAddress: string; rules: Rules };
+export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; rules: Rules };
 
 // Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
@@ -84,6 +84,12 @@ export interface Repo {
   protectedUsers(trusteeId: string): Promise<ProtectedUser[]>;
   // Null = keep. Throws not_your_pair unless trusteeId is this pair's active trustee.
   setRules(pairId: string, trusteeId: string, patch: { amountLimit: bigint | null; notifyMode: NotifyMode | null }): Promise<Rules>;
+
+  // Push tokens. A token belongs to the last user who registered it on that device.
+  registerPushToken(userId: string, expoToken: string): Promise<void>;
+  removePushToken(userId: string, expoToken: string): Promise<void>;
+  pushTokensFor(userId: string): Promise<string[]>;
+  deletePushTokens(expoTokens: string[]): Promise<void>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -217,10 +223,12 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       return data ? toPayment(data) : null;
     },
     async getActivePair(userId) {
-      const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address")
+      const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address, trustee_id")
         .eq("user_id", userId).eq("status", "active").maybeSingle();
       if (error) rethrow(error);
-      return data ? { id: data.id, pairId: data.pair_id, pairKeyAddress: data.pair_key_address } : null;
+      return data
+        ? { id: data.id, pairId: data.pair_id, pairKeyAddress: data.pair_key_address, trusteeId: data.trustee_id }
+        : null;
     },
     async getApproval(id) {
       const { data, error } = await db.from("approvals").select("id, request_key, created_at").eq("id", id).maybeSingle();
@@ -298,6 +306,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       if (rules.error) rethrow(rules.error);
       return pairs.data.map((p) => ({
         pairId: p.pair_id,
+        userId: p.user_id,
         walletAddress: users.data.find((u) => u.id === p.user_id)!.wallet_address,
         rules: toRules(rules.data.find((r) => r.user_id === p.user_id)!),
       }));
@@ -309,6 +318,25 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       });
       if (error) rethrow(error);
       return toRules(data);
+    },
+
+    async registerPushToken(userId, expoToken) {
+      const { error } = await db.from("push_tokens")
+        .upsert({ user_id: userId, expo_token: expoToken }, { onConflict: "expo_token" });
+      if (error) rethrow(error);
+    },
+    async removePushToken(userId, expoToken) {
+      const { error } = await db.from("push_tokens").delete().eq("user_id", userId).eq("expo_token", expoToken);
+      if (error) rethrow(error);
+    },
+    async pushTokensFor(userId) {
+      const { data, error } = await db.from("push_tokens").select("expo_token").eq("user_id", userId);
+      if (error) rethrow(error);
+      return data.map((r) => r.expo_token);
+    },
+    async deletePushTokens(expoTokens) {
+      const { error } = await db.from("push_tokens").delete().in("expo_token", expoTokens);
+      if (error) rethrow(error);
     },
   };
 }
