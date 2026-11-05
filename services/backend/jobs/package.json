@@ -1,0 +1,19 @@
+{
+  "name": "@guardian/backend-jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "import": "bun arkiv-importer.ts"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "1.0.1",
+    "@supabase/supabase-js": "^2.119.0",
+    "viem": "^2.57.16"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  }
+}
