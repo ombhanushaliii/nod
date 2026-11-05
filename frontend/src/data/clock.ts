@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { useStore } from './store';
 
@@ -13,12 +13,10 @@ export function useNow(intervalMs = 1000) {
   return t + offset;
 }
 
+const subscribeHydration = (onChange: () => void) => useStore.persist.onFinishHydration(onChange);
+const getHydrated = () => useStore.persist.hasHydrated();
+
 /** True once the persisted store has loaded from disk. */
 export function useHydrated() {
-  const [hydrated, setHydrated] = useState(() => useStore.persist.hasHydrated());
-  useEffect(() => {
-    if (useStore.persist.hasHydrated()) setHydrated(true);
-    return useStore.persist.onFinishHydration(() => setHydrated(true));
-  }, []);
-  return hydrated;
+  return useSyncExternalStore(subscribeHydration, getHydrated, getHydrated);
 }

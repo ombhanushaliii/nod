@@ -35,25 +35,8 @@ export function AppLock() {
   const [supported, setSupported] = useState<boolean | null>(Platform.OS === 'web' ? false : null);
   const [method, setMethod] = useState<Method | null>(null);
   const authing = useRef(false);
+  const startedLocked = useRef(signedIn);
   const appState = useRef<AppStateStatus | string | null | undefined>(AppState.currentState);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    (async () => {
-      const level = await LocalAuthentication.getEnrolledLevelAsync();
-      if (level === LocalAuthentication.SecurityLevel.NONE) return setSupported(false);
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      const enrolledBiometric = level >= LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK;
-      setMethod(
-        enrolledBiometric && types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
-          ? 'face'
-          : enrolledBiometric && types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
-            ? 'finger'
-            : 'passcode',
-      );
-      setSupported(true);
-    })().catch(() => setSupported(false));
-  }, []);
 
   const unlock = useCallback(async () => {
     if (authing.current) return;
@@ -93,11 +76,31 @@ export function AppLock() {
     return () => sub.remove();
   }, [unlock]);
 
-  // Prompt right away on a cold start.
+  // Work out what the device supports, then prompt right away if we started locked (cold start).
   useEffect(() => {
-    if (locked && supported && AppState.currentState === 'active') void unlock();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when support is first known
-  }, [supported]);
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    (async () => {
+      const level = await LocalAuthentication.getEnrolledLevelAsync();
+      if (cancelled) return;
+      if (level === LocalAuthentication.SecurityLevel.NONE) return setSupported(false);
+      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      if (cancelled) return;
+      const enrolledBiometric = level >= LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK;
+      setMethod(
+        enrolledBiometric && types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
+          ? 'face'
+          : enrolledBiometric && types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+            ? 'finger'
+            : 'passcode',
+      );
+      setSupported(true);
+      if (startedLocked.current && AppState.currentState === 'active') void unlock();
+    })().catch(() => setSupported(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [unlock]);
 
   const visible = signedIn && locked && supported !== false;
   return (

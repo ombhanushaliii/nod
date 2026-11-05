@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { Animated, type GestureResponderEvent, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, G, Mask, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import { haptic } from '@/lib/haptics';
@@ -62,29 +62,21 @@ export function ScratchCard({ onDone }: { onDone: () => void }) {
     }
   };
 
-  const [responder] = useState(() =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => {
-        const { locationX: x, locationY: y } = e.nativeEvent;
-        last.current = null;
-        markTo(x, y);
-        setPath((p) => `${p} M${x.toFixed(1)} ${y.toFixed(1)} L${(x + 0.1).toFixed(1)} ${y.toFixed(1)}`);
-      },
-      onPanResponderMove: (e) => {
-        const { locationX: x, locationY: y } = e.nativeEvent;
-        markTo(x, y);
-        setPath((p) => `${p} L${x.toFixed(1)} ${y.toFixed(1)}`);
-        moves.current++;
-        if (moves.current % 6 === 0) check();
-        if (moves.current % 9 === 0) haptic('selection');
-      },
-      onPanResponderRelease: check,
-      onPanResponderTerminate: check,
-    }),
-  );
+  // Plain responder props (event handlers), so nothing reads the refs during render.
+  const onGrant = (e: GestureResponderEvent) => {
+    const { locationX: x, locationY: y } = e.nativeEvent;
+    last.current = null;
+    markTo(x, y);
+    setPath((p) => `${p} M${x.toFixed(1)} ${y.toFixed(1)} L${(x + 0.1).toFixed(1)} ${y.toFixed(1)}`);
+  };
+  const onMove = (e: GestureResponderEvent) => {
+    const { locationX: x, locationY: y } = e.nativeEvent;
+    markTo(x, y);
+    setPath((p) => `${p} L${x.toFixed(1)} ${y.toFixed(1)}`);
+    moves.current++;
+    if (moves.current % 6 === 0) check();
+    if (moves.current % 9 === 0) haptic('selection');
+  };
 
   const { w, h } = size;
   const dots = [];
@@ -92,7 +84,13 @@ export function ScratchCard({ onDone }: { onDone: () => void }) {
 
   return (
     <Animated.View
-      {...responder.panHandlers}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
+      onResponderGrant={onGrant}
+      onResponderMove={onMove}
+      onResponderRelease={check}
+      onResponderTerminate={check}
       onLayout={(e) => {
         const next = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
         sizeRef.current = next;
