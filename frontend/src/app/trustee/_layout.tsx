@@ -19,6 +19,7 @@ export default function TrusteeLayout() {
       <Stack.Protected guard={status === 'active' && hasName}>
         <Stack.Screen name="person/[id]" />
         <Stack.Screen name="request/[id]" />
+        <Stack.Screen name="settings" />
       </Stack.Protected>
     </Stack>
   );
