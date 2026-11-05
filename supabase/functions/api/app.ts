@@ -4,8 +4,9 @@ import { HTTPException } from "hono/http-exception";
 import type { AppEnv } from "./lib/http.ts";
 import type { Repo } from "./lib/repo.ts";
 import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
+import { type PaymentDeps, paymentRoutes } from "./routes/payments.ts";
 
-export type AppDeps = OnboardingDeps & {
+export type AppDeps = OnboardingDeps & PaymentDeps & {
   auth: MiddlewareHandler<AppEnv>;
   repo: Repo;
 };
@@ -35,6 +36,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.route("/", onboardingRoutes(deps));
+  app.route("/", paymentRoutes(deps));
 
   return app;
 }

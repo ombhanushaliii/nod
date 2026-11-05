@@ -2,7 +2,8 @@
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
 import { createApp } from "../app.ts";
 import { privyAuth } from "../lib/auth.ts";
-import { type Repo, RepoError, type User } from "../lib/repo.ts";
+import { type NewPayment, type Payee, type Repo, RepoError, type Rules, type User } from "../lib/repo.ts";
+import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 
 export const APP_ID = "test-app-id";
 const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
@@ -30,7 +31,35 @@ export class MemoryRepo implements Repo {
   users: User[] = [];
   pairs: Pair[] = [];
   invites: Invite[] = [];
-  rules = new Set<string>();
+  rules = new Map<string, Rules>();
+  payees = new Map<string, Payee>(); // key: userId|address
+  payments: (NewPayment & { id: string })[] = [];
+  clock = () => new Date();
+
+  hasActivePair(userId: string) {
+    return Promise.resolve(this.pairs.some((p) => p.userId === userId && p.status === "active"));
+  }
+  touchPayee(userId: string, address: string) {
+    const k = `${userId}|${address}`;
+    if (!this.payees.has(k)) this.payees.set(k, { firstAttemptAt: this.clock(), firstPaidAt: null, overLimitApprovedAt: null });
+    return Promise.resolve({ ...this.payees.get(k)! });
+  }
+  getRules(userId: string) {
+    return Promise.resolve({ ...this.rules.get(userId)! });
+  }
+  hasSentPayment(userId: string) {
+    return Promise.resolve(this.payments.some((p) => p.userId === userId && p.status === "sent"));
+  }
+  paidPayees(userId: string) {
+    return Promise.resolve(
+      [...this.payees.entries()].filter(([k, p]) => k.startsWith(`${userId}|`) && p.firstPaidAt).map(([k]) => k.split("|")[1]),
+    );
+  }
+  createPayment(p: NewPayment) {
+    const row = { ...p, id: crypto.randomUUID() };
+    this.payments.push(row);
+    return Promise.resolve({ id: row.id });
+  }
 
   findUserByPrivyId(id: string) {
     return Promise.resolve(this.users.find((u) => u.privy_user_id === id) ?? null);
@@ -41,7 +70,7 @@ export class MemoryRepo implements Repo {
   createUser(privyUserId: string, walletAddress: string) {
     const user = { id: crypto.randomUUID(), privy_user_id: privyUserId, wallet_address: walletAddress, created_at: new Date().toISOString() };
     this.users.push(user);
-    this.rules.add(user.id);
+    this.rules.set(user.id, { amountLimit: 100_000_000n, notifyMode: "first_per_payee" });
     return Promise.resolve(user);
   }
   createInvite(a: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }) {
@@ -86,7 +115,13 @@ export function makeTestApp() {
   const funded: string[] = [];
   // Privy DID -> embedded wallets, as Privy's API would report.
   const privyWallets = new Map<string, string[]>();
-  const state = { mailFails: false };
+  const state: {
+    mailFails: boolean;
+    now: Date;
+    reports: Map<string, ReportCounts>;
+    goplus: Map<string, GoPlusResult>;
+  } = { mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map() };
+  repo.clock = () => state.now;
 
   const app = createApp({
     auth: privyAuth({ appId: APP_ID, verificationKey: PEM }),
@@ -101,6 +136,9 @@ export function makeTestApp() {
     },
     funder: { fund: (a) => (funded.push(a), Promise.resolve()) },
     inviteUrlBase: "guardian://invite/",
+    scamReports: { countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }) },
+    goPlus: { check: (a) => Promise.resolve(state.goplus.get(a) ?? { flagged: [] }) },
+    now: () => state.now,
   });
 
   async function call(sub: string | null, method: string, path: string, json?: unknown) {

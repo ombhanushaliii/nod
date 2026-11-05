@@ -6,6 +6,7 @@ import { privyAuth } from "./lib/auth.ts";
 import { createDb } from "./lib/db.ts";
 import { loadEnv } from "./lib/env.ts";
 import { supabaseRepo } from "./lib/repo.ts";
+import { goPlusApi, noScamReports } from "./lib/risk.ts";
 import { noopArkivFunder, privyApi, resendMailer } from "./lib/services.ts";
 
 const env = loadEnv();
@@ -17,6 +18,9 @@ const app = createApp({
   mailer: resendMailer(env.resendApiKey, env.inviteFromEmail),
   funder: noopArkivFunder,
   inviteUrlBase: env.inviteUrlBase,
+  // TODO(arkiv): replace with live Arkiv report queries.
+  scamReports: noScamReports,
+  goPlus: goPlusApi(),
 });
 
 Deno.serve(app.fetch);
