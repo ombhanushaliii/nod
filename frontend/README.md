@@ -2,7 +2,7 @@
 
 The wallet app for both roles. The **wallet user** and the **trustee** use the same app; after sign-in the UI switches based on which account signed in.
 
-Frontend only for now: every backend, wallet and Arkiv call is mocked locally, so the whole flow can be demoed on one phone. The design it's built from is [`Wallet Prototype v3.dc.html`](./Wallet%20Prototype%20v3.dc.html).
+Privy login, wallets, balances, signing, and sponsored payments are connected. Trustee approval and some screens still use prototype data. See [wallet setup](../docs/privy-wallet.md) for configuration and integration status.
 
 ## Run it
 
@@ -11,21 +11,13 @@ npm install
 npx expo start
 ```
 
-Then press `i` / `a` for a simulator, or scan the QR code with Expo Go.
+Run `npm run web` for the website, or `npm run android` to open an installed Android development client. Privy requires native modules and does not run in Expo Go.
 
-The app has a **biometric lock**. Face ID needs a development build, since Expo Go can't use it:
-
-```bash
-npm run ios
-```
-
-```bash
-npm run android
-```
-
-In Expo Go the lock falls back to the device passcode on iOS; fingerprint works in Expo Go on Android. On web, or on a device with no screen lock, the lock is skipped.
+The app has a biometric lock on native devices. Web skips the lock.
 
 ## Demo on one phone
+
+Set `EXPO_PUBLIC_WALLET_MODE=demo` to use the local prototype.
 
 1. **Continue with Google** → pick **Alex Rivera** (wallet). Choose an avatar and invite a trustee (any email, e.g. `sam@gmail.com`).
 2. Send money. The **Try a test address** chips trigger each rule: new person ($10 for 24h), reported scam, risky address, look-alike of Mom, unconfirmed reports.
