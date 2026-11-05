@@ -40,7 +40,7 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `useApprovalStatus(requestKey)` | D | `pending` / `allowed` (+ `validFrom`) / `denied` / `expired` |
 | `usePendingRequests()` (trustee) | D | decrypted requests for this trustee |
 | `useDecide(requestKey, allow / deny)` (trustee) | B + D | done |
-| `useRules()` | C | limit, toggle, who can edit |
+| `useRules()` | C | limit, toggle, trustee's change history |
 | `useScamReports(address)` | D | verified and unverified reports |
 
 ### 2. Backend API (C owns) [draft]
@@ -53,8 +53,9 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `POST /onboarding/user` | Creates the user row and tops up tGLM |
 | `POST /onboarding/invite` `{trusteeEmail or trusteePhone}` | Required step; sends the invite |
 | `POST /pairs/accept` `{pairId, pairKeyAddress, encPubKey}` | Trustee accepts; tops up the per-pair key with tGLM |
-| `POST /push/register` `{expoToken}` | Saves the push token |
-| `GET /rules`, `PATCH /rules` | Tighten freely; loosening creates a `rules` request |
+| `POST /push/register`, `POST /push/unregister` `{expoToken}` | Saves / removes the push token (call on login / logout) |
+| `GET /rules` | The user's rules and the trustee's change history (read-only for the user) |
+| `GET /trustee/users`, `PATCH /trustee/users/:pairId/rules` `{amountLimit?, notifyMode?}` | Trustee only: list who they protect, change their rules (applies at once) |
 
 ### 3. `packages/arkiv` (D owns) [draft]
 
@@ -64,7 +65,7 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `createApprovalRequest(walletClient, {pairId, kind, sealed})` | App (user) |
 | `createDecision(pairKeyClient, {pairId, requestKey, verdict, intentHash, validFrom})` | App (trustee) |
 | `createScamReport(client, {address, source, category, reason})` | App (trustee), importer |
-| `queryPendingRequests(pairIds)` | Trustee app, push watcher |
+| `queryPendingRequests(pairIds)` | Trustee app |
 | `getDecision(requestKey, expectedOwner)` | Backend verify |
 | `queryReports(address, trustedCreators)` → `{verified, unverified}` | Backend rules, app warnings |
 | `seal(payload, trusteePubKey)` / `open(sealed, encSecretKey)` (tweetnacl) | App |
@@ -85,7 +86,7 @@ Screens, all in Expo against mocked hooks:
 - [ ] The 3 scam questions
 - [ ] Waiting for trustee: 30-min countdown; then allowed (with a 24h unlock time if the payee is new), denied, or expired
 - [ ] Trustee: accept invite, alerts list, context card (amount, payee, answers, why flagged), **Allow once / Deny & report**
-- [ ] Settings: limit and toggle (trustee edits; user can only tighten), export-key request
+- [ ] Settings: limit and toggle (trustee edits; read-only for the user), export-key request
 - [ ] Copy for the push notification. It must carry no payment details.
 
 Done when: every screen works on mocks, and swapping a hook's implementation needs no screen changes.
@@ -111,8 +112,8 @@ Done when: a fresh phone can log in, see its USDC, and write to Arkiv. The backe
 - [ ] `POST /payments/:id/send`: re-check, then relay with `sponsor: true`; mark approvals as used
 - [ ] `POST /payments/:id/approval`: verify via D's `getDecision` (owner = `pair_key_address`, `intentHash`, `validFrom`, expiry, unused)
 - [ ] Onboarding and invites (email/SMS sender), pair accept, tGLM top-ups
-- [ ] Expo push sender, triggered by D's watcher
-- [ ] Rules endpoints: tighten freely; loosen → `rules` request + 24h
+- [x] Expo push sender: trustee on request attach, user on rule change
+- [x] Rules endpoints: trustee-only edits, applied at once; user reads rules + history
 
 Done when: the full flow works through the API using a test script, without the app.
 
@@ -122,7 +123,7 @@ Done when: the full flow works through the API using a test script, without the 
 - [ ] `packages/arkiv`: the schemas with indexed fields exactly as in decisions doc §3, plus every helper above
 - [ ] Scam reports created with `permissionlessExtension`; 180-day expiry; trusted-creator filtering
 - [ ] Encryption helpers (tweetnacl `box`) and the key derivations
-- [ ] Backend jobs: **push watcher** (polls new requests, calls C's push sender), **report mirror** (to Supabase), **renewer** (extends live reports before they expire), **importer** (OFAC + other lists, from a seed wallet)
+- [ ] Backend jobs: **report mirror** (to Supabase), **renewer** (extends live reports before they expire), **importer** (OFAC + other lists, from a seed wallet)
 - [ ] Judging files: `/arkiv/schema.md`, `friction.md` (log friction as you hit it, with reproduction steps), `reach.md`, `why-arkiv.md`, `how-you-use-arkiv.md`
 - [ ] README: the wallet addresses that wrote entities, and one query judges can run
 
