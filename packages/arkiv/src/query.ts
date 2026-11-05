@@ -1,6 +1,6 @@
 import type { PublicArkivClient } from "@arkiv-network/sdk"
 import { addr, key } from "@arkiv-network/sdk/schema"
-import { asc, eq, gt, or } from "@arkiv-network/sdk/query"
+import { asc, eq, exists, gt, or } from "@arkiv-network/sdk/query"
 import { type Address, type Hex, hexToBytes } from "viem"
 import { ApprovalRequest, ScamReport, TrusteeDecision } from "./schemas"
 
@@ -11,10 +11,11 @@ const MAX_PAGES = 10
 // Stops after MAX_PAGES so a flood of entities can't hang us.
 async function readAll<T extends { $key: Hex }>(
   fetchPage: (after: Hex | undefined) => Promise<{ entities: readonly T[] }>,
+  maxPages = MAX_PAGES,
 ): Promise<T[]> {
   const all: T[] = []
   let after: Hex | undefined
-  for (let i = 0; i < MAX_PAGES; i++) {
+  for (let i = 0; i < maxPages; i++) {
     const { entities } = await fetchPage(after)
     all.push(...entities)
     if (entities.length < PAGE) return all
@@ -86,32 +87,55 @@ export async function getDecision(client: PublicArkivClient, requestKey: Hex, ex
   }
 }
 
-// Backend rules + app warnings: reports for an address.
-// Verified = written by one of trustedCreators (our seed wallet or a pair key).
-export async function queryReports(client: PublicArkivClient, address: Address, trustedCreators: Address[]) {
-  const forAddress = eq("address", addr(address))
+const REPORT_FIELDS = {
+  $key: true,
+  $creator: true,
+  $expiresAt: true,
+  address: true,
+  source: true,
+  category: true,
+  reason: true,
+  evidenceRef: true,
+} as const
 
+// Reads scam reports page by page: for one address, one creator, or all
+async function readReports(
+  client: PublicArkivClient,
+  scope: { address?: Address; createdBy?: Address },
+  maxPages?: number,
+) {
+  const match = scope.address ? eq("address", addr(scope.address)) : exists("address")
   const rows = await readAll((after) => {
-    const q = client
-      .select({ $key: true, $creator: true, source: true, category: true, reason: true, evidenceRef: true })
-      .from(ScamReport, { onMismatch: "throw" })
-      .orderBy(asc("$key"))
-      .limit(PAGE)
-    return (after ? q.where(forAddress, gt("$key", key(after))) : q.where(forAddress)).fetch()
-  })
+    const q = client.select(REPORT_FIELDS).from(ScamReport, { onMismatch: "throw" }).orderBy(asc("$key")).limit(PAGE)
+    if (scope.createdBy) q.createdBy(scope.createdBy)
+    return (after ? q.where(match, gt("$key", key(after))) : q.where(match)).fetch()
+  }, maxPages)
 
-  const trusted = new Set(trustedCreators.map((a) => a.toLowerCase()))
-  const reports = rows.map((r) => ({
+  return rows.map((r) => ({
     key: r.$key,
     creator: r.$creator,
+    expiresAt: r.$expiresAt,
+    address: r.address.value,
     source: r.source.value,
     category: r.category.value,
     reason: new TextDecoder().decode(hexToBytes(r.reason.value)),
     evidenceRef: r.evidenceRef?.value,
   }))
+}
 
+// Backend rules + app warnings: reports for an address.
+// Verified = written by one of trustedCreators (our seed wallet or a pair key).
+export async function queryReports(client: PublicArkivClient, address: Address, trustedCreators: Address[]) {
+  const reports = await readReports(client, { address })
+  const trusted = new Set(trustedCreators.map((a) => a.toLowerCase()))
   return {
     verified: reports.filter((r) => trusted.has(r.creator.toLowerCase())),
     unverified: reports.filter((r) => !trusted.has(r.creator.toLowerCase())),
   }
+}
+
+// Mirror + importer: every live report, or only one creator's.
+// maxPages x 100 is the most it will read.
+export function listReports(client: PublicArkivClient, opts: { createdBy?: Address; maxPages?: number } = {}) {
+  return readReports(client, { createdBy: opts.createdBy }, opts.maxPages ?? 50)
 }

@@ -3,6 +3,8 @@ import {
   type CreateEntityOptions,
   type CreateEntityReturnType,
   type CreateEntityValues,
+  type ExtendEntityParameters,
+  type ExtendEntityReturnType,
   type Schema,
   type TxParams,
   type WalletArkivClient,
@@ -30,15 +32,13 @@ const ESTIMATE_READS = new Set([
 
 class EstimateDone extends Error {}
 
-// Runs the create up to the gas estimate and stops there. Nothing is signed or sent.
-async function estimateCreate<S extends Schema>(
+// Runs the write up to the gas estimate and stops there. Nothing is signed or sent.
+async function estimate(
   wallet: WalletArkivClient,
   address: Address,
-  schema: S,
-  values: CreateEntityValues<S>,
-  options: CreateEntityOptions,
+  write: (dryRun: WalletArkivClient) => Promise<unknown>,
 ): Promise<bigint> {
-  let estimate: bigint | undefined
+  let gas: bigint | undefined
   const transport = custom(
     {
       async request(args: { method: string; params?: unknown[] }) {
@@ -47,7 +47,7 @@ async function estimateCreate<S extends Schema>(
           args.method === "eth_estimateGas" ? [args.params?.[0], "latest"] : args.params
         const result = await wallet.request({ method: args.method, params } as never)
         if (args.method === "eth_estimateGas") {
-          estimate = BigInt(result as string)
+          gas = BigInt(result as string)
           throw new EstimateDone()
         }
         return result
@@ -57,12 +57,12 @@ async function estimateCreate<S extends Schema>(
   )
   const dryRun = createWalletClient({ account: address, chain: wallet.chain, transport })
   try {
-    await dryRun.createEntity(schema, values, options)
+    await write(dryRun)
   } catch {
     // Expected: we throw EstimateDone on purpose
   }
-  if (estimate === undefined || estimate <= 0n) throw new Error("Gas estimate failed")
-  return estimate
+  if (gas === undefined || gas <= 0n) throw new Error("Gas estimate failed")
+  return gas
 }
 
 // gas = max(1,000,000, 2 x estimate), and it must fit in half a block
@@ -78,20 +78,18 @@ async function txParams(wallet: WalletArkivClient, address: Address, estimate: b
   return { gas, nonce: latest, gasPrice: await getGasPrice(wallet) }
 }
 
-// Creates one entity with the rules above. Throws if anything looks off. Does not retry.
-export async function safeCreate<S extends Schema>(
+// Estimate, send with explicit params, then check the receipt. No retry.
+async function safeWrite<R extends { txHash: `0x${string}` }>(
   wallet: WalletArkivClient,
-  schema: S,
-  values: CreateEntityValues<S>,
-  options: CreateEntityOptions,
-): Promise<CreateEntityReturnType> {
+  write: (client: WalletArkivClient, params?: TxParams) => Promise<R>,
+): Promise<R> {
   if (!wallet.account) throw new Error("Wallet has no account")
   if (wallet.chain?.id !== RABDI_CHAIN_ID) throw new Error("Wallet is not on Rabdi")
   const address = wallet.account.address
 
-  const estimate = await estimateCreate(wallet, address, schema, values, options)
-  const params = await txParams(wallet, address, estimate)
-  const result = await wallet.createEntity(schema, values, options, params)
+  const gas = await estimate(wallet, address, (dryRun) => write(dryRun))
+  const params = await txParams(wallet, address, gas)
+  const result = await write(wallet, params)
 
   const receipt = await getTransactionReceipt(wallet, { hash: result.txHash })
   if (receipt.status !== "success") {
@@ -99,4 +97,22 @@ export async function safeCreate<S extends Schema>(
     throw new Error(`Receipt is not success for ${result.txHash}`)
   }
   return result
+}
+
+// Creates one entity safely
+export function safeCreate<S extends Schema>(
+  wallet: WalletArkivClient,
+  schema: S,
+  values: CreateEntityValues<S>,
+  options: CreateEntityOptions,
+): Promise<CreateEntityReturnType> {
+  return safeWrite(wallet, (client, params) => client.createEntity(schema, values, options, params))
+}
+
+// Extends one entity's expiry safely (used by the renewer)
+export function safeExtend(
+  wallet: WalletArkivClient,
+  data: ExtendEntityParameters,
+): Promise<ExtendEntityReturnType> {
+  return safeWrite(wallet, (client, params) => client.extendEntity(data, params))
 }
