@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -24,19 +24,29 @@ export default function Review() {
   const amount = draft?.amount ?? 0;
   const parts = moneyParts(amount);
 
-  // Hold-to-send: the bar fills over 0.9s; letting go early cancels.
+  // Hold-to-send: the bar fills over 0.9s; letting go early cancels. A timer decides the send
+  // (like the prototype) so it never depends on an animation frame finishing.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
   const start = () => {
+    if (timer.current) return;
     haptic('light');
     setHolding(true);
-    Animated.timing(progress, { toValue: 1, duration: HOLD_MS, easing: Easing.linear, useNativeDriver: false }).start(async ({ finished }) => {
-      if (!finished) return;
+    Animated.timing(progress, { toValue: 1, duration: HOLD_MS, easing: Easing.linear, useNativeDriver: false }).start();
+    timer.current = setTimeout(async () => {
+      timer.current = null;
       setHolding(false);
       haptic('success');
       await send();
       router.replace('/wallet/sent');
-    });
+    }, HOLD_MS);
   };
   const cancel = () => {
+    if (!timer.current) return;
+    clearTimeout(timer.current);
+    timer.current = null;
     setHolding(false);
     progress.stopAnimation();
     Animated.timing(progress, { toValue: 0, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: false }).start();
