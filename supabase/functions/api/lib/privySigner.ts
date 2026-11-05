@@ -18,9 +18,28 @@ export class SendError extends Error {
   }
 }
 
+// How a submitted transaction ended, from Privy's transaction status.
+export type TxOutcome =
+  | { outcome: "pending" }
+  | { outcome: "sent"; hash: string }
+  | { outcome: "failed"; reason: string };
+
 export interface PaymentSender {
   // referenceId is unique per transaction at Privy, so a retry can't send twice.
   sendUsdc(args: { walletId: string; to: string; amount: bigint; referenceId: string }): Promise<SendResult>;
+  transactionOutcome(transactionId: string): Promise<TxOutcome>;
+}
+
+const FAILED = new Set(["failed", "execution_reverted", "provider_error"]);
+const DONE = new Set(["confirmed", "finalized"]);
+
+// Privy statuses: pending, broadcasted, confirmed, finalized, execution_reverted,
+// failed, replaced, provider_error. "replaced" stays pending: another
+// transaction took its place and may still land.
+export function outcomeOf(status: string, hash: string | null): TxOutcome {
+  if (FAILED.has(status)) return { outcome: "failed", reason: status };
+  if (DONE.has(status) && hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) return { outcome: "sent", hash: hash.toLowerCase() };
+  return { outcome: "pending" };
 }
 
 // ERC-20 transfer(address,uint256) calldata.
@@ -77,7 +96,16 @@ export function privySender(cfg: {
 }): PaymentSender {
   const doFetch = cfg.fetch ?? fetch;
   let key: Promise<CryptoKey> | undefined;
+  const basic = `Basic ${btoa(`${cfg.appId}:${cfg.appSecret}`)}`;
   return {
+    async transactionOutcome(transactionId) {
+      const res = await doFetch(`https://api.privy.io/v1/transactions/${encodeURIComponent(transactionId)}`, {
+        headers: { authorization: basic, "privy-app-id": cfg.appId },
+      });
+      if (!res.ok) throw new SendError(`Privy transaction lookup: ${res.status} ${await res.text()}`, res.status);
+      const tx = await res.json() as { status: string; transaction_hash: string | null };
+      return outcomeOf(tx.status, tx.transaction_hash);
+    },
     async sendUsdc({ walletId, to, amount, referenceId }) {
       key ??= importAuthorizationKey(cfg.authorizationKey);
       const url = `https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}/rpc`;
@@ -98,7 +126,7 @@ export function privySender(cfg: {
         res = await doFetch(url, {
           method: "POST",
           headers: {
-            authorization: `Basic ${btoa(`${cfg.appId}:${cfg.appSecret}`)}`,
+            authorization: basic,
             "privy-app-id": cfg.appId,
             "privy-authorization-signature": signature,
             "content-type": "application/json",
@@ -116,8 +144,9 @@ export function privySender(cfg: {
       return {
         transactionId: out.data?.transaction_id ?? null,
         userOperationHash: out.data?.user_operation_hash ?? null,
-        // Empty for sponsored transactions until they confirm.
-        hash: out.data?.hash || null,
+        // Empty for sponsored transactions until they confirm. Lower-cased to
+        // match the database check, so storing it can't fail after sending.
+        hash: /^0x[0-9a-fA-F]{64}$/.test(out.data?.hash ?? "") ? out.data!.hash!.toLowerCase() : null,
       };
     },
   };

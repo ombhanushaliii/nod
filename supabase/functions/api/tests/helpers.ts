@@ -9,7 +9,7 @@ import {
 import type { NotifyMode } from "../lib/rules.ts";
 import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
-import type { SendError } from "../lib/privySigner.ts";
+import type { SendError, TxOutcome } from "../lib/privySigner.ts";
 import type { PushMessage } from "../lib/push.ts";
 
 type Approval = {
@@ -141,13 +141,39 @@ export class MemoryRepo implements Repo {
   markSubmitted(paymentId: string, r: { transactionId: string | null; userOperationHash: string | null; hash: string | null }) {
     const p = this.payments.find((x) => x.id === paymentId && x.status === "sending");
     if (!p) return Promise.reject(new RepoError("not_sending"));
-    Object.assign(p, { status: "submitted", submitted: r });
+    Object.assign(p, { status: "submitted", privyTransactionId: r.transactionId, txHash: r.hash });
     const payee = this.payees.get(`${p.userId}|${p.toAddress}`);
     if (payee) {
       payee.firstPaidAt ??= this.clock();
       if (p.approvalId && p.reasons.includes("over_limit")) payee.overLimitApprovedAt ??= this.clock();
     }
     return Promise.resolve();
+  }
+  // Mirrors settle_payment.
+  settlePayment(paymentId: string, s: { outcome: "sent"; hash: string } | { outcome: "failed"; reason: string }) {
+    const p = this.payments.find((x) => x.id === paymentId);
+    if (!p) return Promise.reject(new RepoError("payment_not_found"));
+    if (p.status !== "submitted") return Promise.resolve(p.status);
+    if (s.outcome === "sent") {
+      Object.assign(p, { status: "sent", txHash: s.hash });
+      return Promise.resolve(p.status);
+    }
+    Object.assign(p, { status: "failed", failureReason: s.reason });
+    const payee = this.payees.get(`${p.userId}|${p.toAddress}`);
+    const others = this.payments.filter((x) =>
+      x.userId === p.userId && x.toAddress === p.toAddress && (x.status === "submitted" || x.status === "sent")
+    );
+    if (payee) {
+      if (others.length === 0) payee.firstPaidAt = null;
+      if (!others.some((x) => x.approvalId && x.reasons.includes("over_limit"))) payee.overLimitApprovedAt = null;
+    }
+    return Promise.resolve(p.status);
+  }
+  listPayments(userId: string, limit: number) {
+    return Promise.resolve(
+      this.payments.filter((p) => p.userId === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit).map((p) => ({ ...p })),
+    );
   }
   // Mirrors release_payment.
   releasePayment(paymentId: string) {
@@ -288,13 +314,16 @@ export function makeTestApp() {
     // Fake Privy sender: every call, and whether the next one fails.
     sent: { walletId: string; to: string; amount: bigint; referenceId: string }[];
     sendFails: SendError | null;
+    // Fake Privy transaction status by transaction id (missing = pending).
+    txOutcomes: Map<string, TxOutcome>;
+    txLookupFails: boolean;
     // Fake Expo push: every message sent, tokens Expo reports dead, and outages.
     pushes: { to: string[]; message: PushMessage }[];
     deadTokens: string[];
     pushFails: boolean;
   } = {
     mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
-    arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null,
+    arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null, txOutcomes: new Map(), txLookupFails: false,
     pushes: [], deadTokens: [], pushFails: false,
   };
   repo.clock = () => state.now;
@@ -327,6 +356,10 @@ export function makeTestApp() {
         if (state.sendFails) return Promise.reject(state.sendFails);
         state.sent.push(args);
         return Promise.resolve({ transactionId: `tx-${state.sent.length}`, userOperationHash: "0xop", hash: null });
+      },
+      transactionOutcome(id) {
+        if (state.txLookupFails) return Promise.reject(new Error("privy down"));
+        return Promise.resolve(state.txOutcomes.get(id) ?? { outcome: "pending" });
       },
     },
     push: {

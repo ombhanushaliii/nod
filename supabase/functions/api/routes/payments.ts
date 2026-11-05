@@ -8,7 +8,7 @@ import { checkDecision, REQUEST_TTL_MS } from "../lib/approval.ts";
 import type { ArkivApprovals } from "../lib/arkiv.ts";
 import { type PaymentSender, SendError } from "../lib/privySigner.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
-import type { PaymentStatus } from "../lib/repo.ts";
+import type { Payment, PaymentStatus, Repo } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
 import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
@@ -25,6 +25,42 @@ export type PaymentDeps = {
 // A payment with no trustee approval must be sent soon after its check, so a
 // scam report that appears in between isn't missed.
 export const MAX_CHECK_AGE_MS = 10 * 60 * 1000;
+
+export const EXPLORER_TX = "https://sepolia.basescan.org/tx/";
+
+function view(p: Payment) {
+  return {
+    paymentId: p.id,
+    status: p.status,
+    to: p.toAddress,
+    amount: formatUsdc(p.amount),
+    verdict: p.verdict,
+    reasons: p.reasons,
+    unlockAt: p.unlockAt?.toISOString() ?? null,
+    createdAt: p.createdAt.toISOString(),
+    txHash: p.txHash ?? null,
+    explorerUrl: p.txHash ? `${EXPLORER_TX}${p.txHash}` : null,
+    failureReason: p.failureReason ?? null,
+  };
+}
+
+// A submitted payment is finished by asking Privy how its transaction ended,
+// when the app reads it. No polling job. If Privy can't answer, it stays
+// submitted and the next read tries again.
+async function settle(repo: Repo, sender: PaymentSender, p: Payment): Promise<Payment> {
+  if (p.status !== "submitted" || !p.privyTransactionId) return p;
+  try {
+    const tx = await sender.transactionOutcome(p.privyTransactionId);
+    if (tx.outcome === "pending") return p;
+    const status = await repo.settlePayment(p.id, tx);
+    return tx.outcome === "sent"
+      ? { ...p, status, txHash: tx.hash }
+      : { ...p, status, failureReason: tx.reason };
+  } catch (err) {
+    console.error("settle failed", err);
+    return p;
+  }
+}
 
 const statusFor: Record<Verdict, PaymentStatus> = {
   refused: "refused",
@@ -95,6 +131,22 @@ export function paymentRoutes(deps: PaymentDeps) {
       reports,
       trusteeActive,
     });
+  });
+
+  // The user's payments, newest first. ?limit= (default 20, max 50).
+  r.get("/payments", async (c) => {
+    const user = await requireUser(c);
+    const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 20) || 20, 1), 50);
+    const list = await c.var.repo.listPayments(user.id, limit);
+    const settled = await Promise.all(list.map((p) => settle(c.var.repo, deps.sender, p)));
+    return c.json({ payments: settled.map(view) });
+  });
+
+  r.get("/payments/:id", async (c) => {
+    const user = await requireUser(c);
+    const payment = await c.var.repo.getPayment(c.req.param("id"), user.id);
+    if (!payment) fail(404, "payment_not_found");
+    return c.json(view(await settle(c.var.repo, deps.sender, payment)));
   });
 
   // The app wrote an approval_request on Arkiv for this payment. The backend

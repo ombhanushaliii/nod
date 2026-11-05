@@ -17,7 +17,11 @@ export type NewPayment = {
   status: PaymentStatus; unlockAt: Date | null; nonce: string;
 };
 
-export type Payment = NewPayment & { id: string; approvalId: string | null; createdAt: Date };
+export type Payment = NewPayment & {
+  id: string; approvalId: string | null; createdAt: Date;
+  // Set once Privy accepted / confirmed the transaction.
+  privyTransactionId?: string | null; txHash?: string | null; failureReason?: string | null;
+};
 export type ActivePair = { id: string; pairId: string; pairKeyAddress: string; trusteeId: string };
 export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
@@ -76,6 +80,10 @@ export interface Repo {
   markSubmitted(paymentId: string, r: { transactionId: string | null; userOperationHash: string | null; hash: string | null }): Promise<void>;
   // Privy refused: back to ready, approval usable again.
   releasePayment(paymentId: string): Promise<void>;
+  // submitted -> sent / failed. Idempotent; returns the status afterwards.
+  settlePayment(paymentId: string, s: { outcome: "sent"; hash: string } | { outcome: "failed"; reason: string }): Promise<PaymentStatus>;
+  // Newest first.
+  listPayments(userId: string, limit: number): Promise<Payment[]>;
 
   // Rules: only the trustee changes them, and changes apply at once.
   // History is newest first.
@@ -93,6 +101,7 @@ export interface Repo {
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const KNOWN: RepoErrorCode[] = [
   "pair_active", "invite_not_found", "invite_used", "invite_expired", "self_trustee",
@@ -109,6 +118,8 @@ function toPayment(data: any): Payment {
     verdict: data.verdict, reasons: data.reasons, status: data.status,
     unlockAt: date(data.unlock_at), nonce: data.nonce, approvalId: data.approval_id,
     createdAt: new Date(data.created_at),
+    privyTransactionId: data.privy_transaction_id ?? null, txHash: data.tx_hash ?? null,
+    failureReason: data.failure_reason ?? null,
   };
 }
 
@@ -218,6 +229,8 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     },
 
     async getPayment(id, userId) {
+      // Not a uuid: Postgres would raise, but it simply doesn't exist.
+      if (!UUID_RE.test(id)) return null;
       const { data, error } = await db.from("payments").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
       if (error) rethrow(error);
       return data ? toPayment(data) : null;
@@ -256,6 +269,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       return data.length > 0;
     },
     async claimPayment(paymentId, userId, maxCheckAgeMs) {
+      if (!UUID_RE.test(paymentId)) throw new RepoError("payment_not_found");
       const { data, error } = await db.rpc("claim_payment", {
         p_payment_id: paymentId, p_user_id: userId, p_max_check_age: `${Math.floor(maxCheckAgeMs / 1000)} seconds`,
       });
@@ -272,6 +286,20 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     async releasePayment(paymentId) {
       const { error } = await db.rpc("release_payment", { p_payment_id: paymentId });
       if (error) rethrow(error);
+    },
+    async settlePayment(paymentId, s) {
+      const { data, error } = await db.rpc("settle_payment", {
+        p_payment_id: paymentId, p_outcome: s.outcome,
+        p_tx_hash: s.outcome === "sent" ? s.hash : null, p_reason: s.outcome === "failed" ? s.reason : null,
+      });
+      if (error) rethrow(error);
+      return data as PaymentStatus;
+    },
+    async listPayments(userId, limit) {
+      const { data, error } = await db.from("payments").select("*").eq("user_id", userId)
+        .order("created_at", { ascending: false }).limit(limit);
+      if (error) rethrow(error);
+      return data.map(toPayment);
     },
 
     async rulesView(userId, historyLimit) {
