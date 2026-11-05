@@ -9,3 +9,4 @@ export * from './ScratchCard';
 export * from './SignOutSheet';
 export * from './ReviewRow';
 export * from './BannerHost';
+export * from './AppLock';
