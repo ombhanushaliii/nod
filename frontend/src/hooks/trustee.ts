@@ -5,7 +5,7 @@ import { createDecision, createScamReport } from '@guardian/arkiv/src/create';
 import { exportIntentHash, intentHash, open } from '@guardian/arkiv/src/crypto';
 import { parseExportPayload, parsePaymentPayload } from '@guardian/arkiv/src/payload';
 import { queryPendingRequests } from '@guardian/arkiv/src/query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { bytesToHex, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -250,28 +250,81 @@ export function useLiveDecide() {
 }
 
 /** Rules apply at once. Shows the change straight away and puts it back if the backend says no. */
+/** Quick taps on the rule steppers are saved together, this long after the last one. */
+const RULES_SAVE_DELAY_MS = 700;
+
+type PendingRules = {
+  /** The rules as last saved, to put back if the save fails. */
+  saved: LivePerson;
+  patch: Partial<Rules>;
+  timer: ReturnType<typeof setTimeout>;
+  waiting: { resolve: () => void; reject: (err: unknown) => void }[];
+};
+
+/**
+ * Changes a person's rules. The screen shows each tap at once, but a burst of taps
+ * (stepping $100 → $250) is saved as one change: the backend allows 5 changes per
+ * person in 10 minutes. If the save fails, the rules go back to what was saved.
+ */
 export function useSetLiveRules() {
   const { getAccessToken } = useWallet();
   const { assertSession } = useLiveApi();
-  return useCallback(async (pairId: string, patch: Partial<Rules>) => {
-    const before = useStore.getState().people.find((p) => p.pairId === pairId);
-    if (!before) return;
-    const body: { amountLimit?: string; notifyMode?: Rules['mode'] } = {};
-    if (patch.limit !== undefined) body.amountLimit = String(patch.limit);
-    if (patch.mode !== undefined) body.notifyMode = patch.mode;
-    if (!body.amountLimit && !body.notifyMode) return;
+  const pending = useRef(new Map<string, PendingRules>());
+
+  const flush = useCallback(async (pairId: string) => {
+    const job = pending.current.get(pairId);
+    if (!job) return;
+    pending.current.delete(pairId);
     const put = (p: LivePerson) => useStore.setState((s) => ({ people: s.people.map((x) => (x.pairId === pairId ? p : x)) }));
-    put({ ...before, ...(patch.limit !== undefined ? { limit: patch.limit } : {}), ...(patch.mode ? { mode: patch.mode } : {}) });
+    const next = { limit: job.patch.limit ?? job.saved.limit, mode: job.patch.mode ?? job.saved.mode };
+    // Stepped up and back down again: nothing to save.
+    if (next.limit === job.saved.limit && next.mode === job.saved.mode) {
+      job.waiting.forEach((w) => w.resolve());
+      return;
+    }
+    const body: { amountLimit?: string; notifyMode?: Rules['mode'] } = {};
+    if (next.limit !== job.saved.limit) body.amountLimit = String(next.limit);
+    if (next.mode !== job.saved.mode) body.notifyMode = next.mode;
     try {
       const saved = await apiRequest<{ amountLimit: string; notifyMode: Rules['mode'] }>(
         getAccessToken, `/trustee/users/${encodeURIComponent(pairId)}/rules`, body, 'PATCH');
       assertSession();
-      put({ ...before, limit: Number(saved.amountLimit), mode: saved.notifyMode });
+      // Unless more taps came in meanwhile, show exactly what the backend saved.
+      if (!pending.current.has(pairId)) put({ ...job.saved, limit: Number(saved.amountLimit), mode: saved.notifyMode });
+      job.waiting.forEach((w) => w.resolve());
     } catch (err) {
-      put(before);
-      throw err;
+      const later = pending.current.get(pairId);
+      if (later) {
+        // Newer taps are waiting: they now start from what's really saved.
+        later.saved = job.saved;
+      } else {
+        put(job.saved);
+      }
+      // One error for the whole burst (one buzz, one message): its last tap carries it.
+      job.waiting.slice(0, -1).forEach((w) => w.resolve());
+      job.waiting[job.waiting.length - 1]?.reject(err);
     }
   }, [getAccessToken, assertSession]);
+
+  return useCallback((pairId: string, patch: Partial<Rules>): Promise<void> => {
+    const current = useStore.getState().people.find((p) => p.pairId === pairId);
+    if (!current || (patch.limit === undefined && patch.mode === undefined)) return Promise.resolve();
+    const job = pending.current.get(pairId);
+    if (job) clearTimeout(job.timer);
+    const merged: PendingRules = job ?? { saved: current, patch: {}, timer: 0 as unknown as ReturnType<typeof setTimeout>, waiting: [] };
+    merged.patch = { ...merged.patch, ...patch };
+    // Show it straight away.
+    useStore.setState((s) => ({
+      people: s.people.map((x) => (x.pairId === pairId
+        ? { ...x, ...(patch.limit !== undefined ? { limit: patch.limit } : {}), ...(patch.mode ? { mode: patch.mode } : {}) }
+        : x)),
+    }));
+    return new Promise<void>((resolve, reject) => {
+      merged.waiting.push({ resolve, reject });
+      merged.timer = setTimeout(() => void flush(pairId), RULES_SAVE_DELAY_MS);
+      pending.current.set(pairId, merged);
+    });
+  }, [flush]);
 }
 
 export type AddressVerdict = 'danger' | 'caution' | 'clear';
