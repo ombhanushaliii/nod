@@ -3,6 +3,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Sty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme';
+import { PrivacyCover } from './PrivacyCover';
 
 type Props = {
   visible: boolean;
@@ -43,6 +44,7 @@ export function Sheet({ visible, onClose, children, dim = 0.34, center, gap = 18
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+      <PrivacyCover />
     </Modal>
   );
 }
