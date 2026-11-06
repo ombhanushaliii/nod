@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import type { PublicArkivClient } from "@arkiv-network/sdk";
-import { arkivScamReports, blockToDate, countReports, type DecisionRow, pickDecision } from "../lib/arkivLive.ts";
+import { arkivApprovals, arkivScamReports, blockToDate, countReports, type DecisionRow, pickDecision } from "../lib/arkivLive.ts";
 import { addr } from "./helpers.ts";
 
 const timing = { currentBlock: 1000n, currentBlockTime: 1_800_000_000, blockDuration: 2 };
@@ -70,4 +70,20 @@ Deno.test("scam reports: pages of 100 (skipped ones count), stops at a short pag
   });
   assertEquals(await reports.countFor(addr("9")), { verified: 0, unverified: 93 });
   assertEquals(offsets, [0, 100]);
+});
+
+Deno.test("decisions: only ones the pair key created, never by owner", async () => {
+  const calls: string[] = [];
+  const q = {
+    from: () => q, where: () => q, limit: () => q,
+    createdBy: (a: string) => (calls.push(`createdBy ${a}`), q),
+    ownedBy: (a: string) => (calls.push(`ownedBy ${a}`), q),
+    fetch: () => Promise.resolve({ entities: [], skipped: 0 }),
+  };
+  const client = {
+    select: () => q,
+    getBlockTiming: () => Promise.resolve(timing),
+  } as unknown as PublicArkivClient;
+  assertEquals(await arkivApprovals(client).findDecision("0x" + "1".repeat(64), addr("p")), null);
+  assertEquals(calls, [`createdBy ${addr("p")}`]);
 });

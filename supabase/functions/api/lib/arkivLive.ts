@@ -10,6 +10,9 @@
 //   entity claims, so nothing can be backdated.
 // - Queries skip entities that don't fit our schemas, so one bad entity
 //   written by anyone can't break a read.
+// - Who wrote an entity is its $creator. $owner can be handed to anyone with
+//   changeOwnership, so it's never used: otherwise anyone could write an
+//   allow and give it to the trustee's pair key.
 // - A report is "verified" only if our seed wallet or a trustee pair key wrote it.
 import {
   createPublicClient,
@@ -101,7 +104,7 @@ export function arkivApprovals(client: PublicArkivClient): ArkivApprovals {
       const timing = await client.getBlockTiming();
       return {
         entityKey: e.$key.toLowerCase(),
-        owner: e.$owner.toLowerCase(),
+        owner: e.$creator.toLowerCase(),
         pairId: e.pairId.value.toLowerCase(),
         kind,
         createdAt: blockToDate(e.$createdAt, timing),
@@ -112,19 +115,19 @@ export function arkivApprovals(client: PublicArkivClient): ArkivApprovals {
       const [{ entities }, timing] = await Promise.all([
         client
           .select({
-            $key: true, $owner: true, $createdAt: true, $expiresAt: true,
+            $key: true, $creator: true, $createdAt: true, $expiresAt: true,
             pairId: true, requestKey: true, verdict: true, intentHash: true, validFrom: true,
           })
           .from(TrusteeDecision, { onMismatch: "skip" })
           .where(eq("requestKey", key(requestKey as Hex)))
-          .ownedBy(owner as Hex)
+          .createdBy(owner as Hex)
           .limit(10)
           .fetch(),
         client.getBlockTiming(),
       ]);
       return pickDecision(entities.map((d) => ({
         entityKey: d.$key.toLowerCase(),
-        owner: d.$owner.toLowerCase(),
+        owner: d.$creator.toLowerCase(),
         pairId: d.pairId.value.toLowerCase(),
         requestKey: d.requestKey.value.toLowerCase(),
         verdict: d.verdict.value,
