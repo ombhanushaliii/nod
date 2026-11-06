@@ -66,14 +66,16 @@ Deno.test("trustee-approved new payee: waits 24h after the Allow, then sends onc
   assertEquals((await send(t, p.paymentId)).body.error, "not_ready");
 });
 
-Deno.test("approval unused past its 1h window can't be used", async () => {
+Deno.test("an approval has no time limit: sent a week later, once", async () => {
   const t = await setup();
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
   t.decide(p.requestKey, { to: addr("9"), amount: 150_000_000n, nonce: p.nonce });
   await t.poll(p.paymentId);
-  t.state.now = new Date(t.state.now.getTime() + 61 * MIN);
-  assertEquals((await send(t, p.paymentId)).body.error, "approval_not_usable");
+  t.state.now = new Date(t.state.now.getTime() + 7 * 24 * HOUR);
+  assertEquals((await send(t, p.paymentId)).body.status, "submitted");
+  // Still single use.
+  assertEquals((await send(t, p.paymentId)).status, 409);
 });
 
 Deno.test("denied or still-waiting payments can't be sent", async () => {

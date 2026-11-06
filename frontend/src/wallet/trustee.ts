@@ -19,7 +19,7 @@ export function inviteTokenFrom(link: { hostname?: string | null; path?: string 
   return typeof token === 'string' && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 }
 
-export const REQUEST_TTL_MS = 30 * 60 * 1000;
+export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000; // approval_request lives 24 h
 export const NEW_PAYEE_WAIT_MS = 24 * 60 * 60 * 1000;
 
 const LIMIT_REASONS = new Set(['new_payee', 'over_limit', 'first_payment_cap']);

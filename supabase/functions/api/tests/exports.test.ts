@@ -78,10 +78,10 @@ Deno.test("export: the Allow can't be claimed after its hour", async () => {
   assertEquals((await t.call(USER, "POST", "/exports/claim")).body.error, "export_not_allowed");
 });
 
-Deno.test("export: no answer in 30 minutes expires the request", async () => {
+Deno.test("export: no answer in 24 hours expires the request", async () => {
   const t = await setup();
   const e = await askExport(t);
-  t.state.now = new Date(t.state.now.getTime() + 31 * MIN);
+  t.state.now = new Date(t.state.now.getTime() + 24 * HOUR + MIN);
   assertEquals((await poll(t, e.exportId)).body.status, "expired");
 });
 

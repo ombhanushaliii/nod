@@ -40,11 +40,15 @@ export const ScamReport = defineSchema("scam_report", {
 })
 
 // How long each entity lives (docs: D4, D5, D6)
+// Requests and decisions live 24h, so the trustee has a day to answer. A new
+// person's Allow unlocks 24h later, so it lives 25h: long enough for the
+// backend to read it. Once the backend has recorded an Allow it has no time
+// limit to send (Supabase keeps it after the entity expires).
 export const EXPIRY = {
-  request: ExpirationTime.fromMinutes(30),
-  allowKnownPayee: ExpirationTime.fromHours(1),
+  request: ExpirationTime.fromHours(24),
+  allowKnownPayee: ExpirationTime.fromHours(24),
   allowNewPayee: ExpirationTime.fromHours(25),
-  deny: ExpirationTime.fromMinutes(30),
+  deny: ExpirationTime.fromHours(24),
   report: ExpirationTime.fromDays(180),
 }
 

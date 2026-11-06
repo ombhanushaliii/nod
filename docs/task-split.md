@@ -84,7 +84,7 @@ Screens, all in Expo against mocked hooks:
 - [ ] Send: recipient + amount, then one screen for each result: **sent**, **refused ($10 first-payment cap)**, **cooldown (unlocks at …)**, **needs trustee**
 - [ ] Warning for a flagged address: shows verified vs unverified reports and the reason
 - [ ] The 3 scam questions
-- [ ] Waiting for trustee: 30-min countdown; then allowed (with a 24h unlock time if the payee is new), denied, or expired
+- [ ] Waiting for trustee: 24-hour countdown; then allowed (with a 24h unlock time if the payee is new), denied, or expired
 - [ ] Trustee: accept invite, alerts list, context card (amount, payee, answers, why flagged), **Allow once / Deny & report**
 - [ ] Settings: limit and toggle (trustee edits; read-only for the user), export-key request
 - [ ] Copy for the push notification. It must carry no payment details.

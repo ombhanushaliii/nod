@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { addr, hex32 } from "./helpers.ts";
 import { HOUR, MIN, setup, TRUSTEE, USER } from "./flow.ts";
 
-Deno.test("allow for a known payee: ready now, usable for 1h", async () => {
+Deno.test("allow for a known payee: ready now, no time limit to send", async () => {
   const t = await setup();
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
@@ -12,7 +12,7 @@ Deno.test("allow for a known payee: ready now, usable for 1h", async () => {
   const res = await t.poll(p.paymentId);
   assertEquals(res.body.status, "ready");
   assertEquals(res.body.unlockAt, t.state.now.toISOString());
-  assertEquals(res.body.validUntil, new Date(t.state.now.getTime() + HOUR).toISOString());
+  assertEquals(new Date(res.body.validUntil).getTime() - t.state.now.getTime() > 365 * 24 * HOUR, true);
   // Polling again just reports the stored status.
   assertEquals((await t.poll(p.paymentId)).body.status, "ready");
 });
@@ -24,7 +24,7 @@ Deno.test("allow for a new payee: 24h cooldown from the Allow, even if the trust
   const res = await t.poll(p.paymentId);
   assertEquals(res.body.status, "cooling_down");
   assertEquals(res.body.unlockAt, new Date(t.state.now.getTime() + 24 * HOUR).toISOString());
-  assertEquals(res.body.validUntil, new Date(t.state.now.getTime() + 25 * HOUR).toISOString());
+  assertEquals(new Date(res.body.validUntil).getTime() - t.state.now.getTime() > 365 * 24 * HOUR, true);
 });
 
 Deno.test("deny marks the payment denied", async () => {
@@ -62,21 +62,21 @@ Deno.test("a decision for another pair is rejected", async () => {
   assertEquals((await t.poll(p.paymentId)).body.error, "pair_mismatch");
 });
 
-Deno.test("an Allow that already ran out is rejected", async () => {
+Deno.test("an Allow doesn't run out: polled hours later, it's still ready", async () => {
   const t = await setup();
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
   t.decide(p.requestKey, { to: addr("9"), amount: 150_000_000n, nonce: p.nonce });
-  // Nobody polled until the 1h window was over.
+  // Nobody polled for 2 hours; the old 1h window would have rejected it.
   t.state.now = new Date(t.state.now.getTime() + 2 * HOUR);
-  assertEquals((await t.poll(p.paymentId)).body.error, "decision_expired");
+  assertEquals((await t.poll(p.paymentId)).body.status, "ready");
 });
 
-Deno.test("no decision after 30 minutes: expired", async () => {
+Deno.test("no decision after 24 hours: expired", async () => {
   const t = await setup();
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
-  t.state.now = new Date(t.state.now.getTime() + 29 * MIN);
+  t.state.now = new Date(t.state.now.getTime() + 24 * HOUR - MIN);
   assertEquals((await t.poll(p.paymentId)).body.status, "awaiting_trustee");
   t.state.now = new Date(t.state.now.getTime() + 2 * MIN);
   assertEquals((await t.poll(p.paymentId)).body.status, "expired");

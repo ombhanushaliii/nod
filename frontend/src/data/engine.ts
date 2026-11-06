@@ -27,8 +27,9 @@ export const BAD_ANSWERS = [true, true, false];
 
 export const FIRST_PAYMENT_CAP = 10;
 export const NEW_PAYEE_CAP = 10;
-export const REQUEST_TTL = 30 * 60e3;
-export const APPROVAL_WINDOW = HOUR;
+export const REQUEST_TTL = 24 * 3600e3; // approval_request lives 24 h
+// An allowed payment has no time limit to send (demo matches the backend).
+export const APPROVAL_WINDOW = 10 * 365 * 24 * HOUR;
 export const TAKEN_USERNAMES = ['admin', 'satoshi', 'wallet'];
 
 export type EngineState = {
@@ -42,7 +43,7 @@ export type EngineState = {
 
 export const same = (a?: string, b?: string) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
 
-/** When an allowed request stops being usable: the backend's time when live, else 1 hour after it unlocks. */
+/** When an allowed request stops being usable: the backend's time when live. Payments: no limit in practice. */
 export const approvalEnds = (r: Pick<ApprovalRequest, 'validFrom' | 'validUntil'>) => r.validUntil ?? (r.validFrom ?? 0) + APPROVAL_WINDOW;
 
 export function reqState(r: ApprovalRequest, now: number): RequestState {

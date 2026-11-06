@@ -29,7 +29,7 @@ export type Reason = { title: string; detail: string; tag: string; tone: Tone };
 export type Why = 'flagged' | 'daily' | 'limit';
 
 export type RequestStatus = 'pending' | 'allowed' | 'denied' | 'expired';
-/** `expired` is derived: a pending request older than 30 minutes. */
+/** `expired` is derived: a pending request older than 24 hours. */
 export type RequestState = RequestStatus | 'expired';
 
 export type ApprovalRequest = {
@@ -42,7 +42,7 @@ export type ApprovalRequest = {
   validFrom?: number;
   /** Live: the backend's end of the approval window (otherwise validFrom + 1h). */
   validUntil?: number;
-  /** Live: when the request runs out, from the backend (otherwise createdAt + 30 min). */
+  /** Live: when the request runs out, from the backend (otherwise createdAt + 24 h). */
   expiresAt?: number;
   /** Live: the backend payment this request is for. */
   paymentId?: string;

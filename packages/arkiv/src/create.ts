@@ -47,7 +47,7 @@ export function createDecision(
     throw new Error("Allow needs intentHash and validFrom")
   }
 
-  // Deny: 30 min. Allow: 1 h, or 25 h when validFrom is in the future (new payee cooldown)
+  // Deny: 24 h. Allow: 24 h, or 25 h when validFrom is in the future (new payee cooldown)
   let expiration = EXPIRY.deny
   if (input.verdict === "allow") {
     expiration = input.validFrom! > Date.now() ? EXPIRY.allowNewPayee : EXPIRY.allowKnownPayee

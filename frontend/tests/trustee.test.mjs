@@ -29,7 +29,7 @@ test('readRequests opens the user’s own request', () => {
   assert.equal(r.pairId, PAIR);
   assert.equal(r.amount, 12.5);
   assert.equal(r.amountUnits, '12500000');
-  assert.equal(r.expiresAt, 1_000_000 + 30 * 60 * 1000);
+  assert.equal(r.expiresAt, 1_000_000 + 24 * 60 * 60 * 1000);
   assert.equal(r.why, 'limit');
   assert.deepEqual(r.answers, [false, false, true]);
 });

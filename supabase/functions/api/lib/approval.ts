@@ -4,8 +4,12 @@ import type { ArkivDecision } from "./arkiv.ts";
 import { exportIntentHash, intentHash } from "./intent.ts";
 import { COOLDOWN_MS } from "./rules.ts";
 
-export const REQUEST_TTL_MS = 30 * 60 * 1000; // approval_request lives 30 min
-export const ALLOW_WINDOW_MS = 60 * 60 * 1000; // 1h to send once unlocked
+export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000; // approval_request lives 24 h
+// A payment Allow has no time limit once it unlocks; the database needs an
+// end time, so it gets one far away. It still works once, for that exact payment.
+export const PAYMENT_ALLOW_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+// A key export Allow is usable for 1 hour from the Allow, once.
+export const ALLOW_WINDOW_MS = 60 * 60 * 1000;
 
 export type DecisionCheck =
   | { ok: true; verdict: "deny" }
@@ -34,9 +38,9 @@ export function checkDecision(args: {
   const allowedAt = d.createdAt > args.requestAttachedAt ? d.createdAt : args.requestAttachedAt;
   const earliest = new Date(allowedAt.getTime() + (p.newPayee ? COOLDOWN_MS : 0));
   const validFrom = d.validFrom && d.validFrom > earliest ? d.validFrom : earliest;
-  const windowEnd = new Date(validFrom.getTime() + ALLOW_WINDOW_MS);
-  const validUntil = d.expiresAt < windowEnd ? d.expiresAt : windowEnd;
-  if (validUntil <= args.now || validUntil <= validFrom) return { ok: false, reason: "decision_expired" };
+  // No window to send in: once recorded, the Allow stays usable (Supabase keeps
+  // it after the Arkiv entity expires). Single use is enforced when sending.
+  const validUntil = new Date(validFrom.getTime() + PAYMENT_ALLOW_MS);
   return { ok: true, verdict: "allow", validFrom, validUntil };
 }
 

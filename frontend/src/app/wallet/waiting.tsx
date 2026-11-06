@@ -87,7 +87,7 @@ export default function Waiting() {
       ...tones.green,
       anim: 'pop',
       title: `${tn} said yes`,
-      body: `${req.name} is new, so it unlocks ${when(validFrom, now)}. You'll then have 1 hour to send.`,
+      body: `${req.name} is new, so it unlocks ${when(validFrom, now)}. Then you can send it whenever you're ready.`,
       done: 'OK',
     };
   } else if (state === 'allowed' && now < ends) {

@@ -79,7 +79,7 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
   - **Trade-off, stated openly:** within that policy, the backend can move a user's USDC to any address. The backend is now a trusted party for user funds, which is the cost of "the backend decides". Payees vary, so the policy can't restrict recipients.
   - Open: whether the user can remove the signer, and what the app shows if they do. Privy's add-signer page doesn't say.
 
-### D4. Approval request = Arkiv entity, owned by the user, expires in 30 min, encrypted. [team]
+### D4. Approval request = Arkiv entity, owned by the user, expires in 24 h, encrypted. [team]
 - `kind`: `payment` | `export`. **[proposed]** (No `rules` kind: the user can't ask to change rules.)
 - The payload (amount, recipient, the user's answers to the 3 questions, the reason it was flagged) is **encrypted to the trustee** with tweetnacl `box`.
 - Why Arkiv: the trustee's app and the backend find it with one query. It disappears on its own when stale, so no cleanup job is needed.
@@ -89,9 +89,10 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 - **Per-pair key [proposed mechanism]:** for each user the trustee protects, the trustee app derives a separate Arkiv key from a Privy signature over `"guardian-pair:" + pairId`. Its address is stored **only in Supabase**. On Arkiv, the decision's creator can't be traced back to the trustee's main wallet, so the user–trustee link stays hidden, while authorship is still provable.
 - The backend tops up per-pair keys with tGLM, which links nothing to the trustee.
 - Allow once: carries `intentHash = keccak256(abi.encode(address recipient, uint256 amount, bytes32 nonce))` (amount in USDC base units, nonce from `POST /payments/check`), `validFrom` and `createdAt`. The backend starts a new payee's 24h wait at `createdAt`, but never earlier than when the request reached it.
-  - Known payee: `validFrom` = now, expires in **1 hour**.
-  - New payee: `validFrom` = Allow + 24h (cooldown), expires **25 hours** after the Allow, so there's a 1-hour window to send once the cooldown ends.
-  - The backend accepts it only if: the creator is the pair key stored in Supabase, the hash matches, `validFrom` has passed, it hasn't expired, and it's unused (marked in Supabase).
+  - Known payee: `validFrom` = now. The entity lives **24 hours**.
+  - New payee: `validFrom` = Allow + 24h (cooldown); the entity lives **25 hours**.
+  - **No time limit to send:** once the backend has recorded an Allow (it reads it as soon as the trustee answers), the user can send that exact payment whenever they like, once. Key export keeps a 1-hour window.
+  - The backend accepts it only if: the creator is the pair key stored in Supabase, the hash matches, `validFrom` has passed, and it's unused (marked in Supabase).
 - Deny: the decision (deny), written by the per-pair key. **Report only when flagged [team]:** if the payment was flagged (scam report, look-alike, security check), the per-pair key also writes a public `scam_report`. A deny only because of the limit reports nothing: the address may be a real person, and a trustee report counts as verified for every Nod user.
 
 ### D6. Scam reports: live on Arkiv, permanent archive in Supabase. [team]
@@ -121,8 +122,8 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 
 | Entity | Written by (`$creator`) | Expires | Indexed (filtered on) | Stored only | Who reads it |
 |---|---|---|---|---|---|
-| `approval_request` | User's Privy wallet | 30 min | `pairId`, `kind`, `createdAt` | encrypted payload (bytes) | Trustee app (decrypts), backend (verifies on attach) |
-| `trustee_decision` | Per-pair trustee key | Allow: 1 h (known payee) or 25 h (new payee, 24h cooldown) · Deny: 30 min | `pairId`, `requestKey`, `verdict`, `createdAt` | `intentHash`, `validFrom`, `reportKey` | Backend (verifies), user app (shows result) |
+| `approval_request` | User's Privy wallet | 24 h | `pairId`, `kind`, `createdAt` | encrypted payload (bytes) | Trustee app (decrypts), backend (verifies on attach) |
+| `trustee_decision` | Per-pair trustee key | Allow: 24 h (known payee) or 25 h (new payee, 24h cooldown); no limit to send once recorded · Deny: 24 h | `pairId`, `requestKey`, `verdict`, `createdAt` | `intentHash`, `validFrom`, `reportKey` | Backend (verifies), user app (shows result) |
 | `scam_report` | Reporter: per-pair trustee key or our seed wallet | 180 days, extendable by anyone | `address`, `source` (`trustee` / `ofac` / `list`), `category` | reason text, evidence ref (Swarm, optional) | Our backend before every payment; any other wallet |
 
 Example query any judge can run: `select().from(ScamReport).where(eq("address", "0x…"))`.
@@ -143,7 +144,7 @@ Example query any judge can run: `select().from(ScamReport).where(eq("address", 
 1. The user enters a recipient and amount. The app asks the backend to check them.
 2. The backend applies the rules in D3: first-payment cap, flags, amount limit, new-payee cooldown.
 3. **Safe:** the backend sends the USDC transfer as the wallet's signer, gas sponsored by Privy, and the app shows it as sent. Done. **Cooldown:** the app shows when the payment unlocks. **Refused:** the app shows the $10 first-payment cap.
-4. **Needs trustee (flagged or over limit):** the user answers the 3 questions. The app encrypts the details to the trustee's pubkey and writes an `approval_request` to Arkiv (30 min).
+4. **Needs trustee (flagged or over limit):** the user answers the 3 questions. The app encrypts the details to the trustee's pubkey and writes an `approval_request` to Arkiv (24 h).
 5. The app hands the request's key to the backend, which checks it on Arkiv and sends an Expo push to the trustee.
 6. The trustee app reads and decrypts the request from Arkiv and shows the context card.
 7. **Allow once:** the per-pair key writes a `trustee_decision` (allow, 1 h, `intentHash`). **Deny:** a `trustee_decision` (deny), plus a public `scam_report` if the payment was flagged. The trustee app then calls `POST /trustee/decisions`, and the backend pushes the user.
