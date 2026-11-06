@@ -10,6 +10,8 @@ import { isDemo, walletConfig } from './config';
 import { DemoWalletProvider, unavailableSession, WalletContext } from './context';
 import { checkProvider, requireSignerPolicy } from './validation';
 
+const PRIVY_START_TIMEOUT_MS = 15000;
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   if (isDemo) return <DemoWalletProvider>{children}</DemoWalletProvider>;
   if (!walletConfig.appId || !walletConfig.clientId) {
@@ -30,6 +32,20 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>(() => useStore.getState().session?.role ?? 'user');
   const [method, setMethod] = useState<Session['method']>(() => useStore.getState().session?.method ?? 'Google');
   const [walletError, setWalletError] = useState<string | null>(null);
+  // If Privy can't start (bad app/client ID, no network) isReady never turns true.
+  // Give up waiting after a while so the sign-in screen can show the problem
+  // instead of leaving the app on the splash screen.
+  const [startTimedOut, setStartTimedOut] = useState(false);
+  useEffect(() => {
+    if (isReady) return;
+    const t = setTimeout(() => setStartTimedOut(true), PRIVY_START_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [isReady]);
+  const startError = error
+    ? 'Can’t connect to Privy. Check the Privy app ID and client ID, and your connection.'
+    : !isReady && startTimedOut
+      ? 'Privy is taking too long to start. Check your connection and the Privy client ID.'
+      : null;
   const creationAttempt = useRef<string | null>(null);
   const wallet = wallets.find((w) => w.walletIndex === 0) ?? wallets[0];
   const currentAccount = useRef<string | undefined>(wallet?.address);
@@ -64,9 +80,9 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   }, [isReady, user, wallet]);
 
   return <WalletContext.Provider value={{
-    mode: 'privy', ready: isReady, session, userId: user?.id ?? null,
+    mode: 'privy', ready: isReady || !!startError, session, userId: user?.id ?? null,
     walletAddress: session ? wallet?.address ?? null : null,
-    error: error ? 'Unable to restore your wallet session. Check your connection.' : walletError,
+    error: startError ?? walletError,
     signIn: async (nextRole) => {
       setRole(nextRole); setMethod('Google'); setWalletError(null);
       await login({ provider: 'google' });
