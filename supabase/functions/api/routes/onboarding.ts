@@ -111,7 +111,11 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     const pair = await c.var.repo.userPair(user.id);
     if (!pair) return c.json({ status: "none" });
     if (pair.status === "active") {
-      return c.json({ status: "active", pairId: pair.pairId, trusteeEncPubKey: pair.trusteeEncPubKey, acceptedAt: pair.acceptedAt.toISOString() });
+      return c.json({
+        status: "active", pairId: pair.pairId, trusteeEncPubKey: pair.trusteeEncPubKey, acceptedAt: pair.acceptedAt.toISOString(),
+        // Only the person this trustee protects sees these.
+        trusteeName: pair.trusteeName, trusteeAvatar: pair.trusteeAvatar,
+      });
     }
     const expired = pair.inviteExpiresAt.getTime() <= Date.now();
     return c.json({
@@ -142,6 +146,18 @@ export function onboardingRoutes(deps: OnboardingDeps) {
       from: await deps.privy.contactEmail(i.inviterPrivyUserId).catch(() => null),
     })));
     return c.json({ invites });
+  });
+
+  // The trustee app's profile: how this person appears to the people they protect.
+  r.patch("/trustee/profile", async (c) => {
+    const me = await requireUser(c);
+    const input = await body(c, z.object({
+      name: z.string().trim().min(1).max(40).optional(),
+      avatar: z.number().int().min(0).max(7).optional(),
+    }).strict());
+    if (input.name === undefined && input.avatar === undefined) fail(422, "nothing_to_change", "Send name, avatar, or both.");
+    await c.var.repo.setTrusteeProfile(me.id, { name: input.name ?? null, avatar: input.avatar ?? null });
+    return c.json({ ok: true });
   });
 
   r.post("/pairs/accept", async (c) => {

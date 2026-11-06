@@ -13,7 +13,11 @@ export type Api = <T>(path: string, body?: unknown) => Promise<T>;
 export type PairView =
   | { status: 'none' }
   | { status: 'invited' | 'invite_expired'; contact: string; inviteExpiresAt: string }
-  | { status: 'active'; pairId: string; trusteeEncPubKey: string; acceptedAt: string };
+  | {
+    status: 'active'; pairId: string; trusteeEncPubKey: string; acceptedAt: string;
+    /** How the trustee chose to appear (their app's profile). Null until they set it. */
+    trusteeName?: string | null; trusteeAvatar?: number | null;
+  };
 
 export type ApprovalInput = {
   paymentId: string;

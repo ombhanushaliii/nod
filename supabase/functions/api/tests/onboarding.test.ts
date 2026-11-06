@@ -160,8 +160,8 @@ Deno.test("GET /pair: none, then invited, then active with what the app needs", 
   assertEquals(active.body.status, "active");
   assertEquals(active.body.pairId, t.repo.pairs[0].pairId);
   assertEquals(active.body.trusteeEncPubKey, hex32("e"));
-  // The trustee's identity and pair key aren't shown to the user.
-  assertEquals(Object.keys(active.body).sort(), ["acceptedAt", "pairId", "status", "trusteeEncPubKey"]);
+  // Only the name and avatar the trustee chose; never their email, wallet or pair key.
+  assertEquals(Object.keys(active.body).sort(), ["acceptedAt", "pairId", "status", "trusteeAvatar", "trusteeEncPubKey", "trusteeName"]);
 });
 
 Deno.test("GET /pair: an expired invite says so", async () => {
@@ -309,4 +309,39 @@ Deno.test("accept: needs exactly one of the link token or the invite id", async 
   assertEquals((await t.call(TRUSTEE, "POST", "/pairs/accept", keys)).status, 422);
   const both = { ...keys, token: "abc", inviteId: crypto.randomUUID() };
   assertEquals((await t.call(TRUSTEE, "POST", "/pairs/accept", both)).status, 422);
+});
+
+Deno.test("trustee profile: the name and avatar the trustee picks reach their user's /pair", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set("did:privy:u", [addr("a")]);
+  t.privyWallets.set("did:privy:t", [addr("b")]);
+  await t.call("did:privy:u", "POST", "/onboarding/user", { walletAddress: addr("a") });
+  await t.call("did:privy:t", "POST", "/onboarding/user", { walletAddress: addr("b") });
+  await t.call("did:privy:u", "POST", "/onboarding/invite", { trusteeEmail: "sam@example.com" });
+  const token = t.mails[0].url.replace("guardian://invite/", "");
+  await t.call("did:privy:t", "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+
+  // Not set yet: the app falls back to its own guess.
+  let pair = (await t.call("did:privy:u", "GET", "/pair")).body;
+  assertEquals([pair.status, pair.trusteeName, pair.trusteeAvatar], ["active", null, null]);
+
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", { name: "  Sam  ", avatar: 5 })).status, 200);
+  pair = (await t.call("did:privy:u", "GET", "/pair")).body;
+  assertEquals([pair.trusteeName, pair.trusteeAvatar], ["Sam", 5]);
+
+  // Changing only the avatar keeps the name.
+  await t.call("did:privy:t", "PATCH", "/trustee/profile", { avatar: 2 });
+  pair = (await t.call("did:privy:u", "GET", "/pair")).body;
+  assertEquals([pair.trusteeName, pair.trusteeAvatar], ["Sam", 2]);
+});
+
+Deno.test("trustee profile: bad or empty input is refused", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set("did:privy:t", [addr("b")]);
+  await t.call("did:privy:t", "POST", "/onboarding/user", { walletAddress: addr("b") });
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", {})).body.error, "nothing_to_change");
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", { name: "" })).status, 422);
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", { name: "x".repeat(41) })).status, 422);
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", { avatar: 8 })).status, 422);
+  assertEquals((await t.call("did:privy:t", "PATCH", "/trustee/profile", { name: "Sam", role: "admin" })).status, 422);
 });

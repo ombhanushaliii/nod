@@ -52,6 +52,8 @@ type Data = {
   trusteeStatus: TrusteeStatus;
   trusteeAvatar: number;
   tDisplayName: string;
+  /** Live, wallet side: how your trustee chose to appear, from GET /pair. */
+  myTrustee: { name: string | null; avatar: number | null } | null;
   requests: ApprovalRequest[];
   reports: string[];
   /** Live: the Arkiv pairId once the trustee accepted. */
@@ -150,6 +152,7 @@ function initialData(): Data {
     trusteeStatus: 'none',
     trusteeAvatar: 3,
     tDisplayName: '',
+    myTrustee: null,
     requests: [],
     reports: [],
     pairId: null,
@@ -178,10 +181,13 @@ export const trusteeSide = (s: Pick<Data, 'trusteeStatus' | 'people' | 'inviteTo
  * Wallet side: what to call your trustee. In the demo both people share this phone, so
  * tDisplayName is theirs; live, it's this account's own trustee name, never your trustee's.
  */
-export const trusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) =>
-  trusteeNameFrom(isDemo ? s.tDisplayName : '', s.trusteeContact);
+export const trusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact' | 'myTrustee'>) =>
+  trusteeNameFrom(isDemo ? s.tDisplayName : (s.myTrustee?.name ?? ''), s.trusteeContact);
+/** Wallet side: your trustee's avatar. Live, the one they picked; demo, the shared one. */
+export const trusteeAvatarOf = (s: Pick<Data, 'trusteeAvatar' | 'myTrustee'>) =>
+  isDemo ? s.trusteeAvatar : (s.myTrustee?.avatar ?? s.trusteeAvatar);
 /** Trustee side: the name you go by with the people you look after. */
-export const ownTrusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) =>
+export const ownTrusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact' | 'myTrustee'>) =>
   isDemo ? trusteeName(s) : s.tDisplayName || 'You';
 
 export const useStore = create<Store>()(
@@ -390,6 +396,7 @@ export const useStore = create<Store>()(
         trusteeStatus: s.trusteeStatus,
         trusteeAvatar: s.trusteeAvatar,
         tDisplayName: s.tDisplayName,
+        myTrustee: s.myTrustee,
         requests: s.requests,
         reports: s.reports,
         pairId: s.pairId,

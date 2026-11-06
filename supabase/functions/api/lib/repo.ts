@@ -39,7 +39,11 @@ export type OpenInvite = { inviteId: string; pairId: string; expiresAt: string; 
 // The user's open pair: waiting for the trustee, or active.
 export type UserPair =
   | { status: "invited"; pairId: string; contact: string; inviteExpiresAt: Date }
-  | { status: "active"; pairId: string; trusteeEncPubKey: string; acceptedAt: Date };
+  | {
+    status: "active"; pairId: string; trusteeEncPubKey: string; acceptedAt: Date;
+    // How the trustee chose to appear (trustee app profile). Null until they set it.
+    trusteeName: string | null; trusteeAvatar: number | null;
+  };
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
@@ -71,6 +75,8 @@ export interface Repo extends JobsRepo {
   // Open invites sent to this email (lower-case), so a trustee can accept without the link.
   invitesFor(contact: string): Promise<OpenInvite[]>;
   userPair(userId: string): Promise<UserPair | null>;
+  // The name and avatar this person shows as a trustee. Null keeps the current value.
+  setTrusteeProfile(userId: string, p: { name: string | null; avatar: number | null }): Promise<void>;
   // The user a pair protects.
   pairUserId(pairId: string): Promise<string | null>;
   // An active pair this person is the trustee of, with the user it protects.
@@ -217,17 +223,30 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     },
     async userPair(userId) {
       const { data, error } = await db.from("pairs")
-        .select("pair_id, status, trustee_enc_pubkey, accepted_at, invites(contact, expires_at)")
+        .select("pair_id, status, trustee_enc_pubkey, accepted_at, invites(contact, expires_at), trustee:trustee_id(trustee_name, trustee_avatar)")
         .eq("user_id", userId).in("status", ["invited", "active"]).maybeSingle();
       if (error) rethrow(error);
       if (!data) return null;
       if (data.status === "active") {
-        return { status: "active", pairId: data.pair_id, trusteeEncPubKey: data.trustee_enc_pubkey, acceptedAt: new Date(data.accepted_at) };
+        const rawT = data.trustee as unknown;
+        const t = (Array.isArray(rawT) ? rawT[0] : rawT) as { trustee_name: string | null; trustee_avatar: number | null } | null;
+        return {
+          status: "active", pairId: data.pair_id, trusteeEncPubKey: data.trustee_enc_pubkey, acceptedAt: new Date(data.accepted_at),
+          trusteeName: t?.trustee_name ?? null, trusteeAvatar: t?.trustee_avatar ?? null,
+        };
       }
       // One invite per pair; PostgREST returns it as an object or a one-item list.
       const raw = data.invites as unknown;
       const inv = (Array.isArray(raw) ? raw[0] : raw) as { contact: string; expires_at: string };
       return { status: "invited", pairId: data.pair_id, contact: inv.contact, inviteExpiresAt: new Date(inv.expires_at) };
+    },
+    async setTrusteeProfile(userId, p) {
+      const patch: Record<string, string | number> = {};
+      if (p.name !== null) patch.trustee_name = p.name;
+      if (p.avatar !== null) patch.trustee_avatar = p.avatar;
+      if (Object.keys(patch).length === 0) return;
+      const { error } = await db.from("users").update(patch).eq("id", userId);
+      if (error) rethrow(error);
     },
     async trusteePair(pairId, trusteeId) {
       const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address, trustee_id, user_id")

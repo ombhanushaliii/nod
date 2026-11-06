@@ -6,7 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Avatar, AvatarPicker, BackButton, Button, Card, Chip, DemoTools, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { isValidUsername, modeLabel, reqState, sentToday, TAKEN_USERNAMES } from '@/data/engine';
-import { trusteeName, useStore } from '@/data/store';
+import { trusteeAvatarOf, trusteeName, useStore } from '@/data/store';
 import { useApprovalStatus, useAuth, useRequestExport, useRules } from '@/hooks/api';
 import { m0, short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
@@ -122,7 +122,7 @@ export default function Settings() {
         <Label style={{ paddingHorizontal: 4 }}>SAFETY</Label>
         <Card>
           <View style={[styles.row, styles.divider, { gap: 12 }]}>
-            <Avatar index={s.trusteeAvatar} size={36} />
+            <Avatar index={trusteeAvatarOf(s)} size={36} />
             <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
               <Txt w={700}>{tn}</Txt>
               <Txt size={13} color={colors.sub} numberOfLines={1}>

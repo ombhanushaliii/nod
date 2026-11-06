@@ -6,6 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Avatar, AvatarPicker, BackButton, Button, Card, DemoTools, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
 import { ownTrusteeName, useStore } from '@/data/store';
 import { useAuth } from '@/hooks/api';
+import { useSaveTrusteeProfile } from '@/hooks/trustee';
 import { haptic } from '@/lib/haptics';
 import { colors, font, tones } from '@/theme';
 import { isDemo } from '@/wallet/config';
@@ -14,6 +15,8 @@ import { isDemo } from '@/wallet/config';
 const DEMO_PEOPLE = 3;
 
 export default function TrusteeSettings() {
+  // Live: the people you protect see this name and avatar.
+  const saveProfile = useSaveTrusteeProfile();
   const { session, signOut } = useAuth();
   const s = useStore();
   const tn = ownTrusteeName(s);
@@ -41,7 +44,7 @@ export default function TrusteeSettings() {
         </View>
         <View style={{ gap: 12 }}>
           <Label>AVATAR</Label>
-          <AvatarPicker value={s.trusteeAvatar} onChange={s.setTrusteeAvatar} />
+          <AvatarPicker value={s.trusteeAvatar} onChange={(i) => { s.setTrusteeAvatar(i); void saveProfile({ avatar: i }).catch(() => {}); }} />
         </View>
       </View>
 
@@ -111,6 +114,7 @@ export default function TrusteeSettings() {
 
 function NameSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useStore();
+  const saveProfile = useSaveTrusteeProfile();
   const tn = ownTrusteeName(s);
   const [draft, setDraft] = useState('');
   const [lastOpen, setLastOpen] = useState(false);
@@ -126,6 +130,7 @@ function NameSheet({ visible, onClose }: { visible: boolean; onClose: () => void
     if (!ok) return;
     haptic('success');
     s.setTrusteeName(v);
+    void saveProfile({ name: v }).catch(() => {});
     onClose();
   };
 

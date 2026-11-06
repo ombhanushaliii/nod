@@ -52,6 +52,8 @@ export class MemoryRepo implements Repo {
   payments: Payment[] = [];
   approvals: Approval[] = [];
   exports: KeyExport[] = [];
+  // user id -> how they appear as a trustee (users.trustee_name / trustee_avatar)
+  profiles = new Map<string, { name: string | null; avatar: number | null }>();
   pushTokens = new Map<string, string>(); // expo token -> user id
   clock = () => new Date();
 
@@ -399,10 +401,19 @@ export class MemoryRepo implements Repo {
     const p = this.pairs.find((x) => x.userId === userId && x.status !== "revoked");
     if (!p) return Promise.resolve(null);
     if (p.status === "active") {
-      return Promise.resolve({ status: "active" as const, pairId: p.pairId, trusteeEncPubKey: p.encPubKey!, acceptedAt: this.clock() });
+      const t = this.profiles.get(p.trusteeId!);
+      return Promise.resolve({
+        status: "active" as const, pairId: p.pairId, trusteeEncPubKey: p.encPubKey!, acceptedAt: this.clock(),
+        trusteeName: t?.name ?? null, trusteeAvatar: t?.avatar ?? null,
+      });
     }
     const inv = this.invites.find((i) => i.pairRowId === p.id)!;
     return Promise.resolve({ status: "invited" as const, pairId: p.pairId, contact: inv.contact!, inviteExpiresAt: inv.expiresAt });
+  }
+  setTrusteeProfile(userId: string, p: { name: string | null; avatar: number | null }) {
+    const cur = this.profiles.get(userId) ?? { name: null, avatar: null };
+    this.profiles.set(userId, { name: p.name ?? cur.name, avatar: p.avatar ?? cur.avatar });
+    return Promise.resolve();
   }
   trusteePair(pairId: string, trusteeId: string) {
     const p = this.pairs.find((x) => x.pairId === pairId && x.trusteeId === trusteeId && x.status === "active");

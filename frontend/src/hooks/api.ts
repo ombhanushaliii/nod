@@ -275,7 +275,12 @@ export function useRefreshHome() {
 }
 
 const pairToStore = (pair: PairView) => {
-  if (pair.status === 'active') return { trusteeStatus: 'active' as const, pairId: pair.pairId, onboarded: true };
+  if (pair.status === 'active') {
+    return {
+      trusteeStatus: 'active' as const, pairId: pair.pairId, onboarded: true,
+      myTrustee: { name: pair.trusteeName ?? null, avatar: pair.trusteeAvatar ?? null },
+    };
+  }
   if (pair.status === 'none') return { trusteeStatus: 'none' as const, pairId: null };
   return { trusteeStatus: 'pending' as const, trusteeContact: pair.contact, pairId: null, onboarded: true };
 };

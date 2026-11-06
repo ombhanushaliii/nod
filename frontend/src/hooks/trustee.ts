@@ -100,7 +100,7 @@ const SYNC_RETRY_MS = 30_000;
 export function useTrusteeSync() {
   const { live, api, assertSession } = useLiveApi();
   // The session object is rebuilt on every render; key on who is signed in.
-  const { userId, session } = useWallet();
+  const { userId, session, getAccessToken } = useWallet();
   const signedIn = !!session;
   const register = useWalletSetup({ signer: false });
   const keys = useTrusteeKeys();
@@ -151,8 +151,15 @@ export function useTrusteeSync() {
         running = false;
       }
     };
-    // Registers the wallet (and tops up), then reads.
-    register().catch(() => {}).finally(() => void sync());
+    // Registers the wallet (and tops up), sends the profile the trustee set on
+    // this phone (so their people see it, even if an earlier save failed), then reads.
+    register().catch(() => {}).finally(() => {
+      const { tDisplayName, trusteeAvatar } = useStore.getState();
+      if (tDisplayName) {
+        void apiRequest(getAccessToken, '/trustee/profile', { name: tDisplayName, avatar: trusteeAvatar }, 'PATCH').catch(() => {});
+      }
+      void sync();
+    });
     const app = AppState.addEventListener('change', (st) => { if (st === 'active') void sync(); });
     const push = onPush((data) => { if (data.type === 'approval_request') void sync(); });
     return () => {
@@ -161,7 +168,7 @@ export function useTrusteeSync() {
       app.remove();
       push();
     };
-  }, [live, signedIn, userId, api, assertSession, register, keys]);
+  }, [live, signedIn, userId, api, assertSession, register, keys, getAccessToken]);
 }
 
 /** An invite sent to the signed-in trustee's email, from GET /trustee/invites. */
@@ -267,6 +274,19 @@ export function useLiveDecide() {
     assertSession();
     patchInbox(r.id, patch);
   }, [api, assertSession, register, keys]);
+}
+
+/**
+ * Live: saves how this trustee appears to the people they protect (name and
+ * avatar). Kept on the phone too; a failed save is retried on the next change.
+ */
+export function useSaveTrusteeProfile() {
+  const { live } = useLiveApi();
+  const { getAccessToken } = useWallet();
+  return useCallback(async (p: { name?: string; avatar?: number }) => {
+    if (!live) return;
+    await apiRequest(getAccessToken, '/trustee/profile', p, 'PATCH');
+  }, [live, getAccessToken]);
 }
 
 /** Rules apply at once. Shows the change straight away and puts it back if the backend says no. */

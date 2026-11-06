@@ -5,6 +5,7 @@ import { Avatar, AvatarPicker, Button, Label, Screen, TextField, Txt } from '@/c
 import { ownTrusteeName, useStore } from '@/data/store';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
+import { useSaveTrusteeProfile } from '@/hooks/trustee';
 import { isDemo } from '@/wallet/config';
 
 /** Trustee sets a name and avatar so the user recognises them. */
@@ -15,6 +16,8 @@ export default function TrusteeProfile() {
   const avatar = useStore((s) => s.trusteeAvatar);
   const setAvatar = useStore((s) => s.setTrusteeAvatar);
   const setProfile = useStore((s) => s.setTrusteeProfile);
+  // Live: what the person you protect sees as your name and avatar.
+  const saveProfile = useSaveTrusteeProfile();
   // Your own name as a trustee (live: never your wallet's trustee).
   const tn = useStore(ownTrusteeName);
   const [name, setName] = useState(tn === 'Your trustee' || tn === 'You' ? '' : tn);
@@ -41,6 +44,8 @@ export default function TrusteeProfile() {
   const done = () => {
     if (!ok) return;
     haptic('success');
+    // Saved on the phone at once; if the backend save fails, the next app open sends it again.
+    void saveProfile({ name: name.trim(), avatar }).catch(() => {});
     setProfile(name.trim());
   };
 

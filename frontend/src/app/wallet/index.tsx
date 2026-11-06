@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { AccountHeader, Avatar, Chip, FadeInRow, ScrollScreen, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { approvalEnds, reqState } from '@/data/engine';
-import { trusteeName, useStore } from '@/data/store';
+import { trusteeAvatarOf, trusteeName, useStore } from '@/data/store';
 import { useBalance, useRefreshHome } from '@/hooks/api';
 import { ago, dur, m0, money, moneyParts, when } from '@/lib/format';
 import { colors, tones, type Tone } from '@/theme';
@@ -173,7 +173,7 @@ function Home() {
       )}
 
       <View style={styles.trustee}>
-        <Avatar index={s.trusteeAvatar} size={42} />
+        <Avatar index={trusteeAvatarOf(s)} size={42} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Txt size={16} w={700} numberOfLines={1}>
             {tn} · your trustee
