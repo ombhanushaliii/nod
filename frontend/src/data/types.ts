@@ -82,6 +82,8 @@ export type CheckResult = {
   reqId?: string;
   why?: Why;
   reasons?: Reason[];
+  /** Live: the reason codes from the check, as the backend sent them. They go to the trustee. */
+  codes?: string[];
   newPayee?: boolean;
   capped?: boolean;
   unlockAt?: number;

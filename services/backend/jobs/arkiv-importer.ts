@@ -1,86 +1,89 @@
-import { type Address, formatEther, getAddress, isAddress } from "viem"
-import { getBalance } from "viem/actions"
+import { appendFileSync } from "node:fs"
+import { EntityMutationError } from "@arkiv-network/sdk"
+import { formatEther, parseEther } from "viem"
+import { getBalance, getGasPrice } from "viem/actions"
 import { createScamReport, listReports } from "../../../packages/arkiv/src/index"
 import { arkivReader, seedWallet } from "./arkiv-clients"
+import { parseArgs, planImport, worstCaseCost } from "./import-plan"
+import { loadEthLabels } from "./sources/eth-labels"
+import { loadOfacSdn } from "./sources/ofac"
+import type { ScamEntry } from "./sources/types"
 
-// Importer: turns exploiter wallets from eth-labels (labels copied from Etherscan, MIT)
-// into scam reports written by our seed wallet.
-// Run:  bun run import          -> dry run, writes nothing
-//       bun run import --yes    -> writes, one report at a time
-const SOURCE_URL = "https://raw.githubusercontent.com/dawsbot/eth-labels/v1/data/csv/accounts.csv"
-const CHAINS = new Set(["1", "8453"]) // Ethereum + Base
+// Importer: writes known scam wallets to Arkiv as scam_report entities from
+// our seed wallet, so the backend counts them as verified and every wallet can
+// read them. Sources, in priority order:
+//   1. OFAC SDN list (US Treasury): sanctioned wallets.
+//   2. eth-labels (Etherscan labels, MIT): phishing, exploit and sanctioned wallets.
+//
+// Run:  bun run import                       dry run of both sources, writes nothing
+//       bun run import --source=ofac         one source only (ofac or eth-labels)
+//       bun run import --yes --limit=5       write the first 5, to try it out
+//       bun run import --yes                 write everything left to do
+//       --max-spend=1                        refuse to start if the worst case costs more GLM (default 1)
+//
+// Writes go one at a time through safeCreate: estimate, explicit gas, nonce and
+// gas price, then a receipt check. The first error stops the run and nothing
+// is retried. A run first reads which addresses the seed wallet already
+// reported, so starting again picks up where the last run stopped.
+const LOG_FILE = "import-log.jsonl"
 
-type Label = { address: string; chainId: string; label: string; nameTag: string }
+const log = (line: Record<string, unknown>) =>
+  appendFileSync(LOG_FILE, JSON.stringify({ at: new Date().toISOString(), ...line }) + "\n")
 
-// Small CSV parser: handles quoted fields, commas and "" inside quotes
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let field = ""
-  let quoted = false
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (quoted) {
-      if (c === '"' && text[i + 1] === '"') field += '"', i++
-      else if (c === '"') quoted = false
-      else field += c
-    } else if (c === '"') quoted = true
-    else if (c === ",") row.push(field), (field = "")
-    else if (c === "\n" || c === "\r") {
-      if (c === "\r" && text[i + 1] === "\n") i++
-      row.push(field), rows.push(row), (row = []), (field = "")
-    } else field += c
-  }
-  if (field || row.length) row.push(field), rows.push(row)
-  return rows
-}
-
-export async function loadExploiters(): Promise<Map<string, { address: Address; reason: string }>> {
-  const res = await fetch(SOURCE_URL)
-  if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`)
-  const [header, ...lines] = parseCsv(await res.text())
-  if (header?.join(",") !== "address,chainId,label,nameTag") throw new Error("Unexpected CSV columns")
-
-  // One report per address, even if it shows up on both chains
-  const found = new Map<string, { address: Address; reason: string }>()
-  for (const [address, chainId, label, nameTag] of lines as [string, string, string, string][]) {
-    const row: Label = { address, chainId, label, nameTag }
-    if (!CHAINS.has(row.chainId) || !row.label?.endsWith("-exploit") || !isAddress(row.address)) continue
-    const lower = row.address.toLowerCase()
-    if (found.has(lower)) continue
-    const name = row.nameTag && row.nameTag !== "null" ? row.nameTag : row.label
-    found.set(lower, { address: getAddress(row.address), reason: `${name} (eth-labels)` })
-  }
-  return found
-}
+const txHashOf = (err: unknown) =>
+  err instanceof EntityMutationError ? err.txHash : /0x[0-9a-fA-F]{64}/.exec(String((err as Error)?.message))?.[0]
 
 async function main() {
-  const write = process.argv.includes("--yes")
+  const opts = parseArgs(process.argv.slice(2))
   const reader = arkivReader()
   const seed = seedWallet()
 
-  const exploiters = await loadExploiters()
-  // Skip addresses our seed wallet already reported (re-runs pick up where they stopped)
-  const done = new Set(
-    (await listReports(reader, { createdBy: seed.account.address })).map((r) => r.address.toLowerCase()),
-  )
-  const todo = [...exploiters.entries()].filter(([lower]) => !done.has(lower)).map(([, v]) => v)
+  // Load every source before touching the chain: a failed download stops here.
+  const loaders = { ofac: loadOfacSdn, "eth-labels": loadEthLabels }
+  const sources: ScamEntry[][] = []
+  for (const name of opts.sources) {
+    const entries = await loaders[name]()
+    console.log(`${name}: ${entries.length} addresses`)
+    sources.push(entries)
+  }
 
-  const balance = await getBalance(reader, { address: seed.account.address })
+  const reported = (await listReports(reader, { createdBy: seed.account.address })).map((r) => r.address)
+  const plan = planImport(sources, reported)
+  const todo = opts.limit === null ? plan.todo : plan.todo.slice(0, opts.limit)
+
+  const [balance, gasPrice] = await Promise.all([
+    getBalance(reader, { address: seed.account.address }),
+    getGasPrice(reader),
+  ])
+  const cost = worstCaseCost(todo.length, gasPrice)
   console.log(`seed wallet ${seed.account.address}, balance ${formatEther(balance)} GLM`)
-  console.log(`found ${exploiters.size}, already reported ${exploiters.size - todo.length}, to write ${todo.length}`)
-  if (!write) return console.log("dry run: nothing written. Add --yes to write.")
+  console.log(`already reported ${plan.done}, left to write ${plan.todo.length}`, plan.bySource, plan.byCategory)
+  if (opts.sources.length === 2 && plan.stale > 0) {
+    console.log(`${plan.stale} earlier reports are on no list any more (left on Arkiv until they expire)`)
+  }
+  console.log(`this run writes ${todo.length}, costing at most ${formatEther(cost)} GLM`)
+
+  if (!opts.write) return console.log("dry run: nothing written. Add --yes to write.")
+  if (todo.length === 0) return console.log("nothing to write.")
+  if (cost > parseEther(opts.maxSpend)) throw new Error(`worst case is over --max-spend=${opts.maxSpend} GLM. Raise it or use --limit.`)
+  if (cost > balance) throw new Error("the seed wallet can't cover the worst case. Top it up or use --limit.")
 
   for (const [i, item] of todo.entries()) {
-    // Stops on the first error. Check that tx before running again.
-    const { entityKey, txHash } = await createScamReport(seed, {
-      address: item.address,
-      source: "list",
-      category: "exploit",
-      reason: item.reason,
-    })
-    console.log(`${i + 1}/${todo.length} ${item.address} -> ${entityKey} (tx ${txHash})`)
+    try {
+      const { entityKey, txHash } = await createScamReport(seed, item)
+      log({ status: "written", address: item.address, source: item.source, category: item.category, entityKey, txHash })
+      console.log(`${i + 1}/${todo.length} ${item.address} -> ${entityKey} (tx ${txHash})`)
+    } catch (err) {
+      const txHash = txHashOf(err)
+      log({ status: "stopped", address: item.address, txHash: txHash ?? null, error: String((err as Error)?.message ?? err).slice(0, 300) })
+      console.error(`stopped at ${i + 1}/${todo.length} (${item.address}).`)
+      console.error(txHash
+        ? `Look up tx ${txHash} on https://rabdi.explorer.arkiv.network before running again.`
+        : "No transaction hash: wait a minute, then run the dry run to see if it landed.")
+      throw err
+    }
   }
+  console.log(`done. Log: ${LOG_FILE}`)
 }
 
 // Only run when started directly, not when imported

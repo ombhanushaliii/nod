@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { deriveEncKey, intentHash, open, seal } from '../../packages/arkiv/src/crypto.ts';
 import { parsePaymentPayload } from '../../packages/arkiv/src/payload.ts';
-import { decide, mergeRequests, NEW_PAYEE_WAIT_MS, readRequests, reasonFromTag, whyFrom, withRefill } from '../src/wallet/trustee.ts';
+import { decide, mergeRequests, NEW_PAYEE_WAIT_MS, readRequests, reasonFromTag, reasonsFor, whyFrom, withRefill } from '../src/wallet/trustee.ts';
 
 const enc = deriveEncKey(`0x${'22'.repeat(65)}`);
 const other = deriveEncKey(`0x${'33'.repeat(65)}`);
@@ -46,6 +46,36 @@ test('reasons read as words, and a flag makes it risky', () => {
   assert.equal(reasonFromTag('goplus:phishing_activities').title, 'Flagged by a security service');
   assert.equal(whyFrom(['new_payee']), 'limit');
   assert.equal(whyFrom(['new_payee', 'look_alike']), 'flagged');
+});
+
+test('a report says what the address is, and replaces the generic row', () => {
+  const rows = reasonsFor(['scam_report', 'reported:sanctioned', 'reported:phishing', 'new_payee'], 'user');
+  assert.deepEqual(rows.map((r) => [r.title, r.tag]), [
+    ['Sanctioned by the US government', 'sanctioned'],
+    ['Reported for phishing', 'phishing'],
+    ['New person', 'new'],
+  ]);
+  assert.equal(whyFrom(['reported:exploit']), 'flagged');
+  // No category: the generic row stays.
+  assert.deepEqual(reasonsFor(['scam_report'], 'trustee').map((r) => r.title), ['Reported as a scam']);
+});
+
+test('wording follows who is reading', () => {
+  assert.equal(reasonFromTag('new_payee', 'user').detail, "You've never paid this address.");
+  assert.equal(reasonFromTag('new_payee', 'trustee').detail, 'They have never paid this address.');
+  assert.equal(reasonFromTag('look_alike', 'user').title, 'Looks like someone you know');
+});
+
+test('GoPlus labels read as words; unknown ones still show', () => {
+  assert.equal(reasonFromTag('goplus:stealing_attack').detail, 'GoPlus links this address to stealing funds.');
+  assert.equal(reasonFromTag('goplus:new_label').detail, 'GoPlus links this address to new label.');
+  assert.equal(reasonFromTag('something_new').tag, 'check');
+});
+
+test('the trustee inbox shows report categories in words', () => {
+  const [r] = read([row({ sealed: seal({ ...payload, reasons: ['scam_report', 'reported:exploit'] }, enc.publicKey) })]);
+  assert.deepEqual(r.reasons.map((x) => x.title), ['Linked to a hack']);
+  assert.equal(r.why, 'flagged');
 });
 
 test('mergeRequests keeps answers the trustee already gave', () => {

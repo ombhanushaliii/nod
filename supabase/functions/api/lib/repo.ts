@@ -3,6 +3,7 @@
 import type { JobsRepo } from "./jobs.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotifyMode, Verdict } from "./rules.ts";
+import { knownCategories, type ReportCounts } from "./risk.ts";
 
 export type User = {
   id: string; privy_user_id: string; wallet_address: string; privy_wallet_id: string | null; created_at: string;
@@ -117,7 +118,7 @@ export interface Repo extends JobsRepo {
   // Pair keys of the active pairs this person is the trustee for (to top up tGLM).
   pairKeysOfTrustee(trusteeId: string): Promise<string[]>;
   // Counts from the Supabase archive, used when Arkiv can't be reached.
-  archivedReportCounts(address: string): Promise<{ verified: number; unverified: number }>;
+  archivedReportCounts(address: string): Promise<ReportCounts>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -459,10 +460,14 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       if (error) rethrow(error);
     },
     async archivedReportCounts(address) {
-      const { data, error } = await db.from("scam_reports_archive").select("verified").eq("address", address.toLowerCase());
+      const { data, error } = await db.from("scam_reports_archive").select("verified, category").eq("address", address.toLowerCase());
       if (error) rethrow(error);
-      const verified = data.filter((r) => r.verified).length;
-      return { verified, unverified: data.length - verified };
+      const verified = data.filter((r) => r.verified);
+      return {
+        verified: verified.length,
+        unverified: data.length - verified.length,
+        categories: knownCategories(verified.map((r) => r.category)),
+      };
     },
   };
 }

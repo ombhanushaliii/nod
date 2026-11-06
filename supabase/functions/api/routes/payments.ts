@@ -138,7 +138,11 @@ export function paymentRoutes(deps: PaymentDeps) {
 
     const flags: string[] = [];
     const warnings: string[] = [];
-    if (reports.verified > 0) flags.push("scam_report");
+    if (reports.verified > 0) {
+      flags.push("scam_report");
+      // What the reports say it is, so both apps can say why in plain words.
+      flags.push(...(reports.categories ?? []).map((c) => `reported:${c}`));
+    }
     else if (reports.unverified > 0) warnings.push("unverified_scam_report");
     // If GoPlus can't answer, don't send unchecked: ask the trustee.
     if ("unavailable" in goplus) flags.push("risk_check_unavailable");

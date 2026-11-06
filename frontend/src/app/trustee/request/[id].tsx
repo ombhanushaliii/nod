@@ -149,7 +149,7 @@ export default function Request() {
             <Label>WHY IT CAME TO YOU</Label>
             <Card>
               {(r.reasons ?? []).map((x, i, arr) => (
-                <View key={x.title} style={[styles.reason, i < arr.length - 1 && styles.divider]}>
+                <View key={`${i}-${x.title}`} style={[styles.reason, i < arr.length - 1 && styles.divider]}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Txt size={15} w={700}>
                       {x.title}

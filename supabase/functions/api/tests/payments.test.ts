@@ -86,6 +86,15 @@ Deno.test("verified scam report needs the trustee; unverified only warns", async
   assertEquals(meh.body.warnings, ["unverified_scam_report"]);
 });
 
+Deno.test("a verified report says what the address is", async () => {
+  const t = await setup();
+  t.markPaid(addr("b"));
+  t.state.reports.set(addr("b"), { verified: 2, unverified: 1, categories: ["sanctioned", "phishing"] });
+  const res = await t.check(addr("b"), "5");
+  assertEquals(res.body.verdict, "needs_trustee");
+  assertEquals(res.body.reasons, ["scam_report", "reported:sanctioned", "reported:phishing"]);
+});
+
 Deno.test("GoPlus flags and outages both go to the trustee", async () => {
   const t = await setup();
   t.markPaid(addr("b"));

@@ -16,6 +16,7 @@ import { useWallet } from '@/wallet/context';
 import { useWalletAuth, useUsdcBalance, useWalletSetup } from '@/wallet/hooks';
 import { getPushToken, onPush } from '@/wallet/push';
 import { useWalletSigning } from '@/wallet/signing';
+import { reasonsFor, whyFrom } from '@/wallet/trustee';
 import { amountString, buildUsdcTransfer } from '@/wallet/transactions';
 import { sendCheckedPayment } from '@/wallet/payments';
 
@@ -64,8 +65,9 @@ export function useCheckPayment() {
       verdict: checked.verdict,
       unlockAt,
       newPayee: checked.reasons.includes('new_payee'),
-      why: checked.reasons.some((r) => !['new_payee', 'over_limit', 'first_payment_cap'].includes(r)) ? 'flagged' : 'limit',
-      reasons: checked.reasons.map((reason) => ({ title: reason.replaceAll('_', ' '), detail: 'Your safety check requires this before sending.', tag: reason, tone: 'amber' })),
+      why: whyFrom(checked.reasons),
+      reasons: reasonsFor(checked.reasons, 'user'),
+      codes: checked.reasons,
     };
     useStore.setState((s) => ({
       draft, result,
@@ -134,7 +136,7 @@ export function useRequestApproval() {
     if (!draft || !result?.paymentId || !result.nonce || !result.amountText) throw new Error('Check this payment again first.');
     const input = {
       paymentId: result.paymentId, to: draft.address, amountText: result.amountText, nonce: result.nonce,
-      name: draft.name, reasons: (result.reasons ?? []).map((r) => r.tag), answers: answers.map((a) => !!a) as [boolean, boolean, boolean],
+      name: draft.name, reasons: result.codes ?? [], answers: answers.map((a) => !!a) as [boolean, boolean, boolean],
       newPayee: !!result.newPayee,
     };
     const { requestKey, expiresAt } = await requestPaymentApproval(input, {

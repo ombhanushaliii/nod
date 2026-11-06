@@ -24,7 +24,7 @@ import { asc, eq } from "@arkiv-network/sdk/query";
 import { addr, bytes, defineSchema, key, SchemaMismatchError, str, u64 } from "@arkiv-network/sdk/schema";
 import { http, type Hex } from "viem";
 import type { ArkivApprovals, ArkivDecision, ArkivRequest } from "./arkiv.ts";
-import type { ReportCounts, ScamReports } from "./risk.ts";
+import { knownCategories, type ReportCounts, type ScamReports } from "./risk.ts";
 
 export const ApprovalRequest = defineSchema("approval_request", {
   pairId: str().indexed(),
@@ -84,6 +84,16 @@ export function pickDecision(rows: DecisionRow[]): ArkivDecision | null {
 export function countReports(creators: string[], trusted: Set<string>): ReportCounts {
   const verified = creators.filter((c) => trusted.has(c.toLowerCase())).length;
   return { verified, unverified: creators.length - verified };
+}
+
+// Counts, plus the categories of the verified reports only: anyone can write
+// a report, so a stranger's category never reaches the user.
+export function summarizeReports(rows: { creator: string; category: string }[], trusted: Set<string>): ReportCounts {
+  const mine = rows.filter((r) => trusted.has(r.creator.toLowerCase()));
+  return {
+    ...countReports(rows.map((r) => r.creator), trusted),
+    categories: knownCategories(mine.map((r) => r.category)),
+  };
 }
 
 const isNotOurs = (err: unknown) => err instanceof NoEntityFoundError || err instanceof SchemaMismatchError;
@@ -156,25 +166,25 @@ export function arkivScamReports(deps: {
   return {
     async countFor(address) {
       try {
-        const readCreators = async () => {
-          const creators: string[] = [];
+        const readRows = async () => {
+          const rows: { creator: string; category: string }[] = [];
           for (let page = 0; page < MAX_PAGES; page++) {
             const res = await deps.client
-              .select({ $creator: true })
+              .select({ $creator: true, category: true })
               .from(ScamReport, { onMismatch: "skip" })
               .where(eq("address", addr(address as Hex)))
               .orderBy(asc("$key"))
               .limit(PAGE)
               .offset(page * PAGE)
               .fetch();
-            creators.push(...res.entities.map((r) => r.$creator));
+            rows.push(...res.entities.map((r) => ({ creator: r.$creator, category: r.category?.value ?? "" })));
             // The offset counts skipped entities too, so a full page is rows + skipped.
             if (res.entities.length + res.skipped < PAGE) break;
           }
-          return creators;
+          return rows;
         };
-        const [creators, trusted] = await Promise.all([readCreators(), deps.trustedCreators()]);
-        return countReports(creators, new Set(trusted.map((a) => a.toLowerCase())));
+        const [rows, trusted] = await Promise.all([readRows(), deps.trustedCreators()]);
+        return summarizeReports(rows, new Set(trusted.map((a) => a.toLowerCase())));
       } catch (err) {
         console.error("arkiv report read failed, using the archive", err);
         return await deps.archive(address);

@@ -1,6 +1,17 @@
 // Outside risk signals for a payee address.
 
-export type ReportCounts = { verified: number; unverified: number };
+// categories: what the verified reports say the address is, e.g.
+// "sanctioned", "phishing", "exploit" (importer) or "scam" (trustee deny).
+// Only the known ones, each once.
+export type ReportCounts = { verified: number; unverified: number; categories?: string[] };
+
+export const REPORT_CATEGORIES = ["sanctioned", "phishing", "exploit", "scam"] as const;
+
+// Known categories from verified reports, in a fixed order.
+export function knownCategories(categories: (string | null | undefined)[]): string[] {
+  const seen = new Set(categories.map((c) => (c ?? "").toLowerCase()));
+  return REPORT_CATEGORIES.filter((c) => seen.has(c));
+}
 
 // Live scam reports on Arkiv (D3, D6). Owned by the Arkiv work; it filters by
 // trusted creators (our seed wallet and trustee per-pair keys).
