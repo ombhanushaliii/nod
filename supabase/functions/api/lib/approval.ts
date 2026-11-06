@@ -1,7 +1,7 @@
 // Checks a trustee decision from Arkiv against the payment it claims to approve
 // (D5), and works out when the payment may go out. Pure, so it's easy to test.
 import type { ArkivDecision } from "./arkiv.ts";
-import { intentHash } from "./intent.ts";
+import { exportIntentHash, intentHash } from "./intent.ts";
 import { COOLDOWN_MS } from "./rules.ts";
 
 export const REQUEST_TTL_MS = 30 * 60 * 1000; // approval_request lives 30 min
@@ -34,6 +34,31 @@ export function checkDecision(args: {
   const allowedAt = d.createdAt > args.requestAttachedAt ? d.createdAt : args.requestAttachedAt;
   const earliest = new Date(allowedAt.getTime() + (p.newPayee ? COOLDOWN_MS : 0));
   const validFrom = d.validFrom && d.validFrom > earliest ? d.validFrom : earliest;
+  const windowEnd = new Date(validFrom.getTime() + ALLOW_WINDOW_MS);
+  const validUntil = d.expiresAt < windowEnd ? d.expiresAt : windowEnd;
+  if (validUntil <= args.now || validUntil <= validFrom) return { ok: false, reason: "decision_expired" };
+  return { ok: true, verdict: "allow", validFrom, validUntil };
+}
+
+// Same checks for a key export (D2). The Allow must carry
+// exportIntentHash(wallet, nonce) for this user's wallet and this export's
+// nonce. There's no 24h wait: it can be used from the Allow for 1 hour, once.
+export function checkExportDecision(args: {
+  decision: ArkivDecision;
+  pairId: string;
+  export: { wallet: string; nonce: string };
+  requestAttachedAt: Date;
+  now: Date;
+}): DecisionCheck {
+  const { decision: d } = args;
+  if (d.pairId.toLowerCase() !== args.pairId.toLowerCase()) return { ok: false, reason: "pair_mismatch" };
+  if (d.verdict === "deny") return { ok: true, verdict: "deny" };
+
+  if ((d.intentHash ?? "").toLowerCase() !== exportIntentHash(args.export.wallet, args.export.nonce)) {
+    return { ok: false, reason: "intent_mismatch" };
+  }
+  const allowedAt = d.createdAt > args.requestAttachedAt ? d.createdAt : args.requestAttachedAt;
+  const validFrom = d.validFrom && d.validFrom > allowedAt ? d.validFrom : allowedAt;
   const windowEnd = new Date(validFrom.getTime() + ALLOW_WINDOW_MS);
   const validUntil = d.expiresAt < windowEnd ? d.expiresAt : windowEnd;
   if (validUntil <= args.now || validUntil <= validFrom) return { ok: false, reason: "decision_expired" };

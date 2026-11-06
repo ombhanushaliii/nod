@@ -4,7 +4,7 @@ import { createApp } from "../app.ts";
 import { privyAuth } from "../lib/auth.ts";
 import {
   type NewPayment, type Payee, type Payment, type PaymentStatus, type Repo, RepoError, type RuleChange, type Rules,
-  type User,
+  type User, type ExportDecision, type KeyExport,
 } from "../lib/repo.ts";
 import type { NotifyMode } from "../lib/rules.ts";
 import { type GoPlusResult, knownCategories, type ReportCounts } from "../lib/risk.ts";
@@ -51,6 +51,7 @@ export class MemoryRepo implements Repo {
   payees = new Map<string, Payee>(); // key: userId|address
   payments: Payment[] = [];
   approvals: Approval[] = [];
+  exports: KeyExport[] = [];
   pushTokens = new Map<string, string>(); // expo token -> user id
   clock = () => new Date();
 
@@ -229,6 +230,67 @@ export class MemoryRepo implements Repo {
     }
     return Promise.resolve();
   }
+  createExport(userId: string, nonce: string) {
+    const e: KeyExport = { id: crypto.randomUUID(), userId, nonce, status: "created", approvalId: null, createdAt: this.clock() };
+    this.exports.push(e);
+    return Promise.resolve({ id: e.id });
+  }
+  getExport(id: string, userId: string) {
+    const e = this.exports.find((x) => x.id === id && x.userId === userId);
+    return Promise.resolve(e ? { ...e } : null);
+  }
+  exportByRequestKey(requestKey: string, userId: string) {
+    const a = this.approvals.find((x) => x.requestKey.toLowerCase() === requestKey.toLowerCase());
+    const e = a && this.exports.find((x) => x.approvalId === a.id && x.userId === userId);
+    return Promise.resolve(e ? { ...e } : null);
+  }
+  // Mirrors attach_export_request.
+  attachExportRequest(exportId: string, userId: string, requestKey: string) {
+    const e = this.exports.find((x) => x.id === exportId && x.userId === userId);
+    if (!e) return Promise.reject(new RepoError("export_not_found"));
+    if (e.status !== "created") return Promise.reject(new RepoError("already_requested"));
+    const pair = this.pairs.find((x) => x.userId === userId && x.status === "active");
+    if (!pair) return Promise.reject(new RepoError("no_active_trustee"));
+    if (this.approvals.some((a) => a.requestKey === requestKey)) return Promise.reject(new RepoError("request_key_used"));
+    const a: Approval = { id: crypto.randomUUID(), pairRowId: pair.id, requestKey, createdAt: this.clock() };
+    this.approvals.push(a);
+    Object.assign(e, { approvalId: a.id, status: "awaiting_trustee" });
+    return Promise.resolve();
+  }
+  // Mirrors record_export_decision.
+  recordExportDecision(exportId: string, d: ExportDecision) {
+    const e = this.exports.find((x) => x.id === exportId);
+    if (!e) return Promise.reject(new RepoError("export_not_found"));
+    if (e.status !== "awaiting_trustee") return Promise.reject(new RepoError("not_awaiting_trustee"));
+    if (this.approvals.some((a) => a.decisionKey === d.decisionKey)) return Promise.reject(new RepoError("decision_key_used"));
+    Object.assign(this.approvals.find((x) => x.id === e.approvalId)!, d);
+    e.status = d.verdict === "allow" ? "allowed" : "denied";
+    return Promise.resolve(e.status);
+  }
+  expireExport(exportId: string) {
+    const e = this.exports.find((x) => x.id === exportId && x.status === "awaiting_trustee");
+    if (e) e.status = "expired";
+    return Promise.resolve(!!e);
+  }
+  // Mirrors claim_export.
+  claimExport(userId: string) {
+    const now = this.clock();
+    const e = this.exports
+      .filter((x) => x.userId === userId && x.status === "allowed")
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .find((x) => {
+        const a = this.approvals.find((y) => y.id === x.approvalId);
+        return a && a.verdict === "allow" && !a.usedAt && a.validFrom! <= now && a.validUntil! > now;
+      });
+    if (!e) return Promise.reject(new RepoError("export_not_allowed"));
+    this.approvals.find((y) => y.id === e.approvalId)!.usedAt = now;
+    e.status = "used";
+    return Promise.resolve(e.id);
+  }
+  walletOf(userId: string) {
+    return Promise.resolve(this.users.find((u) => u.id === userId)?.wallet_address ?? null);
+  }
+
   expirePayment(paymentId: string) {
     const p = this.payments.find((x) => x.id === paymentId && x.status === "awaiting_trustee");
     if (p) p.status = "expired";

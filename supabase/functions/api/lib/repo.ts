@@ -27,6 +27,11 @@ export type Payment = NewPayment & {
 export type ActivePair = { id: string; pairId: string; pairKeyAddress: string; trusteeId: string };
 export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
+// Key export (D2): the user asks, the trustee allows once.
+export type ExportStatus = "created" | "awaiting_trustee" | "allowed" | "denied" | "expired" | "used";
+export type KeyExport = { id: string; userId: string; nonce: string; status: ExportStatus; approvalId: string | null; createdAt: Date };
+export type ExportDecision = { decisionKey: string; verdict: "allow" | "deny"; validFrom: Date | null; validUntil: Date | null };
+
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
 // The user's open pair: waiting for the trustee, or active.
 export type UserPair =
@@ -42,7 +47,8 @@ export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "
 export type ApprovalError =
   | "payment_not_found" | "trustee_not_needed" | "already_requested" | "no_active_trustee"
   | "request_key_used" | "not_awaiting_trustee" | "decision_key_used"
-  | "still_cooling_down" | "not_ready" | "check_stale" | "approval_not_usable" | "not_sending";
+  | "still_cooling_down" | "not_ready" | "check_stale" | "approval_not_usable" | "not_sending"
+  | "export_not_found" | "export_not_allowed";
 export type RulesError = "not_your_pair";
 export type RepoErrorCode = InviteError | ApprovalError | RulesError;
 
@@ -98,6 +104,20 @@ export interface Repo extends JobsRepo {
   // Newest first.
   listPayments(userId: string, limit: number): Promise<Payment[]>;
 
+  // Key export (D2).
+  createExport(userId: string, nonce: string): Promise<{ id: string }>;
+  getExport(id: string, userId: string): Promise<KeyExport | null>;
+  exportByRequestKey(requestKey: string, userId: string): Promise<KeyExport | null>;
+  attachExportRequest(exportId: string, userId: string, requestKey: string): Promise<void>;
+  // Returns the export's new status.
+  recordExportDecision(exportId: string, d: ExportDecision): Promise<ExportStatus>;
+  // Request ran out with no decision. Returns false if the status had moved on.
+  expireExport(exportId: string): Promise<boolean>;
+  // Uses up the newest allowed export inside its window, once; throws export_not_allowed.
+  claimExport(userId: string): Promise<string>;
+  // The wallet a user registered (for the export intent hash on the trustee side).
+  walletOf(userId: string): Promise<string | null>;
+
   // Rules: only the trustee changes them, and changes apply at once.
   // History is newest first.
   rulesView(userId: string, historyLimit: number): Promise<RulesView>;
@@ -129,8 +149,13 @@ const KNOWN: RepoErrorCode[] = [
   "payment_not_found", "trustee_not_needed", "already_requested", "no_active_trustee",
   "request_key_used", "not_awaiting_trustee", "decision_key_used",
   "still_cooling_down", "not_ready", "check_stale", "approval_not_usable", "not_sending",
-  "not_your_pair",
+  "not_your_pair", "export_not_found", "export_not_allowed",
 ];
+
+// deno-lint-ignore no-explicit-any
+const toExport = (d: any): KeyExport => ({
+  id: d.id, userId: d.user_id, nonce: d.nonce, status: d.status, approvalId: d.approval_id, createdAt: new Date(d.created_at),
+});
 
 // deno-lint-ignore no-explicit-any
 function toPayment(data: any): Payment {
@@ -321,6 +346,53 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         .eq("id", paymentId).eq("status", "awaiting_trustee").select("id");
       if (error) rethrow(error);
       return data.length > 0;
+    },
+    async createExport(userId, nonce) {
+      const { data, error } = await db.from("key_exports").insert({ user_id: userId, nonce }).select("id").single();
+      if (error) rethrow(error);
+      return { id: data.id };
+    },
+    async getExport(id, userId) {
+      if (!UUID_RE.test(id)) return null;
+      const { data, error } = await db.from("key_exports").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+      if (error) rethrow(error);
+      return data ? toExport(data) : null;
+    },
+    async exportByRequestKey(requestKey, userId) {
+      const { data, error } = await db.from("key_exports").select("*, approvals!inner(request_key)")
+        .eq("user_id", userId).eq("approvals.request_key", requestKey.toLowerCase()).maybeSingle();
+      if (error) rethrow(error);
+      return data ? toExport(data) : null;
+    },
+    async attachExportRequest(exportId, userId, requestKey) {
+      const { error } = await db.rpc("attach_export_request", {
+        p_export_id: exportId, p_user_id: userId, p_request_key: requestKey,
+      });
+      if (error) rethrow(error);
+    },
+    async recordExportDecision(exportId, d) {
+      const { data, error } = await db.rpc("record_export_decision", {
+        p_export_id: exportId, p_decision_key: d.decisionKey, p_verdict: d.verdict,
+        p_valid_from: d.validFrom?.toISOString() ?? null, p_valid_until: d.validUntil?.toISOString() ?? null,
+      });
+      if (error) rethrow(error);
+      return data as ExportStatus;
+    },
+    async expireExport(exportId) {
+      const { data, error } = await db.from("key_exports").update({ status: "expired" })
+        .eq("id", exportId).eq("status", "awaiting_trustee").select("id");
+      if (error) rethrow(error);
+      return data.length > 0;
+    },
+    async claimExport(userId) {
+      const { data, error } = await db.rpc("claim_export", { p_user_id: userId });
+      if (error) rethrow(error);
+      return data as string;
+    },
+    async walletOf(userId) {
+      const { data, error } = await db.from("users").select("wallet_address").eq("id", userId).maybeSingle();
+      if (error) rethrow(error);
+      return data?.wallet_address ?? null;
     },
     async claimPayment(paymentId, userId, maxCheckAgeMs) {
       if (!UUID_RE.test(paymentId)) throw new RepoError("payment_not_found");
