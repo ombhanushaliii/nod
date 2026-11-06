@@ -38,3 +38,11 @@ npm run deploy       # builds, then uploads dist/
 | `public/assets/nod-logo.png` | The Nod logo (header, download card, footer, favicon) |
 
 The two interactive bits work like the design: tap **Allow once** or **Deny & report** on the trustee's phone in the hero, and pick a payment under **What Nod checks** to see what happens to it.
+
+## The invite page (`/invite`)
+
+Trustee invite emails link to `/invite?token=...` (`src/Invite.tsx`). The page:
+
+- Asks the API whether the link is still open (`GET /public/invites/:token`). That needs `VITE_API_URL` at build time (see `.env.example`). Without it, the page skips the check.
+- Explains what a trustee does, then opens the app at `nod://trustee/invite?token=...`.
+- Never shows who sent the invite. `public/_headers` stops the token from leaking as a referrer, and keeps the page out of caches and search results.
