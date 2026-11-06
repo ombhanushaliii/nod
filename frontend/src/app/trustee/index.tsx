@@ -1,6 +1,7 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { AccountHeader, Avatar, Button, Chip, FadeInRow, ReviewRow, ScrollScreen, Screen, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
@@ -42,6 +43,19 @@ function Home() {
           {people.length} {people.length === 1 ? 'person' : 'people'} · {need ? `${need} need${need > 1 ? '' : 's'} you` : 'all good'}
         </Txt>
       </View>
+
+      {/* Looks like a search field; opens the address check. */}
+      <Tap
+        feedback="opacity"
+        onPress={() => router.push('/trustee/check')}
+        style={styles.search}
+        accessibilityRole="search"
+        accessibilityLabel="Check an address for scams">
+        <SearchIcon />
+        <Txt size={16} color={colors.faint} style={{ flex: 1 }} numberOfLines={1}>
+          Check an address for scams
+        </Txt>
+      </Tap>
 
       {s.trusteeError && (
         <Txt size={14} lh={1.5} color={colors.accFg} accessibilityRole="alert">
@@ -185,7 +199,20 @@ function NoInvite() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.sub} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={11} cy={11} r={7} />
+      <Path d="M20 20l-3.5-3.5" />
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
+  search: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, paddingHorizontal: 16,
+    borderRadius: 16, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line,
+  },
   person: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
   invite: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.white },
 });

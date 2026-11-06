@@ -45,7 +45,7 @@ test('readRequests drops other writers, other pairs, wrong keys and junk', () =>
 
 test('reasons read as words, and a flag makes it risky', () => {
   assert.equal(reasonFromTag('scam_report').tone, 'red');
-  assert.equal(reasonFromTag('goplus:phishing_activities').title, 'Flagged by a security service');
+  assert.equal(reasonFromTag('goplus:phishing_activities').title, 'Linked to phishing');
   assert.equal(whyFrom(['new_payee']), 'limit');
   assert.equal(whyFrom(['new_payee', 'look_alike']), 'flagged');
 });
@@ -62,15 +62,23 @@ test('a report says what the address is, and replaces the generic row', () => {
   assert.deepEqual(reasonsFor(['scam_report'], 'trustee').map((r) => r.title), ['Reported as a scam']);
 });
 
+test('the same finding from a report and the outside check shows once, as the report', () => {
+  const rows = reasonsFor(['scam_report', 'reported:sanctioned', 'goplus:sanctioned', 'goplus:stealing_attack'], 'trustee');
+  assert.deepEqual(rows.map((r) => r.title), ['Sanctioned by the US government', 'Linked to stealing funds']);
+  // Without the report, the outside label still shows.
+  assert.deepEqual(reasonsFor(['goplus:sanctioned'], 'trustee').map((r) => r.title), ['On a sanctions list']);
+});
+
 test('wording follows who is reading', () => {
   assert.equal(reasonFromTag('new_payee', 'user').detail, "You've never paid this address.");
   assert.equal(reasonFromTag('new_payee', 'trustee').detail, 'They have never paid this address.');
   assert.equal(reasonFromTag('look_alike', 'user').title, 'Looks like someone you know');
 });
 
-test('GoPlus labels read as words; unknown ones still show', () => {
-  assert.equal(reasonFromTag('goplus:stealing_attack').detail, 'GoPlus links this address to stealing funds.');
-  assert.equal(reasonFromTag('goplus:new_label').detail, 'GoPlus links this address to new label.');
+test('security labels read as words from Nod; unknown ones still show', () => {
+  assert.equal(reasonFromTag('goplus:stealing_attack').title, 'Linked to stealing funds');
+  assert.equal(reasonFromTag('goplus:stealing_attack').detail, 'Nod links this wallet to stolen funds.');
+  assert.equal(reasonFromTag('goplus:new_label').detail, 'Nod links this wallet to new label.');
   assert.equal(reasonFromTag('something_new').tag, 'check');
 });
 

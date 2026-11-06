@@ -57,22 +57,24 @@ const REASONS: Record<string, Words> = {
     detail: "The address couldn't be checked right now." },
 };
 
-// GoPlus labels (supabase/functions/api/lib/risk.ts), in words.
-const GOPLUS: Record<string, string> = {
-  sanctioned: 'on a sanctions list',
-  phishing_activities: 'phishing',
-  stealing_attack: 'stealing funds',
-  cybercrime: 'cybercrime',
-  money_laundering: 'money laundering',
-  financial_crime: 'financial crime',
-  darkweb_transactions: 'darkweb payments',
-  fake_kyc: 'fake identity checks',
-  blacklist_doubt: 'a blocklist',
-  blackmail_activities: 'blackmail',
-  mixer: 'a coin mixer',
-  honeypot_related_address: 'a honeypot scam',
-  fake_token: 'fake tokens',
-  malicious_contracts_created: 'creating malicious contracts',
+// Security labels from the backend's outside check (supabase/functions/api/lib/risk.ts),
+// in words: a title, and what Nod links the wallet to. The app speaks as Nod and never
+// names the data provider.
+const SECURITY: Record<string, [title: string, what: string]> = {
+  sanctioned: ['On a sanctions list', 'a sanctions list'],
+  phishing_activities: ['Linked to phishing', 'phishing'],
+  stealing_attack: ['Linked to stealing funds', 'stolen funds'],
+  cybercrime: ['Linked to cybercrime', 'cybercrime'],
+  money_laundering: ['Linked to money laundering', 'money laundering'],
+  financial_crime: ['Linked to financial crime', 'financial crime'],
+  darkweb_transactions: ['Linked to darkweb payments', 'darkweb payments'],
+  fake_kyc: ['Linked to fake identity checks', 'fake identity checks'],
+  blacklist_doubt: ['On a blocklist', 'addresses security firms block'],
+  blackmail_activities: ['Linked to blackmail', 'blackmail'],
+  mixer: ['Linked to a coin mixer', 'a coin mixer'],
+  honeypot_related_address: ['Linked to a honeypot scam', 'a honeypot scam'],
+  fake_token: ['Linked to fake tokens', 'fake tokens'],
+  malicious_contracts_created: ['Made harmful contracts', 'creating harmful contracts'],
 };
 
 /** A reason code from the backend, in words for whoever is reading. */
@@ -84,19 +86,29 @@ export function reasonFromTag(tag: string, viewer: Viewer = 'trustee'): Reason {
   }
   if (tag.startsWith('goplus:')) {
     const label = tag.slice(7);
-    const what = GOPLUS[label] ?? label.replaceAll('_', ' ');
-    return { title: 'Flagged by a security service', detail: `GoPlus links this address to ${what}.`, tone: 'red', tag: 'risk' };
+    const [title, what] = SECURITY[label] ?? ['Flagged by Nod', label.replaceAll('_', ' ')];
+    return { title, detail: `Nod links this wallet to ${what}.`, tone: 'red', tag: 'risk' };
   }
   return { title: tag.replaceAll('_', ' '), detail: 'The safety check flagged this.', tone: 'amber', tag: 'check' };
 }
 
+// An outside label that says the same as one of Nod's own reports.
+const SAME_AS_REPORT: Record<string, string> = {
+  'goplus:sanctioned': 'reported:sanctioned',
+  'goplus:phishing_activities': 'reported:phishing',
+};
+
 /**
  * Reason codes in words, in the order the check gave them. The generic
- * "reported as a scam" row is left out when a report says what the address is.
+ * "reported as a scam" row is left out when a report says what the address is,
+ * and an outside label that repeats one of Nod's reports shows once, as the report.
  */
 export function reasonsFor(codes: string[], viewer: Viewer): Reason[] {
   const specific = codes.some((c) => c.startsWith('reported:'));
-  return codes.filter((c) => !(specific && c === 'scam_report')).map((c) => reasonFromTag(c, viewer));
+  return codes
+    .filter((c) => !(specific && c === 'scam_report'))
+    .filter((c) => !(SAME_AS_REPORT[c] && codes.includes(SAME_AS_REPORT[c])))
+    .map((c) => reasonFromTag(c, viewer));
 }
 
 /** A steady avatar for someone known only by their address. */
