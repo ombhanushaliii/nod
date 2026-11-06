@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Keyboard, ScrollView, type ScrollViewInstance, View } from 'react-native';
 
 import { Avatar, AvatarPicker, Button, Label, Screen, TextField, Txt } from '@/components';
-import { trusteeName, useStore } from '@/data/store';
+import { ownTrusteeName, useStore } from '@/data/store';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
 import { isDemo } from '@/wallet/config';
@@ -15,15 +15,27 @@ export default function TrusteeProfile() {
   const avatar = useStore((s) => s.trusteeAvatar);
   const setAvatar = useStore((s) => s.setTrusteeAvatar);
   const setProfile = useStore((s) => s.setTrusteeProfile);
-  const tn = useStore(trusteeName);
-  const [name, setName] = useState(tn === 'Your trustee' ? '' : tn);
+  // Your own name as a trustee (live: never your wallet's trustee).
+  const tn = useStore(ownTrusteeName);
+  const [name, setName] = useState(tn === 'Your trustee' || tn === 'You' ? '' : tn);
   const ok = !!name.trim();
   // The avatar grid leaves no room for the name field once the keyboard is up,
   // so the content scrolls, and opening the keyboard scrolls the field into view.
+  // On Android the screen shrinks just after this event, so it scrolls again once it has (onLayout).
   const scroll = useRef<ScrollViewInstance>(null);
+  const keyboardUp = useRef(false);
   useEffect(() => {
-    const sub = Keyboard.addListener('keyboardDidShow', () => scroll.current?.scrollToEnd({ animated: true }));
-    return () => sub.remove();
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardUp.current = true;
+      scroll.current?.scrollToEnd({ animated: true });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardUp.current = false;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
   }, []);
 
   const done = () => {
@@ -36,6 +48,7 @@ export default function TrusteeProfile() {
     <Screen keyboard>
       <ScrollView
         ref={scroll}
+        onLayout={() => keyboardUp.current && scroll.current?.scrollToEnd({ animated: true })}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 16 }}
         keyboardShouldPersistTaps="handled"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme';
@@ -28,7 +28,8 @@ export function Sheet({ visible, onClose, children, dim = 0.34, center, gap = 18
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Both platforms: see Screen in layout.tsx. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(37,40,43,${dim})`, opacity: v.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 1, 1] }) }]}>
             <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />

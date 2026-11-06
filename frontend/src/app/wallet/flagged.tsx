@@ -14,6 +14,8 @@ export default function Flagged() {
   const result = useStore((s) => s.result);
   const resetAnswers = useStore((s) => s.resetAnswers);
   const tn = useStore(trusteeName);
+  // No trustee yet (invite not accepted): nobody can check it, so don't offer to ask.
+  const canAsk = useStore((s) => s.trusteeStatus === 'active');
   const R = useRules();
 
   const why = result?.why;
@@ -21,11 +23,13 @@ export default function Flagged() {
   const isLimit = why === 'limit' || isDaily;
   const icon = isLimit ? tones.amber : tones.red;
   const title = isDaily ? `Over today's ${m0(R.daily)} max` : isLimit ? `Over your ${m0(R.limit)} limit` : 'This might be a scam';
-  const body = isDaily
-    ? `${tn} set a daily max. They need to OK going over it.`
-    : isLimit
-      ? `${tn} needs to OK this one before it goes out.`
-      : `We found warning signs. ${tn} has to check it before it can go out.`;
+  const body = !canAsk
+    ? `${isLimit ? 'This one needs your trustee’s OK' : 'We found warning signs'}, but ${tn} hasn’t accepted your invite yet, so nobody can check it. It can’t be sent for now.`
+    : isDaily
+      ? `${tn} set a daily max. They need to OK going over it.`
+      : isLimit
+        ? `${tn} needs to OK this one before it goes out.`
+        : `We found warning signs. ${tn} has to check it before it can go out.`;
 
   return (
     <Screen padH={20}>
@@ -58,14 +62,16 @@ export default function Flagged() {
         </Card>
       </ScrollView>
       <View style={{ gap: 8, paddingTop: 14 }}>
-        <Button
-          label={`Ask ${tn} to check`}
-          onPress={() => {
-            resetAnswers();
-            router.push('/wallet/questions');
-          }}
-        />
-        <Button label="Don't send" variant="soft" height={50} size={16} onPress={goWalletHome} />
+        {canAsk && (
+          <Button
+            label={`Ask ${tn} to check`}
+            onPress={() => {
+              resetAnswers();
+              router.push('/wallet/questions');
+            }}
+          />
+        )}
+        <Button label={canAsk ? "Don't send" : 'Back to home'} variant={canAsk ? 'soft' : 'dark'} height={canAsk ? 50 : 56} size={canAsk ? 16 : 17} onPress={goWalletHome} />
       </View>
     </Screen>
   );
