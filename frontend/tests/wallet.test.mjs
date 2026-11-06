@@ -10,10 +10,10 @@ const hash = `0x${'ab'.repeat(32)}`;
 const noWait = async () => {};
 const sameSession = () => {};
 
-test('transfer encodes the exact recipient and six-decimal USDC amount on Base Sepolia', () => {
+test('transfer encodes the exact recipient and six-decimal USDC amount on Ethereum Sepolia', () => {
   const tx = buildUsdcTransfer(recipient, '1.000001');
-  assert.equal(tx.chainId, '0x14a34');
-  assert.equal(tx.to, '0x036cbd53842c5426634e7929541ec2318f3dcf7e');
+  assert.equal(tx.chainId, '0xaa36a7');
+  assert.equal(tx.to, '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238');
   assert.equal(tx.value, '0x0');
   const decoded = decodeFunctionData({ abi: erc20Abi, data: tx.data });
   assert.equal(decoded.functionName, 'transfer');
