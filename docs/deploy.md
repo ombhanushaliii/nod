@@ -69,15 +69,9 @@ select public.call_arkiv_job('mirror');
 ## 4. Landing page (Cloudflare Pages)
 
 Cloudflare builds and deploys the `getnod` project on every new commit. The
-`/invite` page needs the API URL at build time. In Cloudflare: Workers & Pages >
-getnod > Settings > Variables and secrets, add
-
-```
-VITE_API_URL=https://<project-ref>.supabase.co/functions/v1/api
-```
-
-then redeploy the latest build. Without it, the invite page skips checking
-whether the link is still open.
+`/invite` page needs the API URL at build time. It's in `landing/.env.production`
+(a public URL, not a secret), so builds pick it up with nothing to set in
+Cloudflare. For another Supabase project, change it there.
 
 ## 5. App
 
