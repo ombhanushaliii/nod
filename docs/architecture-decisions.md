@@ -14,7 +14,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 | Wallet app (user view) | Send money, warnings, the 3 scam questions | React Native (Expo) | [team] |
 | Wallet app (trustee view) | Push alert, context card, Allow once / Deny & report | Same React Native app | [team] |
 | Login + wallet | Google or phone login, embedded wallet, no seed phrase | Privy | [team] |
-| Payment chain | Holds the money; USDC transfers, gas sponsored by Privy and sent by the backend | Base Sepolia, test USDC | [team] |
+| Payment chain | Holds the money; USDC transfers, gas sponsored by Privy and sent by the backend | Ethereum Sepolia, test USDC | [team] |
 | Smart contract | **None** | — | [team] |
 | Shared, expiring data | Approval requests, trustee decisions, live scam reports | Arkiv (Rabdi testnet, `@arkiv-network/sdk`) | [team] |
 | Permanent data | Users, user–trustee link, rules, push tokens, scam report archive | Supabase | [team] |
@@ -26,7 +26,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 ## 2. Key decisions and why
 
 ### D1. Each person's own Privy wallet owns their Arkiv entities. [team]
-- One Privy embedded wallet per person, with the same address on Base Sepolia and Arkiv. **[proposed]**
+- One Privy embedded wallet per person, with the same address on Ethereum Sepolia and Arkiv. **[proposed]**
 - The backend tops up new wallets with a little tGLM, so nobody sees a faucet. **[team]**
 - Why: the backend can never forge a user's request or a trustee's decision. Arkiv's owner field proves who wrote what.
 - Verified in docs: the Arkiv SDK wallet client accepts an EIP-1193 provider (`custom(provider)`), and Privy Expo provides one (`wallet.getProvider()`). **Still to test:** Privy on the custom Rabdi chain (ID 7794095).
@@ -57,10 +57,10 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 
 - Who can change the rules: **only the trustee**, and their change applies at once. The user can see the rules and a history of the trustee's changes, but can't change them or propose changes, not even to tighten them. **[team]**
 - Where they live: rules, the known-payee list and pending cooldowns are kept in Supabase. They're private to the user, so they stay off Arkiv.
-- Payment asset: **test USDC on Base Sepolia. [team]** Limits are compared directly in USDC (1 USDC = $1), so no price feed is needed. Payments are ERC-20 `transfer` calls.
+- Payment asset: **test USDC on Ethereum Sepolia. [team]** Limits are compared directly in USDC (1 USDC = $1), so no price feed is needed. Payments are ERC-20 `transfer` calls.
 
-### D3a. Gas on Base Sepolia: Privy gas sponsorship, sent from the backend. [team: Privy sponsorship]
-- Privy's "App pays" mode covers gas on Base Sepolia (listed in Privy's docs). Users never hold ETH.
+### D3a. Gas on Ethereum Sepolia: Privy gas sponsorship, sent from the backend. [team: Privy sponsorship]
+- Privy's "App pays" mode covers gas on Ethereum Sepolia (listed in Privy's docs). Users never hold ETH.
 - **Constraint from Privy's docs:** `sponsor: true` is supported in the React (web) SDK and the server SDKs, **not React Native / Expo**. Privy's advice for mobile is to build the transaction in the app and relay it through your server with `sponsor: true`. So the app builds the USDC transfer and the **backend submits it** via Privy's server API after the D3 rules pass.
 - Side effect, a real improvement over D2's known limit: user wallets hold no ETH, so they can't easily send USDC outside the backend. A user would have to fund the wallet with ETH themselves to bypass the rules.
 - Other requirements from Privy's docs: wallets use TEE execution, and sponsorship upgrades wallets via EIP-7702. Enable it on the Dashboard's Fee sponsorship page. The cost is the gas plus a convenience fee (billed prepaid or postpaid).
@@ -69,7 +69,7 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
   - At onboarding, the app calls `addSigners` from `useSigners` in `@privy-io/expo`. The signer is the backend's key quorum, configured in the Privy Dashboard.
   - The backend then sends USDC transfers through Privy's server API with `sponsor: true`, only after the D3 rules pass (or the trustee decision verifies).
   - Privy's docs say signers never see the private key; signing happens in Privy's secure enclave.
-  - **Signer policy [proposed]:** attach a policy (`policyIds`) that only allows `transfer` calls to the test USDC contract on Base Sepolia, so a leaked backend key can't do anything else with the wallet. Important: per Privy's docs, on React and React Native **no policy applies to the signer if none is given**, so this must be set explicitly.
+  - **Signer policy [proposed]:** attach a policy (`policyIds`) that only allows `transfer` calls to the test USDC contract on Ethereum Sepolia, so a leaked backend key can't do anything else with the wallet. Important: per Privy's docs, on React and React Native **no policy applies to the signer if none is given**, so this must be set explicitly.
   - **Trade-off, stated openly:** within that policy, the backend can move a user's USDC to any address. The backend is now a trusted party for user funds, which is the cost of "the backend decides". Payees vary, so the policy can't restrict recipients.
   - Open: whether the user can remove the signer, and what the app shows if they do. Privy's add-signer page doesn't say.
 

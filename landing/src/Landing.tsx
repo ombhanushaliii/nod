@@ -1018,7 +1018,7 @@ function Footer() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src={LOGO} alt="" style={{ width: 24, height: 24, borderRadius: 7, display: 'block' }} />
           <span style={{ fontWeight: 700, color: '#25282B' }}>Nod</span>
-          <span>· Testnet demo on Base Sepolia</span>
+          <span>· Testnet demo on Ethereum Sepolia</span>
         </div>
         <span>© 2026 Nod. All rights reserved.</span>
       </div>
