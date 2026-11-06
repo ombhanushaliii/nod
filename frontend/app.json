@@ -15,7 +15,7 @@
     "android": {
       "package": "com.nod.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E55B00",
+        "backgroundColor": "#FD5901",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
