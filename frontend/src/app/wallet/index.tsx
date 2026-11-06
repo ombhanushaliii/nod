@@ -1,11 +1,11 @@
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { Avatar, Chip, FadeInRow, RingedAvatar, ScrollScreen, Tap, Txt } from '@/components';
+import { AccountHeader, Avatar, Chip, FadeInRow, ScrollScreen, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { approvalEnds, reqState } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
-import { useAuth, useBalance, useRefreshHome } from '@/hooks/api';
+import { useBalance, useRefreshHome } from '@/hooks/api';
 import { ago, dur, m0, money, moneyParts, when } from '@/lib/format';
 import { colors, tones, type Tone } from '@/theme';
 import { isDemo } from '@/wallet/config';
@@ -20,7 +20,6 @@ type PendingRow = { key: string; title: string; sub: string; chip: string; tone:
 
 function Home() {
   const now = useNow();
-  const { user } = useAuth();
   const { balance, hasBalance, loading, error: balanceError, refresh } = useBalance();
   const s = useStore();
   const tn = trusteeName(s);
@@ -84,19 +83,8 @@ function Home() {
 
   return (
     <ScrollScreen>
-      <View style={styles.header}>
-        <View style={{ gap: 1 }}>
-          <Txt size={13} w={600} color={colors.sub}>
-            Your wallet
-          </Txt>
-          <Txt size={18} w={800} ls={-0.01}>
-            @{user?.username}
-          </Txt>
-        </View>
-        <Tap onPress={() => router.push('/wallet/settings')} accessibilityLabel="Settings" pressedScale={0.9}>
-          <RingedAvatar index={s.userAvatar} size={44} />
-        </Tap>
-      </View>
+      {/* Your name and handle. Also a trustee, or invited to be one: tap it to switch sides. */}
+      <AccountHeader settings="/wallet/settings" />
 
       <View style={{ gap: 6 }}>
         <Txt size={15} w={500} color={colors.sub}>
@@ -229,7 +217,6 @@ function Home() {
 }
 
 const styles = StyleSheet.create({
-  header: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   action: { flex: 1, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   notice: {
     borderRadius: 20,

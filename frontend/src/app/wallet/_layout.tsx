@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 
 import { useStore } from '@/data/store';
-import { usePushRegistration, useUserSync } from '@/hooks/api';
+import { usePushRegistration, useRoleLanding, useUserSync } from '@/hooks/api';
 import { colors } from '@/theme';
 
 /** Screens you shouldn't swipe back into: a finished check or a result. */
@@ -12,6 +13,9 @@ export default function WalletLayout() {
   // Live: trustee status and rules stay fresh; this phone gets pushes once signed up.
   useUserSync();
   usePushRegistration(onboarded);
+  // A new account that's only a trustee opens on the trustee side; wait for that first.
+  const deciding = useRoleLanding();
+  if (deciding) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {/* Home sends new users into sign-up (avatar → trustee invite → waiting). */}

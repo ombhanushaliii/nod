@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
 
 import { colors, tones } from '@/theme';
@@ -29,6 +30,8 @@ type Props = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** Shown before the label, e.g. the Google "G". */
+  icon?: ReactNode;
 };
 
 export function Button({
@@ -43,6 +46,7 @@ export function Button({
   disabled,
   style,
   accessibilityLabel,
+  icon,
 }: Props) {
   const v = VARIANTS[variant];
   return (
@@ -50,7 +54,8 @@ export function Button({
       onPress={onPress}
       disabled={disabled}
       accessibilityLabel={accessibilityLabel ?? label}
-      style={[styles.base, { height, borderRadius: radius, backgroundColor: bg ?? v.bg }, style]}>
+      style={[styles.base, icon ? styles.withIcon : null, { height, borderRadius: radius, backgroundColor: bg ?? v.bg }, style]}>
+      {icon}
       <Txt size={size} w={variant === 'ghost' ? 600 : 700} color={fg ?? v.fg} numberOfLines={1}>
         {label}
       </Txt>
@@ -60,4 +65,5 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  withIcon: { flexDirection: 'row', gap: 12 },
 });

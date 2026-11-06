@@ -15,6 +15,8 @@ export type WalletSession = {
   walletAddress: string | null;
   error: string | null;
   signIn: (role: Role, email?: string) => Promise<void>;
+  /** Same account, other side of the app: your wallet, or the people you look after. */
+  switchRole: (role: Role) => void;
   signOut: () => Promise<void>;
   getAccessToken: AccessToken;
   getProvider: (chainId?: number) => Promise<EIP1193Provider>;
@@ -24,7 +26,7 @@ export type WalletSession = {
 const unavailable = async (): Promise<never> => { throw new Error('Wallet connection is unavailable.'); };
 export const unavailableSession: WalletSession = {
   mode: 'privy', ready: true, session: null, userId: null, walletAddress: null, error: null,
-  signIn: unavailable,
+  signIn: unavailable, switchRole: () => {},
   signOut: unavailable, getAccessToken: unavailable, getProvider: unavailable, enableBackendSigner: unavailable,
 };
 export const WalletContext = createContext<WalletSession>(unavailableSession);
@@ -35,6 +37,7 @@ export function DemoWalletProvider({ children }: { children: ReactNode }) {
   return <WalletContext.Provider value={{
     ...unavailableSession, mode: 'demo', session, walletAddress: session ? MY_ADDRESS : null,
     signIn: async (role, email = 'alex.rivera@gmail.com') => useStore.getState().signIn(role, email),
+    switchRole: (role) => useStore.setState((s) => (s.session ? { session: { ...s.session, role } } : {})),
     signOut: async () => useStore.getState().signOut(),
   }}>{children}</WalletContext.Provider>;
 }

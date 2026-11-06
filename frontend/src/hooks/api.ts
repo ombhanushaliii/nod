@@ -358,3 +358,44 @@ export function useScamReports(address?: string | null) {
   }
   return reportsFor({ reports }, address);
 }
+
+const LANDING_TIMEOUT_MS = 5000;
+
+/**
+ * Wallet side, live: does this account also look after someone, or have a
+ * trustee invite waiting? That shows the role switcher. Once per sign-in, a
+ * brand-new account with only that (no wallet set up yet) opens on the trustee
+ * side instead. Returns true while that first decision is still being made, so
+ * the wallet's set-up screens don't flash first.
+ */
+export function useRoleLanding(): boolean {
+  const { live, api } = useLiveApi();
+  const { session, switchRole } = useWallet();
+  const signedIn = !!session;
+  const deciding = useStore((s) => live && signedIn && !s.onboarded && !s.roleLanded);
+  // The provider rebuilds switchRole on every render; keep the latest without re-running the check.
+  const switchTo = useRef(switchRole);
+  useEffect(() => { switchTo.current = switchRole; });
+  useEffect(() => {
+    if (!live || !signedIn) return;
+    let stopped = false;
+    const count = (p: Promise<{ length: number }>) => p.then((list) => list.length).catch(() => 0);
+    const timeout = new Promise<[number, number]>((resolve) => setTimeout(() => resolve([0, 0]), LANDING_TIMEOUT_MS));
+    void Promise.race([
+      Promise.all([
+        // A brand-new account has no user row yet, so this one answers 403: none.
+        count(api<{ users: unknown[] }>('/trustee/users').then((r) => r.users)),
+        count(api<{ invites: unknown[] }>('/trustee/invites').then((r) => r.invites)),
+      ]),
+      timeout,
+    ]).then(([people, invites]) => {
+      if (stopped) return;
+      const links = people + invites;
+      const first = !useStore.getState().roleLanded;
+      useStore.setState({ trusteeLinks: links, roleLanded: true });
+      if (first && links > 0 && !useStore.getState().onboarded) switchTo.current('trustee');
+    });
+    return () => { stopped = true; };
+  }, [live, signedIn, api]);
+  return deciding;
+}

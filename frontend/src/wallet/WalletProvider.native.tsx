@@ -57,7 +57,8 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const google = user?.linked_accounts.find((a) => a.type === 'google_oauth');
   const email = user?.linked_accounts.find((a) => a.type === 'email');
   const contact = google?.email ?? email?.address ?? '';
-  const session: Session | null = isReady && user && wallet ? { role, email: contact, method } : null;
+  const name = google?.name ?? '';
+  const session: Session | null = isReady && user && wallet ? { role, email: contact, method, name } : null;
 
   useEffect(() => {
     if (!isReady || !user || wallet || creationAttempt.current === user.id) return;
@@ -68,8 +69,8 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isReady) return;
     if (!user) { useStore.getState().signOut(); return; }
-    if (wallet) useStore.getState().activateWalletSession(user.id, { role, email: contact, method });
-  }, [isReady, user, wallet, role, contact, method]);
+    if (wallet) useStore.getState().activateWalletSession(user.id, { role, email: contact, method, name });
+  }, [isReady, user, wallet, role, contact, method, name]);
 
   const getProvider = useCallback(async (chainId: number = sepolia.id): Promise<EIP1193Provider> => {
     if (!isReady || !user || !wallet) throw new Error('Wait for your wallet to finish connecting.');
@@ -87,6 +88,7 @@ function ConnectedSession({ children }: { children: ReactNode }) {
       setRole(nextRole); setMethod('Google'); setWalletError(null);
       await login({ provider: 'google' });
     },
+    switchRole: (next) => setRole(next),
     signOut: async () => { currentAccount.current = undefined; await logout(); creationAttempt.current = null; useStore.getState().signOut(); },
     getAccessToken, getProvider,
     enableBackendSigner: async () => {

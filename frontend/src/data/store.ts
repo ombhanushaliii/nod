@@ -83,6 +83,10 @@ type Flow = {
   sentText: string;
   /** Live, trustee side: why requests couldn't be read. Not saved. */
   trusteeError: string | null;
+  /** Live, wallet side: people this account looks after plus trustee invites waiting for it. Shows the role switcher. Not saved. */
+  trusteeLinks: number;
+  /** Live: the side to open on was decided for this sign-in (or chosen with the switcher). Not saved. */
+  roleLanded: boolean;
 };
 
 type Actions = {
@@ -160,7 +164,7 @@ function initialData(): Data {
 }
 
 function initialFlow(): Flow {
-  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '', trusteeError: null };
+  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '', trusteeError: null, trusteeLinks: 0, roleLanded: false };
 }
 
 /**
@@ -170,7 +174,15 @@ function initialFlow(): Flow {
 export const trusteeSide = (s: Pick<Data, 'trusteeStatus' | 'people' | 'inviteToken'>): TrusteeStatus =>
   isDemo ? s.trusteeStatus : s.inviteToken ? 'pending' : s.people.length > 0 ? 'active' : 'none';
 
-export const trusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) => trusteeNameFrom(s.tDisplayName, s.trusteeContact);
+/**
+ * Wallet side: what to call your trustee. In the demo both people share this phone, so
+ * tDisplayName is theirs; live, it's this account's own trustee name, never your trustee's.
+ */
+export const trusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) =>
+  trusteeNameFrom(isDemo ? s.tDisplayName : '', s.trusteeContact);
+/** Trustee side: the name you go by with the people you look after. */
+export const ownTrusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) =>
+  isDemo ? trusteeName(s) : s.tDisplayName || 'You';
 
 export const useStore = create<Store>()(
   persist(
@@ -199,7 +211,7 @@ export const useStore = create<Store>()(
             session: { role, email, method: 'Google' },
             username: role === 'user' && !s.username ? handleFrom(email) : s.username,
           })),
-        signOut: () => set({ session: null, draft: null, result: null, waitingId: null }),
+        signOut: () => set({ session: null, draft: null, result: null, waitingId: null, trusteeLinks: 0, roleLanded: false }),
 
         setUserAvatar: (i) => set({ userAvatar: i }),
         invite: (contact) => set({ trusteeContact: contact.trim(), trusteeStatus: 'pending' }),
@@ -298,10 +310,11 @@ export const useStore = create<Store>()(
 
         acceptInvite: () => set({ trusteeStatus: 'active' }),
         setTrusteeProfile: (name) => {
-          set({
-            tDisplayName: name,
-            notice: { icon: name[0].toUpperCase(), title: `${name} is now your trustee`, body: 'They’ll check risky payments before they go out.' },
-          });
+          set({ tDisplayName: name });
+          // Demo only: the wallet on this phone belongs to the person you just agreed to look after.
+          // Live, it's your own wallet, and this name is yours, not your trustee's.
+          if (!isDemo) return;
+          set({ notice: { icon: name[0].toUpperCase(), title: `${name} is now your trustee`, body: 'They’ll check risky payments before they go out.' } });
           get().pushBanner('user', `${name} accepted`, 'Your trustee is set up.');
         },
         setTrusteeAvatar: (i) => set({ trusteeAvatar: i }),
