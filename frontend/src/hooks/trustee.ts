@@ -11,7 +11,8 @@ import { bytesToHex, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { useStore } from '@/data/store';
-import type { ApprovalRequest, Rules } from '@/data/types';
+import { flags, payeeBy } from '@/data/engine';
+import type { ApprovalRequest, Reason, Rules } from '@/data/types';
 import { useLiveApi } from '@/hooks/api';
 import { apiRequest, ApiError } from '@/wallet/backend';
 import { rabdi } from '@/wallet/chains';
@@ -19,7 +20,7 @@ import { useWallet } from '@/wallet/context';
 import { useWalletSetup } from '@/wallet/hooks';
 import { onPush } from '@/wallet/push';
 import { useWalletSigning } from '@/wallet/signing';
-import { decide, type LivePerson, mergeRequests, notifyDecision, readRequests, withRefill } from '@/wallet/trustee';
+import { decide, type LivePerson, mergeRequests, notifyDecision, readRequests, reasonsFor, withRefill } from '@/wallet/trustee';
 
 type UserView = { pairId: string; walletAddress: string; pairKeyAddress: string; username: string | null; amountLimit: string; notifyMode: LivePerson['mode'] };
 
@@ -271,4 +272,32 @@ export function useSetLiveRules() {
       throw err;
     }
   }, [getAccessToken, assertSession]);
+}
+
+export type AddressVerdict = 'danger' | 'caution' | 'clear';
+/** `codes`: the backend's reason codes behind `reasons` (empty in the demo), for wording the headline. */
+export type AddressCheck = {
+  address: string; verdict: AddressVerdict; reasons: Reason[]; codes: string[]; paidBefore: boolean; goplusChecked: boolean;
+};
+
+/**
+ * Looks an address up in Nod's scam data, without anyone paying it.
+ * For a trustee it also says if it copies, or is, an address their people paid.
+ * The demo uses the engine's stand-in checks.
+ */
+export function useAddressCheck() {
+  const { live, api } = useLiveApi();
+  return useCallback(async (address: string): Promise<AddressCheck> => {
+    const a = address.trim().toLowerCase();
+    if (!live) {
+      const s = useStore.getState();
+      const reasons = flags(s, a);
+      const verdict: AddressVerdict = reasons.some((r) => r.tone === 'red') ? 'danger' : reasons.length ? 'caution' : 'clear';
+      return { address: a, verdict, reasons, codes: [], paidBefore: !!payeeBy(s, a), goplusChecked: true };
+    }
+    const r = await api<{ address: string; verdict: AddressVerdict; reasons: string[]; paidBefore: boolean; goplusChecked: boolean }>(
+      `/address-check/${a}`,
+    );
+    return { ...r, codes: r.reasons, reasons: reasonsFor(r.reasons, 'trustee') };
+  }, [live, api]);
 }
