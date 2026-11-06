@@ -23,24 +23,79 @@ export const NEW_PAYEE_WAIT_MS = 24 * 60 * 60 * 1000;
 
 const LIMIT_REASONS = new Set(['new_payee', 'over_limit', 'first_payment_cap']);
 
-const REASONS: Record<string, Omit<Reason, 'tag'>> = {
-  new_payee: { title: 'New person', detail: 'They have never paid this address.', tone: 'gray' },
-  over_limit: { title: 'Over their limit', detail: 'Bigger than the amount you set.', tone: 'amber' },
-  first_payment_cap: { title: 'First payment', detail: 'Their first payment is capped at $10.', tone: 'amber' },
-  scam_report: { title: 'Reported as a scam', detail: 'A trusted source reported this address.', tone: 'red' },
-  unverified_scam_report: { title: 'Unconfirmed report', detail: 'Someone reported this address. Not verified.', tone: 'amber' },
-  look_alike: { title: 'Looks like someone they paid', detail: 'The address is close to one they know. A common trick.', tone: 'red' },
-  risk_check_unavailable: { title: 'Safety check was down', detail: "The address couldn't be checked right now.", tone: 'amber' },
+/** Who is reading: the wallet user ("you") or their trustee ("they"). */
+export type Viewer = 'user' | 'trustee';
+
+type Words = Omit<Reason, 'tag' | 'detail'> & { chip: string; detail: string | Record<Viewer, string> };
+
+const REASONS: Record<string, Words> = {
+  new_payee: { title: 'New person', chip: 'new', tone: 'gray',
+    detail: { user: "You've never paid this address.", trustee: 'They have never paid this address.' } },
+  over_limit: { title: 'Over the limit', chip: 'limit', tone: 'amber',
+    detail: { user: 'Bigger than the limit your trustee set.', trustee: 'Bigger than the amount you set.' } },
+  first_payment_cap: { title: 'First payment', chip: 'first', tone: 'amber',
+    detail: { user: 'Your first payment is capped at $10.', trustee: 'Their first payment is capped at $10.' } },
+  scam_report: { title: 'Reported as a scam', chip: 'reported', tone: 'red', detail: 'A trusted source reported this address.' },
+  // What the verified reports say the address is (from the backend's check).
+  'reported:sanctioned': { title: 'Sanctioned by the US government', chip: 'sanctioned', tone: 'red',
+    detail: 'On the OFAC sanctions list. Money sent here is likely lost, and paying it can be illegal.' },
+  'reported:phishing': { title: 'Reported for phishing', chip: 'phishing', tone: 'red',
+    detail: 'Known for tricking people into sending money to it.' },
+  'reported:exploit': { title: 'Linked to a hack', chip: 'hack', tone: 'red',
+    detail: 'Used to steal money in a known hack.' },
+  'reported:scam': { title: 'Reported by a trustee', chip: 'reported', tone: 'red',
+    detail: 'Another Nod trustee stopped a payment here and reported it.' },
+  unverified_scam_report: { title: 'Unconfirmed report', chip: 'unconfirmed', tone: 'amber',
+    detail: 'Someone reported this address. Not verified.' },
+  look_alike: { title: 'Looks like someone you know', chip: 'look-alike', tone: 'red',
+    detail: {
+      user: 'Close to an address you paid before. Scammers copy addresses like this.',
+      trustee: 'Close to an address they paid before. Scammers copy addresses like this.',
+    } },
+  risk_check_unavailable: { title: 'Safety check was down', chip: 'unchecked', tone: 'amber',
+    detail: "The address couldn't be checked right now." },
 };
 
-/** A reason code from the backend, in words. */
-export function reasonFromTag(tag: string): Reason {
+// GoPlus labels (supabase/functions/api/lib/risk.ts), in words.
+const GOPLUS: Record<string, string> = {
+  sanctioned: 'on a sanctions list',
+  phishing_activities: 'phishing',
+  stealing_attack: 'stealing funds',
+  cybercrime: 'cybercrime',
+  money_laundering: 'money laundering',
+  financial_crime: 'financial crime',
+  darkweb_transactions: 'darkweb payments',
+  fake_kyc: 'fake identity checks',
+  blacklist_doubt: 'a blocklist',
+  blackmail_activities: 'blackmail',
+  mixer: 'a coin mixer',
+  honeypot_related_address: 'a honeypot scam',
+  fake_token: 'fake tokens',
+  malicious_contracts_created: 'creating malicious contracts',
+};
+
+/** A reason code from the backend, in words for whoever is reading. */
+export function reasonFromTag(tag: string, viewer: Viewer = 'trustee'): Reason {
   const known = REASONS[tag];
-  if (known) return { ...known, tag: tag.replaceAll('_', ' ') };
+  if (known) {
+    const detail = typeof known.detail === 'string' ? known.detail : known.detail[viewer];
+    return { title: known.title, detail, tone: known.tone, tag: known.chip };
+  }
   if (tag.startsWith('goplus:')) {
-    return { title: 'Flagged by a security service', detail: tag.slice(7).replaceAll('_', ' '), tone: 'red', tag: 'risk' };
+    const label = tag.slice(7);
+    const what = GOPLUS[label] ?? label.replaceAll('_', ' ');
+    return { title: 'Flagged by a security service', detail: `GoPlus links this address to ${what}.`, tone: 'red', tag: 'risk' };
   }
   return { title: tag.replaceAll('_', ' '), detail: 'The safety check flagged this.', tone: 'amber', tag: 'check' };
+}
+
+/**
+ * Reason codes in words, in the order the check gave them. The generic
+ * "reported as a scam" row is left out when a report says what the address is.
+ */
+export function reasonsFor(codes: string[], viewer: Viewer): Reason[] {
+  const specific = codes.some((c) => c.startsWith('reported:'));
+  return codes.filter((c) => !(specific && c === 'scam_report')).map((c) => reasonFromTag(c, viewer));
 }
 
 /** A steady avatar for someone known only by their address. */
@@ -99,7 +154,7 @@ export function readRequests(args: {
       amount: Number(units) / 1e6,
       amountUnits: payload.amount,
       nonce: payload.nonce,
-      reasons: payload.reasons.map(reasonFromTag),
+      reasons: reasonsFor(payload.reasons, 'trustee'),
       why: whyFrom(payload.reasons),
       answers: payload.answers,
       newPayee: payload.newPayee,

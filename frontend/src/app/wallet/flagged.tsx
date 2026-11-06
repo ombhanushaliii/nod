@@ -41,8 +41,8 @@ export default function Flagged() {
           </Txt>
         </View>
         <Card>
-          {(result?.reasons ?? []).map((r) => (
-            <View key={r.title} style={styles.reason}>
+          {(result?.reasons ?? []).map((r, i) => (
+            <View key={`${i}-${r.title}`} style={styles.reason}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Txt size={16} w={700}>
                   {r.title}
