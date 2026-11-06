@@ -7,6 +7,7 @@
     "android": "expo start --dev-client --android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "build:web": "expo export --platform web && node scripts/web-deploy-fix.mjs",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:wallet": "node --test tests/wallet.test.mjs tests/approvals.test.mjs tests/trustee.test.mjs"

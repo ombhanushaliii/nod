@@ -384,21 +384,24 @@ export function useRoleLanding(): boolean {
   useEffect(() => {
     if (!live || !signedIn) return;
     let stopped = false;
-    const count = (p: Promise<{ length: number }>) => p.then((list) => list.length).catch(() => 0);
-    const timeout = new Promise<[number, number]>((resolve) => setTimeout(() => resolve([0, 0]), LANDING_TIMEOUT_MS));
-    void Promise.race([
-      Promise.all([
-        // A brand-new account has no user row yet, so this one answers 403: none.
-        count(api<{ users: unknown[] }>('/trustee/users').then((r) => r.users)),
-        count(api<{ invites: unknown[] }>('/trustee/invites').then((r) => r.invites)),
-      ]),
-      timeout,
-    ]).then(([people, invites]) => {
+    // null = couldn't tell (network, rate limit). Never read that as "no links".
+    const count = (p: Promise<{ length: number }>) => p.then((list) => list.length).catch(() => null);
+    const counts = Promise.all([
+      // A brand-new account has no user row yet, so this one answers 403: none.
+      count(api<{ users: unknown[] }>('/trustee/users').then((r) => r.users)),
+      count(api<{ invites: unknown[] }>('/trustee/invites').then((r) => r.invites)),
+    ]).then(([people, invites]) => (people === null && invites === null ? null : (people ?? 0) + (invites ?? 0)));
+    // Whenever the answer comes, even after the timeout below, it decides whether the switcher shows.
+    void counts.then((links) => {
+      if (!stopped && links !== null) useStore.setState({ trusteeLinks: links });
+    });
+    // Landing waits at most this long, so a slow backend can't hold the app on a blank screen.
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), LANDING_TIMEOUT_MS));
+    void Promise.race([counts, timeout]).then((links) => {
       if (stopped) return;
-      const links = people + invites;
       const first = !useStore.getState().roleLanded;
-      useStore.setState({ trusteeLinks: links, roleLanded: true });
-      if (first && links > 0 && !useStore.getState().onboarded) switchTo.current('trustee');
+      useStore.setState({ roleLanded: true });
+      if (first && links && !useStore.getState().onboarded) switchTo.current('trustee');
     });
     return () => { stopped = true; };
   }, [live, signedIn, api]);
