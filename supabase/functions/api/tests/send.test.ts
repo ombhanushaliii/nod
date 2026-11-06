@@ -126,3 +126,25 @@ Deno.test("another user can't send my payment", async () => {
   assertEquals(res.status, 404);
   assert(t.state.sent.length === 0);
 });
+
+Deno.test("new payee: checking again replaces an unsent check instead of using up the $10", async () => {
+  const t = await setup();
+  // Check $10 to someone new, then back out without sending.
+  const first = await t.call(USER, "POST", "/payments/check", { to: addr("7"), amount: "10" });
+  assertEquals(first.body.verdict, "safe");
+
+  // Trying again (even a smaller amount) is still allowed: the unsent check doesn't count.
+  const again = await t.call(USER, "POST", "/payments/check", { to: addr("7"), amount: "10" });
+  assertEquals(again.body.verdict, "safe");
+  const small = await t.call(USER, "POST", "/payments/check", { to: addr("7"), amount: "1" });
+  assertEquals(small.body.verdict, "safe");
+
+  // Only the newest check can be sent, so the $10 can't be spent twice.
+  assertEquals((await send(t, first.body.paymentId)).body.error, "not_ready");
+  assertEquals((await send(t, again.body.paymentId)).body.error, "not_ready");
+  assertEquals((await send(t, small.body.paymentId)).status, 200);
+
+  // What was really sent still counts: $1 sent, so $9 more is fine and $10 waits.
+  assertEquals((await t.call(USER, "POST", "/payments/check", { to: addr("7"), amount: "9" })).body.verdict, "safe");
+  assertEquals((await t.call(USER, "POST", "/payments/check", { to: addr("7"), amount: "10" })).body.verdict, "cooldown");
+});

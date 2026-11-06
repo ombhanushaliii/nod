@@ -84,9 +84,10 @@ Deno.test("new payee: up to $10 in total goes in the first 24h, the rest waits",
   const more = await t.check(addr("c"), "5");
   assertEquals(more.body.verdict, "cooldown");
   assertEquals(more.body.newPayeeLeft, "4");
-  // $4 fits, and a check that can still be sent counts too.
+  // $4 fits. Checking again replaces that unsent $4 check, so it doesn't eat the
+  // allowance: $1 fits too (only what's sent or being sent counts).
   assertEquals((await t.check(addr("c"), "4")).body.verdict, "safe");
-  assertEquals((await t.check(addr("c"), "1")).body.newPayeeLeft, "0");
+  assertEquals((await t.check(addr("c"), "1")).body.verdict, "safe");
   // Once that $4 check is too old to send, it no longer counts.
   t.state.now = new Date(t.state.now.getTime() + 11 * MIN);
   assertEquals((await t.check(addr("c"), "4")).body.verdict, "safe");
