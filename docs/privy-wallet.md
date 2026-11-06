@@ -13,7 +13,7 @@ Copy `frontend/.env.example` to `frontend/.env.local`. Set:
 | `EXPO_PUBLIC_PRIVY_APP_ID` | Privy app ID, shared by Android and web |
 | `EXPO_PUBLIC_PRIVY_CLIENT_ID` | React Native client ID; required on Android |
 | `EXPO_PUBLIC_PRIVY_SIGNER_ID` | Backend key quorum ID |
-| `EXPO_PUBLIC_PRIVY_SIGNER_POLICY_ID` | Policy restricting that signer to USDC transfers on Base Sepolia |
+| `EXPO_PUBLIC_PRIVY_SIGNER_POLICY_ID` | Policy restricting that signer to USDC transfers on Ethereum Sepolia |
 | `EXPO_PUBLIC_API_URL` | API base URL, including `/functions/v1/api` for Supabase |
 | `EXPO_PUBLIC_RABDI_RPC_URL` | Rabdi RPC URL with a mobile/user access key |
 
@@ -23,8 +23,8 @@ Enable Google login in Privy. Configure the native client for
 Set the backend's `WEB_ALLOWED_ORIGINS` to the same origin. Use a comma-separated
 list when you have more than one web origin.
 
-The signer policy must allow only Base Sepolia (`eip155:84532`) transactions to
-`0x036cbd53842c5426634e7929541ec2318f3dcf7e`, zero native value, and ERC-20
+The signer policy must allow only Ethereum Sepolia (`eip155:11155111`) transactions to
+`0x1c7d4b196cb0c7b01d743fbc6116a902379c7238`, zero native value, and ERC-20
 `transfer(address,uint256)` calldata. Deny everything else. Enable TEE wallets and
 gas sponsorship in Privy. The app refuses to enroll a signer without a policy ID.
 
@@ -51,7 +51,7 @@ installed on the device/emulator; Expo Go cannot run them.
 ## Implemented
 
 - Google login, session restore, and logout on Android, iOS and web.
-- One embedded Ethereum wallet, shared between Base Sepolia and Rabdi.
+- One embedded Ethereum wallet, shared between Ethereum Sepolia and Rabdi.
 - On-chain USDC balance with loading/error states and refresh on app resume.
 - Signer enrollment and wallet registration through `useWalletSetup()`.
 - Backend payment check, exact USDC calldata, sponsored send, and confirmation

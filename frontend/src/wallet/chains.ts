@@ -1,9 +1,10 @@
 import { createPublicClient, defineChain, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { sepolia } from 'viem/chains';
 
 import { walletConfig } from './config';
 
-export { baseSepolia };
+// Payments (USDC) run on Ethereum Sepolia; Arkiv data lives on Rabdi.
+export { sepolia };
 export const RABDI_CHAIN_ID = 7794095;
 // Circle's native test USDC, 6 decimals. Keep in sync with the backend sender.
 export { USDC_ADDRESS } from './transactions';
@@ -16,4 +17,4 @@ export const rabdi = defineChain({
   testnet: true,
 });
 
-export const baseClient = createPublicClient({ chain: baseSepolia, transport: http(), cacheTime: 0 });
+export const paymentClient = createPublicClient({ chain: sepolia, transport: http(), cacheTime: 0 });

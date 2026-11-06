@@ -140,19 +140,6 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
           overflow: 'hidden',
         }}>
         <div data-hero-text="" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: '#FFECDC',
-              color: '#C14900',
-              fontSize: 13,
-              fontWeight: 800,
-              letterSpacing: '0.04em',
-            }}>
-            USDC WALLET · NO SEED PHRASE
-          </div>
           <h1
             style={{
               margin: 0,
@@ -1018,7 +1005,7 @@ function Footer() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src={LOGO} alt="" style={{ width: 24, height: 24, borderRadius: 7, display: 'block' }} />
           <span style={{ fontWeight: 700, color: '#25282B' }}>Nod</span>
-          <span>· Testnet demo on Base Sepolia</span>
+          <span>· Testnet demo on Ethereum Sepolia</span>
         </div>
         <span>© 2026 Nod. All rights reserved.</span>
       </div>

@@ -6,7 +6,7 @@ Items marked **[draft]** are starting points the owner finalizes; tell the other
 | # | Owner | Area | Delivers |
 |---|---|---|---|
 | A | UI person | Expo screens with mocked data | Every screen, plus a hooks layer the others swap real calls into |
-| B | Wallet person | Privy, wallets, signing, chains | Login, wallet, Base Sepolia + Rabdi chains, backend signer, key derivation |
+| B | Wallet person | Privy, wallets, signing, chains | Login, wallet, Ethereum Sepolia + Rabdi chains, backend signer, key derivation |
 | C | Backend person | Node API, Supabase, Privy server, push | Payment rules, relay with sponsorship, onboarding, push |
 | D | Arkiv person | Arkiv schemas, reads/writes, jobs, judging docs | `packages/arkiv`, importer, mirror/renewer, `/arkiv/*.md`, README items |
 
@@ -33,7 +33,7 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | Hook | Real implementation by | Returns |
 |---|---|---|
 | `useAuth()` | B | login with Google or phone, logout, `user`, `wallet address` |
-| `useBalance()` | B | USDC balance on Base Sepolia |
+| `useBalance()` | B | USDC balance on Ethereum Sepolia |
 | `useCheckPayment(to, amount)` | C | `verdict`, `reasons[]`, `unlockAt?`, `paymentId` |
 | `useSendPayment(paymentId)` | B + C | `txHash` or error |
 | `useRequestApproval(paymentId, answers)` | B + D | `requestKey` |
@@ -94,9 +94,9 @@ Done when: every screen works on mocks, and swapping a hook's implementation nee
 ## B: Wallet person
 
 - [ ] **Day-1 test:** Privy Expo embedded wallet on the custom Rabdi chain (ID 7794095): get the provider, switch chain, send one Arkiv write via `custom(provider)`. Pair with D. **If this fails, D1 changes, so tell everyone immediately.**
-- [ ] **Day-1 test, with C:** add the backend signer (`useSigners().addSigners`) with a policy that only allows USDC `transfer` on Base Sepolia, then have C send one sponsored transfer. Confirm the TEE setting works with Expo.
+- [ ] **Day-1 test, with C:** add the backend signer (`useSigners().addSigners`) with a policy that only allows USDC `transfer` on Ethereum Sepolia, then have C send one sponsored transfer. Confirm the TEE setting works with Expo.
 - [ ] Privy login: Google + phone, one embedded wallet per person
-- [ ] Chains: Base Sepolia + Rabdi; test USDC address taken from Circle's docs
+- [ ] Chains: Ethereum Sepolia + Rabdi; test USDC address taken from Circle's docs
 - [ ] Build the USDC `transfer` tx for `POST /payments/:id/send`
 - [ ] Privy `signMessage` for the two derivations (pair key, encryption key), using D's functions
 - [ ] Key export gated behind an approved `export` request

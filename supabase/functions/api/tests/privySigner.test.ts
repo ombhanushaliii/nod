@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { canonicalize } from "../lib/jcs.ts";
 import {
-  authorizationSignature, BASE_SEPOLIA_USDC, importAuthorizationKey, privySender, rawToDer, SendError,
+  authorizationSignature, SEPOLIA_USDC, importAuthorizationKey, privySender, rawToDer, SendError,
   transferCalldata,
 } from "../lib/privySigner.ts";
 
@@ -45,7 +45,7 @@ Deno.test("rawToDer adds a 0x00 pad when the high bit is set and strips leading 
 
 Deno.test("authorization signature verifies over the RFC 8785 payload", async () => {
   const key = await importAuthorizationKey(WALLET_AUTH);
-  const body = { method: "eth_sendTransaction", sponsor: true, caip2: "eip155:84532", params: { transaction: { to: "0x1" } } };
+  const body = { method: "eth_sendTransaction", sponsor: true, caip2: "eip155:11155111", params: { transaction: { to: "0x1" } } };
   const url = "https://api.privy.io/v1/wallets/w1/rpc";
   const sig = await authorizationSignature(key, { method: "POST", url, body, appId: "app1" });
 
@@ -76,9 +76,9 @@ Deno.test("sender posts a sponsored USDC transfer to Privy with the right header
   assertEquals(typeof headers["privy-authorization-signature"], "string");
   const body = JSON.parse(seen!.init.body as string);
   assertEquals(body.sponsor, true);
-  assertEquals(body.caip2, "eip155:84532");
+  assertEquals(body.caip2, "eip155:11155111");
   assertEquals(body.reference_id, "pay-1");
-  assertEquals(body.params.transaction.to, BASE_SEPOLIA_USDC);
+  assertEquals(body.params.transaction.to, SEPOLIA_USDC);
   assertEquals(body.params.transaction.data, transferCalldata("0x" + "9".repeat(40), 5n));
 });
 
