@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { deriveEncKey, intentHash, open, seal } from "../src/crypto"
-import { parsePaymentPayload, type PaymentRequestPayload, usdcToUnits } from "../src/payload"
+import { parseExportPayload, parsePaymentPayload, type PaymentRequestPayload, usdcToUnits } from "../src/payload"
 
 const payload: PaymentRequestPayload = {
   v: 1, kind: "payment", paymentId: "p1",
@@ -31,4 +31,13 @@ test("parsePaymentPayload rejects anything off", () => {
     { ...payload, answers: [true, false] }, { ...payload, reasons: [1] }, { ...payload, name: "x".repeat(81) },
   ]
   for (const b of bad) expect(parsePaymentPayload(b)).toBeNull()
+})
+
+test("parseExportPayload accepts a well-formed export request only", () => {
+  const good = { v: 1, kind: "export", exportId: "exp-1", nonce: `0x${"cd".repeat(32)}` }
+  expect(parseExportPayload(good)).toEqual(good as never)
+  expect(parseExportPayload({ ...good, kind: "payment" })).toBeNull()
+  expect(parseExportPayload({ ...good, nonce: "0x12" })).toBeNull()
+  expect(parseExportPayload({ ...good, exportId: "" })).toBeNull()
+  expect(parseExportPayload(null)).toBeNull()
 })

@@ -2,8 +2,8 @@
 // answer them with the per-pair key, and set the rules.
 import { createPublicClient, createWalletClient, type PublicArkivClient, type WalletArkivClient } from '@arkiv-network/sdk';
 import { createDecision, createScamReport } from '@guardian/arkiv/src/create';
-import { intentHash, open } from '@guardian/arkiv/src/crypto';
-import { parsePaymentPayload } from '@guardian/arkiv/src/payload';
+import { exportIntentHash, intentHash, open } from '@guardian/arkiv/src/crypto';
+import { parseExportPayload, parsePaymentPayload } from '@guardian/arkiv/src/payload';
 import { queryPendingRequests } from '@guardian/arkiv/src/query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { AppState } from 'react-native';
@@ -121,7 +121,9 @@ export function useTrusteeSync() {
           queryPendingRequests(arkivReader(), [p.pairId], { createdBy: p.walletAddress as Address })))).flat();
         if (stopped) return;
         assertSession();
-        const fresh = readRequests({ rows, people, open: (b) => open(b, enc.secretKey), parse: parsePaymentPayload });
+        const fresh = readRequests({
+          rows, people, open: (b) => open(b, enc.secretKey), parse: parsePaymentPayload, parseExport: parseExportPayload,
+        });
         useStore.setState((s) => ({ inbox: mergeRequests(s.inbox, fresh), trusteeError: null }));
       } catch (err) {
         if (!stopped) {
@@ -183,6 +185,7 @@ export function useLiveDecide() {
     const refill = () => register();
     const patch = await decide(r, allow, {
       intentHash: (to, amount, nonce) => intentHash(to, amount, nonce),
+      exportIntentHash: (wallet, nonce) => exportIntentHash(wallet, nonce),
       writeReport: (address) => withRefill(async () => (await createScamReport(client, {
         address: address as Address, source: 'trustee', category: 'scam', reason: 'A trustee denied a payment to this address.',
       })).entityKey, refill),

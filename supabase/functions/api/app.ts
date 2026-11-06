@@ -6,6 +6,7 @@ import type { AppEnv } from "./lib/http.ts";
 import type { Repo } from "./lib/repo.ts";
 import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
 import { type PaymentDeps, paymentRoutes } from "./routes/payments.ts";
+import { exportRoutes } from "./routes/exports.ts";
 import { pushRoutes } from "./routes/push.ts";
 import { type JobsDeps, jobsRoutes } from "./routes/jobs.ts";
 import { publicRoutes } from "./routes/public.ts";
@@ -55,6 +56,7 @@ export function createApp(deps: AppDeps) {
 
   app.route("/", onboardingRoutes(deps));
   app.route("/", paymentRoutes(deps));
+  app.route("/", exportRoutes(deps));
   app.route("/", rulesRoutes(deps));
   app.route("/", pushRoutes());
 

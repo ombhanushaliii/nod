@@ -21,6 +21,8 @@ const STATUS: Record<RepoErrorCode, [HttpStatus, string]> = {
   approval_not_usable: [409, "The trustee's approval is used or outside its time window."],
   not_sending: [409, "This payment isn't being sent."],
   not_your_pair: [404, "You're not this user's trustee."],
+  export_not_found: [404, "Export request not found."],
+  export_not_allowed: [409, "Your trustee hasn't allowed a key export, or it was used or ran out."],
 };
 
 export function statusOf(code: RepoErrorCode): [HttpStatus, string] {

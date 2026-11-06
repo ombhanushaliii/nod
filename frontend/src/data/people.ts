@@ -34,6 +34,14 @@ function livePeople(s: Store, now: number): Person[] {
     const mine = s.inbox.filter((r) => r.pairId === p.pairId);
     const feed = mine.filter((r) => r.status === 'allowed' || r.status === 'denied').map((r) => {
       const allowed = r.status === 'allowed';
+      if (r.kind === 'export') {
+        return {
+          id: r.id, icon: allowed ? '✓' : '✕', tone: (allowed ? 'green' : 'red') as Tone,
+          title: `You ${allowed ? 'allowed' : 'denied'} a key export`,
+          sub: allowed ? 'One time, within an hour' : 'Key stays hidden',
+          time: ago(r.decidedAt ?? r.createdAt, now),
+        };
+      }
       return {
         id: r.id, icon: allowed ? '✓' : '✕', tone: (allowed ? 'green' : 'red') as Tone,
         title: `You ${allowed ? 'allowed' : 'denied'} ${m0(r.amount ?? 0)} to ${r.name}`,

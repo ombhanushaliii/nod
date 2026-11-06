@@ -78,8 +78,19 @@ requests when it opens or comes back to the front.
 
 ## Not built yet
 
-Key export shows "Coming soon" in the live app. Privy needs a hosted React page
-for native key export, plus a verified, single-use export approval.
+## Key export
+
+Settings → Export wallet key asks the trustee first (D2 in
+[architecture-decisions.md](architecture-decisions.md)). Once they allow it,
+the app opens the hosted page `getnod.pages.dev/export`
+(`EXPO_PUBLIC_EXPORT_URL` overrides it) in an auth session. The page signs in
+with Google, uses up the Allow through the API, then calls Privy's
+`exportWallet()`.
+
+- The page uses the same Privy app ID (`VITE_PRIVY_APP_ID` in
+  `landing/.env.production`).
+- `getnod.pages.dev` must be in Privy's allowed domains. For real users it
+  should be the only one: any allowed domain can call Privy's export.
 
 ## Still to test on a device
 

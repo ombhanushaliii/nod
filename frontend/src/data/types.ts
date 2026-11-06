@@ -45,6 +45,10 @@ export type ApprovalRequest = {
   expiresAt?: number;
   /** Live: the backend payment this request is for. */
   paymentId?: string;
+  /** Live: the backend key export this request is for. */
+  exportId?: string;
+  /** Live, trustee side, exports: the user's wallet, from the backend's pair record. */
+  userWallet?: string;
   /** Live, trustee side: which person (pair) asked. */
   pairId?: string;
   /** Live, trustee side: the exact payment an Allow is bound to (intentHash). */

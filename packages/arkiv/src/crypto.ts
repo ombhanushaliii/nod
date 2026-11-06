@@ -1,5 +1,5 @@
 import nacl from "tweetnacl"
-import { type Address, encodeAbiParameters, type Hex, hexToBytes, keccak256, sha256 } from "viem"
+import { type Address, encodeAbiParameters, type Hex, hexToBytes, keccak256, sha256, stringToHex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
 // Sealed bytes layout: senderPubKey (32) | nonce (24) | ciphertext
@@ -62,6 +62,23 @@ export function intentHash(recipient: Address, amount: bigint, nonce: Hex): Hex 
     encodeAbiParameters(
       [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }],
       [recipient, amount, nonce],
+    ),
+  )
+}
+
+// Domain tag for export approvals, so an export Allow can never be read as a
+// payment Allow (their hashes use different layouts and this tag).
+export const EXPORT_TAG = keccak256(stringToHex("nod:export:v1"))
+
+// exportIntentHash binds an Allow to one key export (D2). Must match the
+// backend (supabase/functions/api/lib/intent.ts):
+//   keccak256(abi.encode(bytes32 EXPORT_TAG, address wallet, bytes32 nonce))
+// wallet is the user's wallet; nonce comes from POST /exports.
+export function exportIntentHash(wallet: Address, nonce: Hex): Hex {
+  return keccak256(
+    encodeAbiParameters(
+      [{ type: "bytes32" }, { type: "address" }, { type: "bytes32" }],
+      [EXPORT_TAG, wallet, nonce],
     ),
   )
 }

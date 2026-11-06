@@ -36,7 +36,12 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 - For an approved payment, the backend also verifies the trustee decision on Arkiv before answering `safe` (D5).
 - **Known limit, stated openly:** the user still owns their wallet, so a modified app could sign a transfer itself and skip the backend. Since D3a this is much harder: the wallet holds no ETH for gas, so the user would have to fund it with ETH first.
 - **Mitigation [team]:** key export is itself an approval request (`kind = export`). The app only shows Privy's export screen after the trustee allows it.
-- **Status:** not built yet. In the live app, key export shows "Coming soon". Privy's mobile export needs a hosted page, and a verified, single-use export approval.
+- **Status: built.**
+  1. `POST /exports` gives a nonce. The app writes a sealed `approval_request` (`kind = export`, payload: export id + nonce) from the user's wallet and attaches it with `POST /exports/:id/request`; the trustee gets a push.
+  2. The trustee's Allow is a `trustee_decision` from the per-pair key carrying `exportIntentHash = keccak256(abi.encode(bytes32 keccak256("nod:export:v1"), address wallet, bytes32 nonce))`. The wallet comes from Supabase, not the payload. Deny reports nothing.
+  3. The backend verifies it like a payment decision (creator, pair, hash, window). No 24h wait: usable for **1 hour, once**.
+  4. The app opens `getnod.pages.dev/export` in an auth session (not an embedded WebView, where Google refuses sign-in). The user signs in with Google; the page calls `POST /exports/claim`, which uses up the Allow, and only then calls Privy's `exportWallet()`. The key shows in Privy's frame; neither the page, the app nor the backend sees it.
+- **Known limit, stated openly:** Privy's export runs in the browser, and any page on a domain in Privy's **allowed domains** can call it with our app ID. The trustee check holds only while `getnod.pages.dev` is the **only** allowed domain. Remove `localhost:8081` for real users: a modified local build could export without asking.
 
 ### D3. Payment rules the backend applies, in order. [team]
 The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
@@ -147,7 +152,7 @@ Example query any judge can run: `select().from(ScamReport).where(eq("address", 
 
 ## 6. Open items still to confirm
 
-- Key export (D2's mitigation): coming soon. Needs Privy's hosted export page.
+- Key export (D2's mitigation): **built**; still to test on a device. Keep Privy's allowed domains to `getnod.pages.dev` only in production.
 - Privy Expo on the custom Rabdi chain (ID 7794095): needs a quick test.
 - Arkiv access key in a mobile app: `EXPO_PUBLIC_RABDI_RPC_URL` carries the key, and origin allowlisting doesn't apply to native apps, so it can be pulled out of the app. Use a separate key from the backend's. Worth raising in `friction.md`.
 - Lists imported alongside OFAC: **decided**, eth-labels (Etherscan labels) for phishing, exploit and sanctioned wallets. See deploy.md §6 for which labels count. Still open: removing reports for addresses taken off a list (today they expire, but the renewer keeps renewing archived ones).

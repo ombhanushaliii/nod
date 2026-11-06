@@ -12,6 +12,7 @@ import type { ActivePair, Payment, PaymentStatus, Repo } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
 import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
+import { syncExportDecision } from "./exports.ts";
 
 export type PaymentDeps = {
   scamReports: ScamReports;
@@ -242,7 +243,18 @@ export function paymentRoutes(deps: PaymentDeps) {
     const pair = await repo.trusteePair(pairId, me.id);
     if (!pair) fail(404, "not_your_pair", "You're not this user's trustee.");
     const payment = await repo.paymentByRequestKey(requestKey, pair.userId);
-    if (!payment) fail(404, "payment_not_found");
+    if (!payment) {
+      // Not a payment: maybe a key export request (D2).
+      const exp = await repo.exportByRequestKey(requestKey, pair.userId);
+      const wallet = exp && await repo.walletOf(pair.userId);
+      if (!exp || !wallet) fail(404, "payment_not_found");
+      const before = exp.status;
+      const out = await syncExportDecision(deps, repo, exp, pair, wallet);
+      if (before === "awaiting_trustee" && out.status !== "awaiting_trustee") {
+        await notifyUser(repo, deps.push, pair.userId, MESSAGES.exportAnswered());
+      }
+      return c.json(out);
+    }
     const before = payment.status;
     const out = await syncDecision(repo, payment, pair);
     if (before === "awaiting_trustee" && out.status !== "awaiting_trustee") {

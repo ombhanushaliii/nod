@@ -68,3 +68,26 @@ export function parsePaymentPayload(value: unknown): PaymentRequestPayload | nul
     newPayee: p.newPayee as boolean,
   }
 }
+
+// What a key export request carries, sealed to the trustee (D2). The trustee
+// app binds its Allow to exportIntentHash(wallet, nonce); the wallet is the
+// one the backend has for this pair, never a value from this payload.
+export type ExportRequestPayload = {
+  v: 1
+  kind: "export"
+  // From POST /exports.
+  exportId: string
+  nonce: `0x${string}`
+}
+
+export function parseExportPayload(value: unknown): ExportRequestPayload | null {
+  if (typeof value !== "object" || value === null) return null
+  const p = value as Record<string, unknown>
+  const ok =
+    p.v === 1 &&
+    p.kind === "export" &&
+    typeof p.exportId === "string" && p.exportId.length > 0 && p.exportId.length <= 64 &&
+    typeof p.nonce === "string" && HEX32.test(p.nonce)
+  if (!ok) return null
+  return { v: 1, kind: "export", exportId: p.exportId as string, nonce: p.nonce as `0x${string}` }
+}

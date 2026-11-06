@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { deriveEncKey, intentHash, open, seal } from '../../packages/arkiv/src/crypto.ts';
-import { parsePaymentPayload, usdcToUnits } from '../../packages/arkiv/src/payload.ts';
-import { approvalPatch, pollDelay, requestPaymentApproval } from '../src/wallet/approvals.ts';
+import { parseExportPayload, parsePaymentPayload, usdcToUnits } from '../../packages/arkiv/src/payload.ts';
+import { approvalPatch, pollDelay, requestExportApproval, requestPaymentApproval } from '../src/wallet/approvals.ts';
 
 const trustee = deriveEncKey(`0x${'11'.repeat(65)}`);
 const pubHex = '0x' + Buffer.from(trustee.publicKey).toString('hex');
@@ -100,4 +100,55 @@ test('backend statuses map onto the request', () => {
   for (const s of ['sending', 'submitted', 'sent', 'failed']) assert.deepEqual(approvalPatch({ status: s }, now), { used: true });
   assert.equal(approvalPatch({ status: 'checked' }, now), null);
   assert.deepEqual([0, 1, 2, 3, 9].map(pollDelay), [5000, 10000, 15000, 30000, 30000]);
+});
+
+function exportHarness({ pair = { status: 'active', pairId: `0x${'aa'.repeat(32)}`, trusteeEncPubKey: pubHex }, attach = [] } = {}) {
+  const log = { writes: [], calls: [] };
+  const attachResults = [...attach];
+  const deps = {
+    api: async (path, body) => {
+      log.calls.push(path);
+      if (path === '/pair') return pair;
+      if (path === '/exports') return { exportId: 'exp-1', nonce: `0x${'CD'.repeat(32)}` };
+      const next = attachResults.shift();
+      if (next instanceof Error) throw next;
+      return { status: 'awaiting_trustee', expiresAt: '2026-11-06T12:30:00Z', ...body };
+    },
+    seal,
+    writeRequest: async (pairId, sealed) => { log.writes.push({ pairId, sealed }); return `0x${'e'.repeat(64)}`; },
+    refill: async () => {},
+    assertSession: () => {},
+    wait: async () => {},
+  };
+  return { log, deps };
+}
+
+test('export: the sealed request opens for the trustee with only the export id and nonce', async () => {
+  const { log, deps } = exportHarness();
+  const out = await requestExportApproval(deps);
+  assert.equal(out.exportId, 'exp-1');
+  assert.equal(out.requestKey, `0x${'e'.repeat(64)}`);
+  assert.deepEqual(log.calls, ['/pair', '/exports', '/exports/exp-1/request']);
+  const opened = parseExportPayload(open(log.writes[0].sealed, trustee.secretKey));
+  assert.deepEqual(opened, { v: 1, kind: 'export', exportId: 'exp-1', nonce: `0x${'cd'.repeat(32)}` });
+});
+
+test('export: waits for Arkiv to show the request', async () => {
+  const { log, deps } = exportHarness({ attach: [apiError('request_not_on_arkiv')] });
+  await requestExportApproval(deps);
+  assert.equal(log.calls.filter((c) => c.endsWith('/request')).length, 2);
+});
+
+test('export: no active trustee asks for nothing', async () => {
+  const { log, deps } = exportHarness({ pair: { status: 'none' } });
+  await assert.rejects(requestExportApproval(deps), /accepted the invite/);
+  assert.deepEqual(log.calls, ['/pair']);
+  assert.equal(log.writes.length, 0);
+});
+
+test('export statuses map onto the request', () => {
+  assert.deepEqual(approvalPatch({ status: 'allowed', validFrom: '2026-11-06T12:00:00Z', validUntil: '2026-11-06T13:00:00Z' }, 0),
+    { status: 'allowed', validFrom: Date.parse('2026-11-06T12:00:00Z'), validUntil: Date.parse('2026-11-06T13:00:00Z') });
+  assert.deepEqual(approvalPatch({ status: 'used' }, 0), { status: 'allowed', used: true });
+  assert.deepEqual(approvalPatch({ status: 'denied' }, 7), { status: 'denied', decidedAt: 7 });
 });

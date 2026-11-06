@@ -73,6 +73,12 @@ Cloudflare builds and deploys the `getnod` project on every new commit. The
 (a public URL, not a secret), so builds pick it up with nothing to set in
 Cloudflare. For another Supabase project, change it there.
 
+The `/export` page (key export) also needs `VITE_PRIVY_APP_ID`, the same public
+Privy app ID as the app, in the same file. In the Privy Dashboard, keep
+`getnod.pages.dev` as the **only** allowed domain for real users: any allowed
+domain can open Privy's key export, which would skip the trustee
+(`localhost:8081` is fine while developing).
+
 ## 5. App
 
 In `frontend/.env` (see `frontend/.env.example`):
@@ -167,6 +173,16 @@ Allow comes the next day.
 9. Arkiv: the requests, decisions and report are on the Rabdi explorer
    (https://rabdi.explorer.arkiv.network), written by the user's wallet and the
    per-pair key.
+
+**Key export (same day, after the pairing)**
+
+- **User:** Settings → Export wallet key → Ask. The row says it's waiting.
+- **Trustee:** the request shows under **Needs you** as "Export wallet key".
+  **Allow export**.
+- **User:** within the hour, the row says "Allowed · tap to view once". Tap it,
+  **Open Privy's export**, sign in with the same Google account, **Show my key**.
+  Privy shows the key; the app then says "Key exported".
+- Tap the row again: it asks the trustee again. The same Allow can't be used twice.
 
 **Day two**
 

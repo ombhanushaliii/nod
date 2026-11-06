@@ -62,6 +62,18 @@ export const MESSAGES = {
     body: "Open the app to see if your payment can go out.",
     data: { type: "trustee_answered" },
   }),
+  // To the trustee, when a user they protect asks to export their wallet key.
+  exportRequest: (pairId: string): PushMessage => ({
+    title: "Someone you protect needs you",
+    body: "They want to export their wallet key.",
+    data: { type: "approval_request", pairId },
+  }),
+  // To the user, when their trustee answered a key export request.
+  exportAnswered: (): PushMessage => ({
+    title: "Your trustee answered",
+    body: "Open the app to see if you can export your key.",
+    data: { type: "export_answered" },
+  }),
   // To the user, when their trustee changed their rules.
   rulesChanged: (): PushMessage => ({
     title: "Your trustee changed your payment rules",
