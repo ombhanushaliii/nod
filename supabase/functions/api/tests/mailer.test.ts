@@ -18,14 +18,14 @@ Deno.test("brevo: posts the invite to the transactional email API", async () => 
       return Promise.resolve(Response.json({ messageId: "<1@smtp-relay>" }, { status: 201 }));
     },
   });
-  await mailer.sendTrusteeInvite("t@example.com", "https://trynod.pages.dev/invite?token=abc");
+  await mailer.sendTrusteeInvite("t@example.com", "https://getnod.pages.dev/invite?token=abc");
 
   assertEquals(seen!.url, "https://api.brevo.com/v3/smtp/email");
   assertEquals((seen!.init.headers as Record<string, string>)["api-key"], "xkeysib-test");
   const body = JSON.parse(seen!.init.body as string);
   assertEquals(body.sender, { name: "Nod", email: "invites@nod.app" });
   assertEquals(body.to, [{ email: "t@example.com" }]);
-  assertEquals(body.textContent.includes("https://trynod.pages.dev/invite?token=abc"), true);
+  assertEquals(body.textContent.includes("https://getnod.pages.dev/invite?token=abc"), true);
 });
 
 Deno.test("brevo: an error answer throws", async () => {

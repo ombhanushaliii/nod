@@ -98,6 +98,12 @@ export interface Repo {
   removePushToken(userId: string, expoToken: string): Promise<void>;
   pushTokensFor(userId: string): Promise<string[]>;
   deletePushTokens(expoTokens: string[]): Promise<void>;
+
+  // Scam reports. Lower-case pair keys of every trustee who ever accepted:
+  // reports they wrote count as verified, even after the pair ends.
+  trusteePairKeys(): Promise<string[]>;
+  // Counts from the Supabase archive, used when Arkiv can't be reached.
+  archivedReportCounts(address: string): Promise<{ verified: number; unverified: number }>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -365,6 +371,18 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     async deletePushTokens(expoTokens) {
       const { error } = await db.from("push_tokens").delete().in("expo_token", expoTokens);
       if (error) rethrow(error);
+    },
+
+    async trusteePairKeys() {
+      const { data, error } = await db.from("pairs").select("pair_key_address").not("pair_key_address", "is", null);
+      if (error) rethrow(error);
+      return data.map((r) => (r.pair_key_address as string).toLowerCase());
+    },
+    async archivedReportCounts(address) {
+      const { data, error } = await db.from("scam_reports_archive").select("verified").eq("address", address.toLowerCase());
+      if (error) rethrow(error);
+      const verified = data.filter((r) => r.verified).length;
+      return { verified, unverified: data.length - verified };
     },
   };
 }

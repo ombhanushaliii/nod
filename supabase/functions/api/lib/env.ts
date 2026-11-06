@@ -10,6 +10,8 @@ export type Env = {
   inviteFromEmail: string;
   inviteUrlBase: string;
   webOrigins: string[];
+  arkivAccessKey: string;
+  arkivSeedPrivateKey: string;
 };
 
 function required(name: string): string {
@@ -31,6 +33,9 @@ export function loadEnv(): Env {
     brevoApiKey: required("BREVO_API_KEY"),
     inviteFromEmail: required("INVITE_FROM_EMAIL"),
     inviteUrlBase: required("INVITE_URL_BASE"),
+    arkivAccessKey: required("ARKIV_ACCESS_KEY"),
+    // Backend wallet on Rabdi: writes the OFAC/list reports and tops up tGLM.
+    arkivSeedPrivateKey: required("ARKIV_SEED_PRIVATE_KEY"),
     webOrigins: (Deno.env.get("WEB_ALLOWED_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   };
 }

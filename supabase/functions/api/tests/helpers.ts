@@ -68,6 +68,16 @@ export class MemoryRepo implements Repo {
     return Promise.resolve();
   }
 
+  archive: { address: string; verified: boolean }[] = [];
+  trusteePairKeys() {
+    return Promise.resolve(this.pairs.filter((p) => p.pairKeyAddress).map((p) => p.pairKeyAddress!.toLowerCase()));
+  }
+  archivedReportCounts(address: string) {
+    const rows = this.archive.filter((r) => r.address === address.toLowerCase());
+    const verified = rows.filter((r) => r.verified).length;
+    return Promise.resolve({ verified, unverified: rows.length - verified });
+  }
+
   getPayment(id: string, userId: string) {
     const p = this.payments.find((x) => x.id === id && x.userId === userId);
     return Promise.resolve(p ? { ...p } : null);
