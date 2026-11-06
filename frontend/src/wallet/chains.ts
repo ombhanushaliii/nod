@@ -1,4 +1,4 @@
-import { createPublicClient, defineChain, http } from 'viem';
+import { createPublicClient, defineChain, fallback, http } from 'viem';
 import { sepolia } from 'viem/chains';
 
 import { walletConfig } from './config';
@@ -17,4 +17,11 @@ export const rabdi = defineChain({
   testnet: true,
 });
 
-export const paymentClient = createPublicClient({ chain: sepolia, transport: http(), cacheTime: 0 });
+// viem's default Sepolia RPC (thirdweb's free endpoint) rate-limits shared traffic and then
+// every balance read fails. Try a few public endpoints in turn; the default stays last.
+const SEPOLIA_RPCS = ['https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.gateway.tenderly.co', undefined];
+export const paymentClient = createPublicClient({
+  chain: sepolia,
+  transport: fallback(SEPOLIA_RPCS.map((url) => http(url, { timeout: 8_000, retryCount: 0 }))),
+  cacheTime: 0,
+});
