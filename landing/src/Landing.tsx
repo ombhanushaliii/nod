@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+
+import { useLandingMotion } from './motion'
 
 // Ported 1:1 from "Nod Landing.dc.html": same markup, inline styles and copy.
+// Motion (hero intro, scroll parallax, section reveal) lives in ./motion.
 
 const LOGO = `${import.meta.env.BASE_URL}assets/nod-logo.png`
 
@@ -119,9 +122,11 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
   const [sel, setSel] = useState(2)
   const [req, setReq] = useState<Req>('pending')
   const rq = RQ[req]
+  const root = useRef<HTMLDivElement>(null)
+  useLandingMotion(root)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F6F2' }}>
+    <div ref={root} style={{ minHeight: '100vh', background: '#F7F6F2' }}>
       <Header />
 
       <section
@@ -134,7 +139,7 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
           alignItems: 'center',
           overflow: 'hidden',
         }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div data-hero-text="" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div
             style={{
               alignSelf: 'flex-start',
@@ -180,7 +185,7 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
           </div>
         </div>
 
-        <div className="hero-phones" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', flexWrap: 'nowrap', minWidth: 0 }}>
+        <div data-hero-phones="" className="hero-phones" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', flexWrap: 'nowrap', minWidth: 0 }}>
           {showWalletPhone && <WalletPhone rowSub={rq[2]} chip={rq[3]} chipTone={rq[4]} />}
           <RequestPhone
             req={req}
@@ -261,6 +266,7 @@ function Header() {
 function WalletPhone({ rowSub, chip, chipTone }: { rowSub: string; chip: string; chipTone: Tone }) {
   return (
     <div
+      data-phone-back=""
       style={{
         width: 300,
         height: 620,
@@ -437,6 +443,7 @@ function RequestPhone({ req, chip, chipTone, onAllow, onDeny, onReset }: Request
   const row = { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '11px 0', fontSize: 13 } as const
   return (
     <div
+      data-phone-front=""
       style={{
         width: 300,
         height: 620,
@@ -621,7 +628,7 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section id="how" style={{ borderTop: '1px solid #ECE9E2', background: '#fff' }}>
+    <section id="how" data-reveal="" style={{ borderTop: '1px solid #ECE9E2', background: '#fff' }}>
       <div className="section-88" style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 48 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
           <span style={eyebrow}>HOW IT WORKS</span>
@@ -661,6 +668,7 @@ function Checks({ sel, onSelect }: { sel: number; onSelect: (i: number) => void 
   return (
     <section
       id="checks"
+      data-reveal=""
       className="section-96"
       style={{
         maxWidth: 1160,
@@ -820,7 +828,7 @@ const QUESTIONS = [
 
 function Questions() {
   return (
-    <section style={{ background: '#25282B', color: '#fff' }}>
+    <section data-reveal="" style={{ background: '#25282B', color: '#fff' }}>
       <div
         className="section-88"
         style={{
@@ -871,7 +879,7 @@ const TRUSTEE_CARDS = [
 
 function ForTrustees() {
   return (
-    <section id="trustee" className="section-96" style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
+    <section id="trustee" data-reveal="" className="section-96" style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 680 }}>
         <span style={eyebrow}>FOR TRUSTEES</span>
         <h2 style={h2}>You only hear about the ones that matter.</h2>
@@ -889,9 +897,11 @@ function ForTrustees() {
 }
 
 function GetNod() {
+  // The iPhone app isn't out yet: hovering or focusing the button shows a "coming soon" tooltip.
+  const [ios, setIos] = useState(false)
   const cta = { height: 56, padding: '0 24px', borderRadius: 16, fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center' } as const
   return (
-    <section id="get" className="get-wrap">
+    <section id="get" data-reveal="" className="get-wrap">
       <div
         className="get-card"
         style={{
@@ -915,10 +925,71 @@ function GetNod() {
         <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, maxWidth: 520 }}>
           Takes about two minutes. Sign in with Google, pick an avatar, invite your trustee.
         </p>
-        <div className="get-ctas" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingTop: 8 }}>
-          <a href="#top" className="btn-white" style={cta}>
-            Download for iPhone
-          </a>
+        <div className="get-ctas" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingTop: 40 }}>
+          <div className="get-ios" style={{ position: 'relative', display: 'flex' }}>
+            <div
+              id="ios-soon"
+              role="tooltip"
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% + 12px)',
+                left: '50%',
+                transform: ios ? 'translate(-50%, 0)' : 'translate(-50%, 6px)',
+                opacity: ios ? 1 : 0,
+                transition: 'opacity 180ms ease, transform 220ms cubic-bezier(.2,.7,.2,1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                borderRadius: 12,
+                background: '#25282B',
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 12px 28px -8px rgba(37,40,43,0.45)',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: '50%',
+                  marginLeft: -6,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid #25282B',
+                }}
+              />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFB27A', flexShrink: 0 }} />
+              <span>Coming soon to the App Store</span>
+            </div>
+            <a
+              href="#get"
+              aria-describedby="ios-soon"
+              onMouseEnter={() => setIos(true)}
+              onMouseLeave={() => setIos(false)}
+              onFocus={() => setIos(true)}
+              onBlur={() => setIos(false)}
+              // Nothing to download yet: on touch screens a tap shows the tooltip instead of jumping.
+              onClick={(e) => {
+                e.preventDefault()
+                setIos(true)
+              }}
+              style={{
+                ...cta,
+                background: '#fff',
+                color: '#25282B',
+                cursor: 'default',
+                opacity: ios ? 0.85 : 1,
+                transition: 'opacity 180ms ease',
+              }}>
+              Download for iPhone
+            </a>
+          </div>
           <a href="#top" className="btn-ink" style={cta}>
             Download for Android
           </a>
@@ -949,17 +1020,7 @@ function Footer() {
           <span style={{ fontWeight: 700, color: '#25282B' }}>Nod</span>
           <span>· Testnet demo on Base Sepolia</span>
         </div>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <a href="#top" style={{ color: '#6e6e73' }}>
-            Privacy
-          </a>
-          <a href="#top" style={{ color: '#6e6e73' }}>
-            Terms
-          </a>
-          <a href="#top" style={{ color: '#6e6e73' }}>
-            Contact
-          </a>
-        </div>
+        <span>© 2026 Nod. All rights reserved.</span>
       </div>
     </footer>
   )

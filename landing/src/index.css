@@ -94,8 +94,13 @@ html {
 }
 @media (max-width: 480px) {
   .hero-ctas > a,
-  .get-ctas > a {
+  .get-ctas > a,
+  .get-ctas > .get-ios {
     flex: 1 1 100%;
+    justify-content: center;
+  }
+  .get-ios > a {
+    flex: 1;
     justify-content: center;
   }
   .hero-phones {
@@ -139,12 +144,4 @@ html {
 .btn-ink:hover {
   background: #3a3d40;
   color: #fff;
-}
-.btn-white {
-  background: #fff;
-  color: #25282b;
-}
-.btn-white:hover {
-  background: #ffecdc;
-  color: #25282b;
 }
