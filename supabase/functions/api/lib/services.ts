@@ -9,7 +9,7 @@ export interface Mailer {
   sendTrusteeInvite(to: string, inviteUrl: string): Promise<void>;
 }
 
-// Sends a little tGLM to a new Arkiv address (D1). Owned by the Arkiv work.
+// Tops up an Arkiv address with tGLM (D1). See arkivFunder.ts.
 export interface ArkivFunder {
   fund(address: string): Promise<void>;
 }
@@ -66,11 +66,3 @@ export function brevoMailer(apiKey: string, from: string, opts: { fetch?: typeof
     },
   };
 }
-
-// Placeholder until the Arkiv person adds real tGLM top-ups.
-export const noopArkivFunder: ArkivFunder = {
-  fund(address) {
-    console.log(`[arkiv-funder] TODO top up tGLM for ${address}`);
-    return Promise.resolve();
-  },
-};

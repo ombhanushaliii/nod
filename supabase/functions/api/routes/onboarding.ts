@@ -22,12 +22,19 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   const r = new Hono<AppEnv>();
 
   // Register the caller's Privy embedded wallet. Idempotent.
+  // Best effort: a failed top-up never fails the request. The app calls
+  // /onboarding/user on every sign-in, which tops up again if needed.
+  const topUp = (addresses: string[]) =>
+    Promise.all(addresses.map((a) => deps.funder.fund(a).catch((err) => console.error(`tGLM top-up failed for ${a}`, err))));
+
   r.post("/onboarding/user", async (c) => {
     const { walletAddress } = await body(c, z.object({ walletAddress: evmAddress }));
 
     const existing = await c.var.repo.findUserByPrivyId(c.var.privyUserId);
     if (existing) {
       if (existing.wallet_address !== walletAddress) fail(409, "wallet_mismatch", "This account is registered with another wallet.");
+      // Refill the wallet and, for a trustee, their per-pair keys.
+      await topUp([existing.wallet_address, ...await c.var.repo.pairKeysOfTrustee(existing.id)]);
       return c.json({ user: existing, created: false });
     }
 
@@ -37,7 +44,7 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     if (await c.var.repo.findUserByWallet(walletAddress)) fail(409, "wallet_taken");
 
     const user = await c.var.repo.createUser(c.var.privyUserId, walletAddress, owned.id);
-    await deps.funder.fund(walletAddress);
+    await topUp([walletAddress]);
     return c.json({ user, created: true }, 201);
   });
 
@@ -87,7 +94,7 @@ export function onboardingRoutes(deps: OnboardingDeps) {
       tokenHash: await sha256Hex(token), trusteeId: trustee.id, pairKeyAddress, encPubKey,
     }).catch(mapRepoError);
 
-    await deps.funder.fund(pairKeyAddress);
+    await topUp([pairKeyAddress]);
     return c.json({ pairId });
   });
 

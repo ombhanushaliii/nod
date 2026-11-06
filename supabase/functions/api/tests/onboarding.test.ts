@@ -123,3 +123,23 @@ Deno.test("invite: email failure is a 502, and retrying works", async () => {
   t.state.mailFails = false;
   assertEquals((await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" })).status, 200);
 });
+
+Deno.test("tGLM top-up failing doesn't fail sign-up or accept", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set(USER, [addr("a")]);
+  t.state.fundFails = true;
+  assertEquals((await t.call(USER, "POST", "/onboarding/user", { walletAddress: addr("a") })).status, 201);
+  assertEquals(t.funded, [addr("a")]);
+});
+
+Deno.test("signing in again tops up the wallet and the trustee's pair keys", async () => {
+  const t = await setup();
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const token = tokenFrom(t.mails[0].url);
+  await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  t.funded.length = 0;
+  await t.call(TRUSTEE, "POST", "/onboarding/user", { walletAddress: addr("b") });
+  assertEquals(t.funded, [addr("b"), addr("c")]);
+  await t.call(USER, "POST", "/onboarding/user", { walletAddress: addr("a") });
+  assertEquals(t.funded, [addr("b"), addr("c"), addr("a")]);
+});

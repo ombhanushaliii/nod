@@ -12,7 +12,8 @@ import { privySender } from "./lib/privySigner.ts";
 import { expoPush } from "./lib/push.ts";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
-import { brevoMailer, noopArkivFunder, privyApi } from "./lib/services.ts";
+import { brevoMailer, privyApi } from "./lib/services.ts";
+import { rabdiSeedWallet, seedFunder } from "./lib/arkivFunder.ts";
 
 const env = loadEnv();
 const repo = supabaseRepo(createDb(env.supabaseUrl, env.supabaseServiceRoleKey));
@@ -25,7 +26,7 @@ const app = createApp({
   repo,
   privy: privyApi(env.privyAppId, env.privyAppSecret),
   mailer: brevoMailer(env.brevoApiKey, env.inviteFromEmail),
-  funder: noopArkivFunder,
+  funder: seedFunder(rabdiSeedWallet(env.arkivSeedPrivateKey as Hex, env.arkivAccessKey)),
   inviteUrlBase: env.inviteUrlBase,
   scamReports: arkivScamReports({
     client: arkiv,

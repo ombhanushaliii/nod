@@ -72,6 +72,9 @@ export class MemoryRepo implements Repo {
   trusteePairKeys() {
     return Promise.resolve(this.pairs.filter((p) => p.pairKeyAddress).map((p) => p.pairKeyAddress!.toLowerCase()));
   }
+  pairKeysOfTrustee(trusteeId: string) {
+    return Promise.resolve(this.pairs.filter((p) => p.trusteeId === trusteeId && p.status === "active").map((p) => p.pairKeyAddress!));
+  }
   archivedReportCounts(address: string) {
     const rows = this.archive.filter((r) => r.address === address.toLowerCase());
     const verified = rows.filter((r) => r.verified).length;
@@ -315,6 +318,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
   const privyWallets = new Map<string, string[]>();
   const state: {
     mailFails: boolean;
+    fundFails: boolean;
     now: Date;
     reports: Map<string, ReportCounts>;
     goplus: Map<string, GoPlusResult>;
@@ -332,7 +336,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
     deadTokens: string[];
     pushFails: boolean;
   } = {
-    mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
+    mailFails: false, fundFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
     arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null, txOutcomes: new Map(), txLookupFails: false,
     pushes: [], deadTokens: [], pushFails: false,
   };
@@ -353,7 +357,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
         return Promise.resolve();
       },
     },
-    funder: { fund: (a) => (funded.push(a), Promise.resolve()) },
+    funder: { fund: (a) => (funded.push(a), state.fundFails ? Promise.reject(new Error("rabdi down")) : Promise.resolve()) },
     inviteUrlBase: "guardian://invite/",
     scamReports: { countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }) },
     goPlus: { check: (a) => Promise.resolve(state.goplus.get(a) ?? { flagged: [] }) },

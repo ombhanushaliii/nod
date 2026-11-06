@@ -102,6 +102,8 @@ export interface Repo {
   // Scam reports. Lower-case pair keys of every trustee who ever accepted:
   // reports they wrote count as verified, even after the pair ends.
   trusteePairKeys(): Promise<string[]>;
+  // Pair keys of the active pairs this person is the trustee for (to top up tGLM).
+  pairKeysOfTrustee(trusteeId: string): Promise<string[]>;
   // Counts from the Supabase archive, used when Arkiv can't be reached.
   archivedReportCounts(address: string): Promise<{ verified: number; unverified: number }>;
 }
@@ -377,6 +379,12 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       const { data, error } = await db.from("pairs").select("pair_key_address").not("pair_key_address", "is", null);
       if (error) rethrow(error);
       return data.map((r) => (r.pair_key_address as string).toLowerCase());
+    },
+    async pairKeysOfTrustee(trusteeId) {
+      const { data, error } = await db.from("pairs").select("pair_key_address")
+        .eq("trustee_id", trusteeId).eq("status", "active");
+      if (error) rethrow(error);
+      return data.map((r) => r.pair_key_address as string);
     },
     async archivedReportCounts(address) {
       const { data, error } = await db.from("scam_reports_archive").select("verified").eq("address", address.toLowerCase());
