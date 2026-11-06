@@ -8,13 +8,19 @@ import { ownTrusteeName, useStore } from '@/data/store';
 import { useAuth } from '@/hooks/api';
 import { haptic } from '@/lib/haptics';
 import { colors, font, tones } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
-const PEOPLE_COUNT = 3;
+// The demo's trustee looks after three mock people.
+const DEMO_PEOPLE = 3;
 
 export default function TrusteeSettings() {
   const { session, signOut } = useAuth();
   const s = useStore();
   const tn = ownTrusteeName(s);
+  // Live: this account's own email and the people it really looks after. (trusteeContact
+  // is the demo trustee's address, and on a live wallet it's whoever *you* invited.)
+  const contact = isDemo ? s.trusteeContact : session?.email ?? '';
+  const peopleCount = isDemo ? DEMO_PEOPLE : s.people.length;
   const [nameOpen, setNameOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
 
@@ -58,7 +64,7 @@ export default function TrusteeSettings() {
           last
           v={
             <Txt w={600} numberOfLines={1} style={{ flexShrink: 1 }}>
-              {s.trusteeContact}
+              {contact}
             </Txt>
           }
         />
@@ -67,7 +73,7 @@ export default function TrusteeSettings() {
       <View style={{ gap: 8 }}>
         <Label style={{ paddingHorizontal: 4 }}>TRUSTEE FOR</Label>
         <Card>
-          <KV k="People you look after" v={<Txt w={600}>{PEOPLE_COUNT}</Txt>} last />
+          <KV k="People you look after" v={<Txt w={600}>{peopleCount}</Txt>} last />
         </Card>
       </View>
 
@@ -96,8 +102,8 @@ export default function TrusteeSettings() {
         }}
         avatar={s.trusteeAvatar}
         name={tn}
-        detail={s.trusteeContact}
-        body={`You won’t get alerts for ${PEOPLE_COUNT} people until you sign back in.`}
+        detail={contact}
+        body={`You won’t get alerts for ${peopleCount === 1 ? '1 person' : `${peopleCount} people`} until you sign back in.`}
       />
     </ScrollScreen>
   );

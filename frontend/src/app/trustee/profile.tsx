@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Keyboard, ScrollView, type ScrollViewInstance, View } from 'react-native';
 
 import { Avatar, AvatarPicker, Button, Label, Screen, TextField, Txt } from '@/components';
-import { trusteeName, useStore } from '@/data/store';
+import { ownTrusteeName, useStore } from '@/data/store';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
 import { isDemo } from '@/wallet/config';
@@ -15,8 +15,9 @@ export default function TrusteeProfile() {
   const avatar = useStore((s) => s.trusteeAvatar);
   const setAvatar = useStore((s) => s.setTrusteeAvatar);
   const setProfile = useStore((s) => s.setTrusteeProfile);
-  const tn = useStore(trusteeName);
-  const [name, setName] = useState(tn === 'Your trustee' ? '' : tn);
+  // Your own name as a trustee (live: never your wallet's trustee).
+  const tn = useStore(ownTrusteeName);
+  const [name, setName] = useState(tn === 'Your trustee' || tn === 'You' ? '' : tn);
   const ok = !!name.trim();
   // The avatar grid leaves no room for the name field once the keyboard is up,
   // so the content scrolls, and opening the keyboard scrolls the field into view.
