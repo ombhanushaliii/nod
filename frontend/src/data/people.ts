@@ -49,6 +49,21 @@ function livePeople(s: Store, now: number): Person[] {
         time: ago(r.decidedAt ?? r.createdAt, now),
       };
     });
+    // Payments to addresses trustees reported, blocked by Nod.
+    const blockedFeed = s.blocked.filter((b) => b.pairId === p.pairId).map((b) => ({
+      at: b.at,
+      item: {
+        id: 'b' + b.id, icon: '✕', tone: 'red' as Tone,
+        title: `Blocked ${m0(b.amount)} to ${short(b.to)}`,
+        sub: `Reported by ${b.reporters} trustee${b.reporters === 1 ? '' : 's'}`,
+        time: ago(b.at, now),
+      },
+    }));
+    if (blockedFeed.length > 0) {
+      const decided = mine.filter((r) => r.status === 'allowed' || r.status === 'denied');
+      const timed = [...decided.map((r, i) => ({ at: r.decidedAt ?? r.createdAt, item: feed[i] })), ...blockedFeed];
+      feed.splice(0, feed.length, ...timed.sort((a, b) => b.at - a.at).map((x) => x.item));
+    }
     return {
       id: p.pairId,
       username: p.username || short(p.walletAddress),

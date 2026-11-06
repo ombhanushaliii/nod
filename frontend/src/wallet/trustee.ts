@@ -98,17 +98,45 @@ const SAME_AS_REPORT: Record<string, string> = {
   'goplus:phishing_activities': 'reported:phishing',
 };
 
+/** How many different trustees reported the address: "trustee_reporters:3" -> 3. */
+export function trusteeReportersIn(codes: string[]): number {
+  return Number(codes.find((c) => c.startsWith('trustee_reporters:'))?.slice(18) ?? 0) || 0;
+}
+
+/** Trustees, in words: "1 trustee", "3 trustees". */
+const trustees = (n: number) => `${n} trustee${n === 1 ? '' : 's'}`;
+
+/** Reported by other trustees: the count goes into the words (see trusteeReportersIn). */
+function trusteeReportReason(code: string, n: number, viewer: Viewer): Reason {
+  if (code === 'blocked_by_trustees') {
+    return {
+      title: `Blocked: reported by ${trustees(n)}`, tone: 'red', tag: 'blocked',
+      detail: `${trustees(n)} stopped payments to this address and reported it as a scam, so Nod blocks it for everyone.`,
+    };
+  }
+  return {
+    title: `Reported by ${trustees(n)}`, tone: 'red', tag: 'trustees',
+    detail: viewer === 'user'
+      ? `${trustees(n)} stopped payments to this address and reported it as a scam. Your trustee has to OK this.`
+      : `${trustees(n)} stopped payments to this address and reported it as a scam. At 5, Nod blocks it for everyone.`,
+  };
+}
+
+const TRUSTEE_REPORT_CODES = new Set(['reported_by_trustees', 'blocked_by_trustees']);
+
 /**
  * Reason codes in words, in the order the check gave them. The generic
  * "reported as a scam" row is left out when a report says what the address is,
  * and an outside label that repeats one of Nod's reports shows once, as the report.
+ * Trustee reports show as one row with how many trustees reported it.
  */
 export function reasonsFor(codes: string[], viewer: Viewer): Reason[] {
-  const specific = codes.some((c) => c.startsWith('reported:'));
+  const specific = codes.some((c) => c.startsWith('reported:') || TRUSTEE_REPORT_CODES.has(c));
+  const n = trusteeReportersIn(codes);
   return codes
-    .filter((c) => !(specific && c === 'scam_report'))
+    .filter((c) => !(specific && c === 'scam_report') && !c.startsWith('trustee_reporters:'))
     .filter((c) => !(SAME_AS_REPORT[c] && codes.includes(SAME_AS_REPORT[c])))
-    .map((c) => reasonFromTag(c, viewer));
+    .map((c) => (TRUSTEE_REPORT_CODES.has(c) ? trusteeReportReason(c, n, viewer) : reasonFromTag(c, viewer)));
 }
 
 /** A steady avatar for someone known only by their address. */

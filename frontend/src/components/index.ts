@@ -14,3 +14,4 @@ export * from './DemoTools';
 export * from './PrivacyCover';
 export * from './AccountHeader';
 export * from './WebFrame';
+export * from './ReportedByTrustees';

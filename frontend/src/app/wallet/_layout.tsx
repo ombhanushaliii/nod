@@ -39,6 +39,7 @@ export default function WalletLayout() {
         <Stack.Screen name="receive" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="export-key" />
+        <Stack.Screen name="reported" />
       </Stack.Protected>
     </Stack>
   );

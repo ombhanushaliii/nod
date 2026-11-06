@@ -10,21 +10,7 @@ import { DAY, money } from '@/lib/format';
 import { isDemo } from '@/wallet/config';
 import type { LivePerson } from '@/wallet/trustee';
 import { ADDR, evaluate, handleFrom, payeeBy, reqState, trusteeNameFrom } from './engine';
-import type {
-  ActivityEvent,
-  ApprovalRequest,
-  Banner,
-  CheckResult,
-  Draft,
-  Intent,
-  Notice,
-  Payee,
-  Payment,
-  Role,
-  Rules,
-  Session,
-  TrusteeStatus,
-} from './types';
+import type { ActivityEvent, ApprovalRequest, Banner, BlockedAttempt, CheckResult, Draft, Intent, Notice, Payee, Payment, Role, Rules, Session, TrusteeStatus } from './types';
 
 export const APP_NAME = 'Nod';
 
@@ -66,6 +52,8 @@ type Data = {
    */
   signerAddedFor: string | null;
   events: ActivityEvent[];
+  /** Live, trustee side: blocked payments by the people this account protects (GET /trustee/blocked). */
+  blocked: BlockedAttempt[];
   /** Live, trustee side: the people this account protects (GET /trustee/users). */
   people: LivePerson[];
   /** Live, trustee side: requests from those people, read from Arkiv. Kept apart from the user's own. */
@@ -160,6 +148,7 @@ function initialData(): Data {
     signerAddedFor: null,
     events: [],
     people: [],
+    blocked: [],
     inbox: [],
     inviteToken: null,
     mockRules: { p2: { limit: 50, mode: 'every_time', daily: 100 }, p3: { limit: 100, mode: 'first_per_payee', daily: 500 } },
@@ -404,6 +393,7 @@ export const useStore = create<Store>()(
         signerAddedFor: s.signerAddedFor,
         events: s.events,
         people: s.people,
+        blocked: s.blocked,
         inbox: s.inbox,
         inviteToken: s.inviteToken,
         mockRules: s.mockRules,

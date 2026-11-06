@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { isAddress } from 'viem';
 
@@ -403,4 +403,26 @@ export function useRoleLanding(): boolean {
     return () => { stopped = true; };
   }, [live, signedIn, api]);
   return deciding;
+}
+
+export type TrusteeReportRow = { address: string; trustees: number; lastReportedAt: number };
+
+/** Both roles: addresses trustees reported, with counts (GET /reports/trustees). Demo: none. */
+export function useTrusteeReportList() {
+  const { live, api } = useLiveApi();
+  const [state, setState] = useState<{ list: TrusteeReportRow[]; blockAt: number; loading: boolean; error: string | null }>({
+    list: [], blockAt: 5, loading: live, error: null,
+  });
+  const refresh = useCallback(() => {
+    if (!live) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    api<{ blockAt: number; reports: { address: string; trustees: number; lastReportedAt: string }[] }>('/reports/trustees')
+      .then((r) => setState({
+        list: r.reports.map((x) => ({ address: x.address, trustees: x.trustees, lastReportedAt: Date.parse(x.lastReportedAt) })),
+        blockAt: r.blockAt, loading: false, error: null,
+      }))
+      .catch(() => setState((s) => ({ ...s, loading: false, error: "Couldn't load the reports. Pull down to try again." })));
+  }, [live, api]);
+  useFocusEffect(refresh);
+  return { ...state, refresh };
 }

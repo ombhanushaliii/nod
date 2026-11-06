@@ -101,3 +101,6 @@ export type Banner = { id: string; title: string; body: string; reqId?: string }
 
 /** What the user is in the middle of sending. */
 export type Draft = { address: string; name: string; amount?: number };
+
+/** Trustee side: a payment blocked because trustees reported the address. */
+export type BlockedAttempt = { id: string; pairId: string; to: string; amount: number; reporters: number; at: number };

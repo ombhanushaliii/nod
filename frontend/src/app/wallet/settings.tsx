@@ -172,6 +172,24 @@ export default function Settings() {
         )}
       </View>
 
+
+      <View style={{ gap: 8 }}>
+        <Label style={{ paddingHorizontal: 4 }}>SAFETY</Label>
+        <Card>
+          <Tap feedback="opacity" onPress={() => router.push('/wallet/reported')} style={styles.row} accessibilityLabel="Reported by trustees">
+            <View style={{ gap: 2 }}>
+              <Txt w={600}>Reported by trustees</Txt>
+              <Txt size={13} color={colors.sub}>
+                Addresses trustees reported as scams
+              </Txt>
+            </View>
+            <Txt size={20} color={colors.chevron}>
+              ›
+            </Txt>
+          </Tap>
+        </Card>
+      </View>
+
       <DemoTools />
 
       <Button

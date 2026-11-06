@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { deriveEncKey, exportIntentHash, intentHash, open, seal } from '../../packages/arkiv/src/crypto.ts';
 import { parseExportPayload, parsePaymentPayload } from '../../packages/arkiv/src/payload.ts';
-import { decide, mergeRequests, NEW_PAYEE_WAIT_MS, readRequests, reasonFromTag, reasonsFor, whyFrom, withRefill } from '../src/wallet/trustee.ts';
+import { decide, mergeRequests, NEW_PAYEE_WAIT_MS, readRequests, reasonFromTag, reasonsFor, trusteeReportersIn, whyFrom, withRefill } from '../src/wallet/trustee.ts';
 
 const enc = deriveEncKey(`0x${'22'.repeat(65)}`);
 const other = deriveEncKey(`0x${'33'.repeat(65)}`);
@@ -228,4 +228,22 @@ test('deny of an export reports nothing', async () => {
   assert.equal((await decide(r, false, d)).status, 'denied');
   assert.equal(log.reports, 0);
   assert.equal(log.decisions[0].verdict, 'deny');
+});
+
+test('trustee reports read as one row with the count, for both sides', () => {
+  const codes = ['scam_report', 'reported_by_trustees', 'trustee_reporters:3', 'new_payee'];
+  assert.equal(trusteeReportersIn(codes), 3);
+  const user = reasonsFor(codes, 'user');
+  assert.deepEqual(user.map((r) => r.title), ['Reported by 3 trustees', 'New person']);
+  assert.match(user[0].detail, /Your trustee has to OK this/);
+  const trustee = reasonsFor(codes, 'trustee');
+  assert.match(trustee[0].detail, /At 5, Nod blocks it for everyone/);
+  assert.equal(reasonsFor(['scam_report', 'reported_by_trustees', 'trustee_reporters:1'], 'user')[0].title, 'Reported by 1 trustee');
+  assert.equal(whyFrom(codes), 'flagged');
+});
+
+test('a blocked address says how many trustees reported it', () => {
+  const [r] = reasonsFor(['blocked_by_trustees', 'trustee_reporters:6'], 'user');
+  assert.equal(r.title, 'Blocked: reported by 6 trustees');
+  assert.equal(r.tone, 'red');
 });

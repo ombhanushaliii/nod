@@ -24,6 +24,7 @@ export default function TrusteeLayout() {
         <Stack.Screen name="person/[id]" />
         <Stack.Screen name="request/[id]" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="reported" />
         <Stack.Screen name="check" />
       </Stack.Protected>
     </Stack>

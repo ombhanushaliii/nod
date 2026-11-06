@@ -118,6 +118,17 @@ export function useTrusteeSync() {
         assertSession();
         const people = users.map(toPerson);
         useStore.setState({ people });
+        // Blocked payments by these people (trustee reports); best effort.
+        void api<{ blocked: { paymentId: string; pairId: string | null; to: string; amount: string; reporters: number; at: string }[] }>('/trustee/blocked')
+          .then(({ blocked }) => {
+            if (stopped) return;
+            useStore.setState({
+              blocked: blocked.filter((b) => b.pairId).map((b) => ({
+                id: b.paymentId, pairId: b.pairId!, to: b.to, amount: Number(b.amount), reporters: b.reporters, at: Date.parse(b.at),
+              })),
+            });
+          })
+          .catch(() => {});
         if (people.length === 0) return;
         await checkPairKeys(users, keys.pair);
         const enc = await keys.enc();
@@ -161,7 +172,7 @@ export function useTrusteeSync() {
       void sync();
     });
     const app = AppState.addEventListener('change', (st) => { if (st === 'active') void sync(); });
-    const push = onPush((data) => { if (data.type === 'approval_request') void sync(); });
+    const push = onPush((data) => { if (data.type === 'approval_request' || data.type === 'payment_blocked') void sync(); });
     return () => {
       stopped = true;
       if (retry) clearTimeout(retry);
