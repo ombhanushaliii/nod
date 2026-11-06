@@ -66,10 +66,9 @@ Deno.test("an Allow that already ran out is rejected", async () => {
   const t = await setup();
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
-  t.decide(p.requestKey, {
-    to: addr("9"), amount: 150_000_000n, nonce: p.nonce,
-    createdAt: new Date(t.state.now.getTime() - 2 * HOUR),
-  });
+  t.decide(p.requestKey, { to: addr("9"), amount: 150_000_000n, nonce: p.nonce });
+  // Nobody polled until the 1h window was over.
+  t.state.now = new Date(t.state.now.getTime() + 2 * HOUR);
   assertEquals((await t.poll(p.paymentId)).body.error, "decision_expired");
 });
 
@@ -116,4 +115,20 @@ Deno.test("another user can't touch my payment", async () => {
   t.markPaid(addr("9"));
   const p = await t.askTrustee(addr("9"), "150");
   assertEquals((await t.call(TRUSTEE, "POST", `/payments/${p.paymentId}/approval`)).status, 404);
+});
+
+Deno.test("a backdated Allow can't shorten the new-payee wait: it counts from when the request arrived", async () => {
+  const t = await setup();
+  const p = await t.askTrustee(addr("8"), "150"); // new payee + over limit
+  const attachedAt = t.state.now;
+  t.state.now = new Date(t.state.now.getTime() + 10 * MIN);
+  t.decide(p.requestKey, {
+    to: addr("8"), amount: 150_000_000n, nonce: p.nonce,
+    // Claims to be from a day ago, before the request even existed.
+    createdAt: new Date(attachedAt.getTime() - 24 * HOUR),
+    expiresAt: new Date(t.state.now.getTime() + 25 * HOUR),
+  });
+  const res = await t.poll(p.paymentId);
+  assertEquals(res.body.status, "cooling_down");
+  assertEquals(res.body.unlockAt, new Date(attachedAt.getTime() + 24 * HOUR).toISOString());
 });

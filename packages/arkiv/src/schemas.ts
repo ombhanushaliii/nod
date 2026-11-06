@@ -2,7 +2,8 @@ import { ExpirationTime } from "@arkiv-network/sdk"
 import { addr, bytes, defineSchema, key, str, u64 } from "@arkiv-network/sdk/schema"
 
 // Allowed values for the string columns (docs: D3, D4, D5, D6)
-export type RequestKind = "payment" | "export" | "rules"
+// No "rules" kind: only the trustee changes rules, through the backend.
+export type RequestKind = "payment" | "export"
 export type Verdict = "allow" | "deny"
 export type ReportSource = "trustee" | "ofac" | "list"
 
@@ -17,10 +18,13 @@ export const ApprovalRequest = defineSchema("approval_request", {
 
 // Written by the per-pair trustee key.
 // Allow has intentHash + validFrom, deny may point to a scam report.
+// createdAt starts the new-payee 24h wait; the backend never counts it from
+// earlier than when the request reached it.
 export const TrusteeDecision = defineSchema("trustee_decision", {
   pairId: str().indexed(),
   requestKey: key().indexed(),
   verdict: str().indexed(),
+  createdAt: u64().indexed(), // ms
   intentHash: str().optional(),
   validFrom: u64().optional(), // ms
   reportKey: key().optional(),

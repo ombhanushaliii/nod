@@ -203,7 +203,7 @@ export function paymentRoutes(deps: PaymentDeps) {
     }
 
     const check = checkDecision({
-      decision, pairId: pair.pairId, now: now(),
+      decision, pairId: pair.pairId, now: now(), requestAttachedAt: approval.createdAt,
       payment: {
         to: payment.toAddress, amount: payment.amount, nonce: payment.nonce,
         newPayee: payment.reasons.includes("new_payee"),
