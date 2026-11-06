@@ -43,7 +43,7 @@ export function AppLock() {
     authing.current = true;
     try {
       const res = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Haven',
+        promptMessage: 'Unlock Nod',
         promptSubtitle: 'Confirm it’s you to open your wallet',
         cancelLabel: 'Cancel',
         fallbackLabel: 'Use passcode',
@@ -131,7 +131,7 @@ function LockScreen({ method, onUnlock }: { method: Method | null; onUnlock: () 
         </View>
         <View style={{ gap: 12 }}>
           <Txt size={40} w={800} ls={-0.035} lh={1.05}>
-            Haven is{'\n'}locked.
+            Nod is{'\n'}locked.
           </Txt>
           <Txt size={17} lh={1.5} color={colors.sub}>
             {role === 'trustee'

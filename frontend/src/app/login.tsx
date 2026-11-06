@@ -96,7 +96,7 @@ function DemoLogin() {
             Choose an account
           </Txt>
           <Txt size={15} color={colors.sub}>
-            to continue to Haven. The account decides which app you see.
+            to continue to Nod. The account decides which app you see.
           </Txt>
         </View>
         <View style={{ gap: 8 }}>
