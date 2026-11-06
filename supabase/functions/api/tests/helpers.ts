@@ -7,7 +7,7 @@ import {
   type User,
 } from "../lib/repo.ts";
 import type { NotifyMode } from "../lib/rules.ts";
-import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
+import { type GoPlusResult, knownCategories, type ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError, TxOutcome } from "../lib/privySigner.ts";
 import type { PushMessage } from "../lib/push.ts";
@@ -104,8 +104,12 @@ export class MemoryRepo implements Repo {
   }
   archivedReportCounts(address: string) {
     const rows = this.archive.filter((r) => r.address === address.toLowerCase());
-    const verified = rows.filter((r) => r.verified).length;
-    return Promise.resolve({ verified, unverified: rows.length - verified });
+    const verified = rows.filter((r) => r.verified);
+    return Promise.resolve({
+      verified: verified.length,
+      unverified: rows.length - verified.length,
+      categories: knownCategories(verified.map((r) => ("category" in r ? r.category : null))),
+    });
   }
 
   getPayment(id: string, userId: string) {

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import type { PublicArkivClient } from "@arkiv-network/sdk";
-import { arkivApprovals, arkivScamReports, blockToDate, countReports, type DecisionRow, pickDecision } from "../lib/arkivLive.ts";
+import { arkivApprovals, arkivScamReports, blockToDate, countReports, type DecisionRow, pickDecision, summarizeReports } from "../lib/arkivLive.ts";
 import { addr } from "./helpers.ts";
 
 const timing = { currentBlock: 1000n, currentBlockTime: 1_800_000_000, blockDuration: 2 };
@@ -28,6 +28,18 @@ Deno.test("countReports: only trusted creators are verified, case-insensitively"
   assertEquals(countReports([addr("A"), addr("b"), addr("a"), addr("c")], trusted), { verified: 2, unverified: 2 });
 });
 
+Deno.test("summarizeReports: categories come from trusted creators only, known ones once", () => {
+  const trusted = new Set([addr("a"), addr("b")]);
+  assertEquals(summarizeReports([
+    { creator: addr("A"), category: "phishing" },
+    { creator: addr("b"), category: "sanctioned" },
+    { creator: addr("a"), category: "Phishing" },
+    { creator: addr("b"), category: "made-up" },
+    // A stranger can't put a category in front of the user.
+    { creator: addr("c"), category: "exploit" },
+  ], trusted), { verified: 4, unverified: 1, categories: ["sanctioned", "phishing"] });
+});
+
 function fakeClient(fetch: (offset: number) => Promise<unknown>): PublicArkivClient {
   let offset = 0;
   const q = {
@@ -40,11 +52,14 @@ function fakeClient(fetch: (offset: number) => Promise<unknown>): PublicArkivCli
 
 Deno.test("scam reports: counts creators from Arkiv", async () => {
   const reports = arkivScamReports({
-    client: fakeClient(() => Promise.resolve({ entities: [{ $creator: addr("a") }, { $creator: addr("b") }], skipped: 0 })),
+    client: fakeClient(() => Promise.resolve({
+      entities: [{ $creator: addr("a"), category: { value: "sanctioned" } }, { $creator: addr("b"), category: { value: "exploit" } }],
+      skipped: 0,
+    })),
     trustedCreators: () => Promise.resolve([addr("a")]),
     archive: () => Promise.reject(new Error("not used")),
   });
-  assertEquals(await reports.countFor(addr("9")), { verified: 1, unverified: 1 });
+  assertEquals(await reports.countFor(addr("9")), { verified: 1, unverified: 1, categories: ["sanctioned"] });
 });
 
 Deno.test("scam reports: Arkiv down falls back to the archive", async () => {
@@ -68,7 +83,7 @@ Deno.test("scam reports: pages of 100 (skipped ones count), stops at a short pag
     trustedCreators: () => Promise.resolve([]),
     archive: () => Promise.reject(new Error("not used")),
   });
-  assertEquals(await reports.countFor(addr("9")), { verified: 0, unverified: 93 });
+  assertEquals(await reports.countFor(addr("9")), { verified: 0, unverified: 93, categories: [] });
   assertEquals(offsets, [0, 100]);
 });
 
