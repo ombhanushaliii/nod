@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/api';
 import { short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 export default function Receive() {
   const { user, walletAddress } = useAuth();
@@ -29,7 +30,7 @@ export default function Receive() {
         Receive
       </Txt>
       <Txt size={17} lh={1.5} color={colors.sub}>
-        Share your username to get paid in USDC.
+        {isDemo ? 'Share your username to get paid in USDC.' : 'Share your address to get paid in USDC on Ethereum Sepolia.'}
       </Txt>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <View style={{ width: 220, height: 220, borderRadius: 24, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>

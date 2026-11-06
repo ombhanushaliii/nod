@@ -63,7 +63,8 @@ export default function SendTo() {
       : LIVE_CHIPS;
 
   const tv = to.trim();
-  const valid = isValidAddress(tv);
+  // Live payments go to 0x addresses only; @usernames are a demo stand-in.
+  const valid = isDemo ? isValidAddress(tv) : isEvmAddress(tv);
   const known = valid ? payeeBy({ payees }, tv) : undefined;
 
   const pick = (p: { address: string; name: string }) => {
@@ -80,7 +81,7 @@ export default function SendTo() {
       <TextField
         value={to}
         onChangeText={(v) => setTo(v.trim())}
-        placeholder="Paste address or @username"
+        placeholder={isDemo ? 'Paste address or @username' : 'Paste a wallet address (0x…)'}
         size={15}
         autoCapitalize="none"
         spellCheck={false}
