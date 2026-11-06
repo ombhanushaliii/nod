@@ -225,6 +225,9 @@ export function useAcceptInvite() {
  * without opening the email link. Read when the screen opens and when the app
  * comes back to the front.
  */
+/** How many times the invite list retries by itself before showing an error. */
+const INVITE_RETRIES = 3;
+
 export function useEmailInvites() {
   const { live, api, assertSession } = useLiveApi();
   const register = useWalletSetup({ signer: false });
@@ -236,21 +239,35 @@ export function useEmailInvites() {
   useEffect(() => {
     if (!live) return;
     let stopped = false;
-    const read = async () => {
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const read = async (attempt = 0) => {
+      // Accepting needs the account set up, so start that now; the list itself
+      // doesn't, so a slow or failed set-up (the wallet is still being created
+      // right after a first sign-in) must not stop the invites from showing.
+      await register().catch(() => {});
       try {
-        // The list needs an account, like accepting does.
-        await register();
         const { invites } = await api<{ invites: EmailInvite[] }>('/trustee/invites');
         if (stopped) return;
         assertSession();
         setState({ invites, loading: false, error: null });
       } catch {
-        if (!stopped) setState((s) => ({ ...s, loading: false, error: "Couldn't check for invites. Try again." }));
+        if (stopped) return;
+        // Right after sign-in the session can take a moment: try again by itself
+        // (1.5s, 3s, 6s) before asking the person to.
+        if (attempt < INVITE_RETRIES) {
+          retry = setTimeout(() => void read(attempt + 1), 1500 * 2 ** attempt);
+          return;
+        }
+        setState((s) => ({ ...s, loading: false, error: "Couldn't check for invites. Try again." }));
       }
     };
     void read();
     const app = AppState.addEventListener('change', (st) => { if (st === 'active') void read(); });
-    return () => { stopped = true; app.remove(); };
+    return () => {
+      stopped = true;
+      if (retry) clearTimeout(retry);
+      app.remove();
+    };
   }, [live, revision, api, assertSession, register]);
   const reload = useCallback(() => {
     setState((s) => ({ ...s, loading: true, error: null }));
