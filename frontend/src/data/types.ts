@@ -45,6 +45,11 @@ export type ApprovalRequest = {
   expiresAt?: number;
   /** Live: the backend payment this request is for. */
   paymentId?: string;
+  /** Live, trustee side: which person (pair) asked. */
+  pairId?: string;
+  /** Live, trustee side: the exact payment an Allow is bound to (intentHash). */
+  nonce?: string;
+  amountUnits?: string;
   used?: boolean;
   /** Hidden from the user's "In progress" list. */
   dismissed?: boolean;

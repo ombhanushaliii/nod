@@ -30,13 +30,18 @@ export function useWalletSigning() {
       }
       return createWalletClient({ chain: rabdi, account: accounts[0], transport: custom(provider, { retryCount: 0 }) });
     },
-    deriveTrusteeKeys: async (pairId: string) => {
+    /** The trustee's key for opening requests (D8). Same signature, same key. */
+    deriveEncryptionKey: async () => {
+      if (!walletAddress) throw new Error('Connect your wallet first.');
+      const provider = await getProvider();
+      return deriveEncKey(await signDerivationMessage(provider, walletAddress, ENCRYPTION_KEY_MESSAGE));
+    },
+    /** The per-pair Arkiv key (D5). Never leaves the phone. */
+    derivePairKey: async (pairId: string) => {
       if (!/^0x[\da-f]{64}$/i.test(pairId)) throw new Error('Invalid trustee pair ID.');
       if (!walletAddress) throw new Error('Connect your wallet first.');
       const provider = await getProvider();
-      const pairSignature = await signDerivationMessage(provider, walletAddress, pairKeyMessage(pairId.toLowerCase()));
-      const encSignature = await signDerivationMessage(provider, walletAddress, ENCRYPTION_KEY_MESSAGE);
-      return { pair: derivePairKey(pairSignature), encryption: deriveEncKey(encSignature) };
+      return derivePairKey(await signDerivationMessage(provider, walletAddress, pairKeyMessage(pairId.toLowerCase())));
     },
   };
 }

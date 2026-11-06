@@ -41,7 +41,7 @@ export function rulesRoutes(deps: RulesDeps) {
   r.get("/trustee/users", async (c) => {
     const me = await requireUser(c);
     const list = await c.var.repo.protectedUsers(me.id);
-    return c.json({ users: list.map((u) => ({ pairId: u.pairId, walletAddress: u.walletAddress, ...show(u.rules) })) });
+    return c.json({ users: list.map((u) => ({ pairId: u.pairId, walletAddress: u.walletAddress, pairKeyAddress: u.pairKeyAddress, ...show(u.rules) })) });
   });
 
   r.patch("/trustee/users/:pairId/rules", async (c) => {

@@ -34,7 +34,7 @@ export type UserPair =
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
-export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; rules: Rules };
+export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; pairKeyAddress: string; rules: Rules };
 
 // Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
@@ -61,6 +61,10 @@ export interface Repo extends JobsRepo {
   userPair(userId: string): Promise<UserPair | null>;
   // The user a pair protects.
   pairUserId(pairId: string): Promise<string | null>;
+  // An active pair this person is the trustee of, with the user it protects.
+  trusteePair(pairId: string, trusteeId: string): Promise<(ActivePair & { userId: string }) | null>;
+  // The user's payment that an Arkiv approval request was attached to.
+  paymentByRequestKey(requestKey: string, userId: string): Promise<Payment | null>;
   // Returns the Arkiv pairId.
   acceptInvite(args: { tokenHash: string; trusteeId: string; pairKeyAddress: string; encPubKey: string }): Promise<string>;
 
@@ -189,6 +193,20 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       const raw = data.invites as unknown;
       const inv = (Array.isArray(raw) ? raw[0] : raw) as { contact: string; expires_at: string };
       return { status: "invited", pairId: data.pair_id, contact: inv.contact, inviteExpiresAt: new Date(inv.expires_at) };
+    },
+    async trusteePair(pairId, trusteeId) {
+      const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address, trustee_id, user_id")
+        .eq("pair_id", pairId).eq("trustee_id", trusteeId).eq("status", "active").maybeSingle();
+      if (error) rethrow(error);
+      return data
+        ? { id: data.id, pairId: data.pair_id, pairKeyAddress: data.pair_key_address, trusteeId: data.trustee_id, userId: data.user_id }
+        : null;
+    },
+    async paymentByRequestKey(requestKey, userId) {
+      const { data, error } = await db.from("payments").select("*, approvals!inner(request_key)")
+        .eq("user_id", userId).eq("approvals.request_key", requestKey.toLowerCase()).maybeSingle();
+      if (error) rethrow(error);
+      return data ? toPayment(data) : null;
     },
     async pairUserId(pairId) {
       const { data, error } = await db.from("pairs").select("user_id").eq("pair_id", pairId).maybeSingle();
@@ -357,7 +375,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       };
     },
     async protectedUsers(trusteeId) {
-      const pairs = await db.from("pairs").select("pair_id, user_id").eq("trustee_id", trusteeId).eq("status", "active");
+      const pairs = await db.from("pairs").select("pair_id, user_id, pair_key_address").eq("trustee_id", trusteeId).eq("status", "active");
       if (pairs.error) rethrow(pairs.error);
       if (pairs.data.length === 0) return [];
       const ids = pairs.data.map((p) => p.user_id);
@@ -371,6 +389,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         pairId: p.pair_id,
         userId: p.user_id,
         walletAddress: users.data.find((u) => u.id === p.user_id)!.wallet_address,
+        pairKeyAddress: p.pair_key_address,
         rules: toRules(rules.data.find((r) => r.user_id === p.user_id)!),
       }));
     },

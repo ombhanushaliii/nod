@@ -252,6 +252,7 @@ export class MemoryRepo implements Repo {
       pairId: p.pairId,
       userId: p.userId,
       walletAddress: this.users.find((u) => u.id === p.userId)!.wallet_address,
+      pairKeyAddress: p.pairKeyAddress!,
       rules: { ...this.rules.get(p.userId)! },
     })));
   }
@@ -322,6 +323,15 @@ export class MemoryRepo implements Repo {
     }
     const inv = this.invites.find((i) => i.pairRowId === p.id)!;
     return Promise.resolve({ status: "invited" as const, pairId: p.pairId, contact: inv.contact!, inviteExpiresAt: inv.expiresAt });
+  }
+  trusteePair(pairId: string, trusteeId: string) {
+    const p = this.pairs.find((x) => x.pairId === pairId && x.trusteeId === trusteeId && x.status === "active");
+    return Promise.resolve(p ? { id: p.id, pairId: p.pairId, pairKeyAddress: p.pairKeyAddress!, trusteeId: p.trusteeId!, userId: p.userId } : null);
+  }
+  paymentByRequestKey(requestKey: string, userId: string) {
+    const a = this.approvals.find((x) => x.requestKey.toLowerCase() === requestKey.toLowerCase());
+    const p = a && this.payments.find((x) => x.approvalId === a.id && x.userId === userId);
+    return Promise.resolve(p ? { ...p } : null);
   }
   pairUserId(pairId: string) {
     return Promise.resolve(this.pairs.find((p) => p.pairId === pairId)?.userId ?? null);

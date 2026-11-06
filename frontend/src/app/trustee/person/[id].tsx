@@ -1,13 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Avatar, BackButton, FadeInRow, ReviewRow, ScrollScreen, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { buildPeople, reqIcon, reqTitle } from '@/data/people';
 import { useStore } from '@/data/store';
-import type { RulesMode } from '@/data/types';
+import type { Rules, RulesMode } from '@/data/types';
+import { useSetLiveRules } from '@/hooks/trustee';
+import { haptic } from '@/lib/haptics';
 import { m0 } from '@/lib/format';
 import { colors, tones } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 const LIMITS = [25, 50, 100, 250, 500];
 const DAILY = [50, 100, 200, 500, 1000];
@@ -19,9 +23,20 @@ export default function Person() {
   const now = useNow();
   const s = useStore();
   const people = buildPeople(s, now);
+  const setLive = useSetLiveRules();
+  const [error, setError] = useState<string | null>(null);
   const p = people.find((x) => x.id === id) ?? people[0];
+  if (!p) return null;
   const R = p.rules;
-  const set = (patch: Partial<typeof R>) => s.setRulesFor(p.id, patch);
+  // Rules apply at once. Live, the backend saves them and tells the user.
+  const set = (patch: Partial<Rules>) => {
+    if (isDemo) return s.setRulesFor(p.id, patch);
+    setError(null);
+    setLive(p.id, patch).catch((err: unknown) => {
+      haptic('error');
+      setError(err instanceof Error ? err.message : "Couldn't save that. Try again.");
+    });
+  };
   const li = Math.max(0, LIMITS.indexOf(R.limit));
   const di = Math.max(0, DAILY.indexOf(R.daily));
 
@@ -64,6 +79,11 @@ export default function Person() {
             Saves instantly
           </Txt>
         </View>
+        {error && (
+          <Txt size={14} lh={1.5} color={colors.accFg} accessibilityRole="alert">
+            {error}
+          </Txt>
+        )}
         <View style={styles.card}>
           <View style={[styles.rule, styles.divider]}>
             <RuleIcon glyph="$" />
@@ -77,7 +97,7 @@ export default function Person() {
               label="Ask me above"
             />
           </View>
-          <View style={[{ gap: 10, paddingVertical: 14 }, styles.divider]}>
+          <View style={[{ gap: 10, paddingVertical: 14 }, isDemo && styles.divider]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <RuleIcon glyph="↻" />
               <RuleText
@@ -103,6 +123,7 @@ export default function Person() {
               })}
             </View>
           </View>
+          {isDemo && (
           <View style={styles.rule}>
             <RuleIcon glyph="◷" />
             <RuleText title="Daily max" help="Total per day. Going over needs your OK." />
@@ -115,6 +136,7 @@ export default function Person() {
               label="Daily max"
             />
           </View>
+          )}
         </View>
       </View>
 

@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:wallet": "node --test tests/wallet.test.mjs tests/approvals.test.mjs"
+    "test:wallet": "node --test tests/wallet.test.mjs tests/approvals.test.mjs tests/trustee.test.mjs"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",

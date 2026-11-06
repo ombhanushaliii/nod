@@ -8,12 +8,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(getToken: AccessToken, path: string, body?: unknown): Promise<T> {
+export async function apiRequest<T>(getToken: AccessToken, path: string, body?: unknown, method?: 'PATCH'): Promise<T> {
   if (!walletConfig.apiUrl) throw new Error('Configure EXPO_PUBLIC_API_URL to connect your wallet.');
   const token = await getToken();
   if (!token) throw new Error('Sign in again to continue.');
   const response = await fetch(`${walletConfig.apiUrl}${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
+    method: method ?? (body === undefined ? 'GET' : 'POST'),
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });

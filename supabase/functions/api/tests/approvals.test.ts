@@ -132,3 +132,34 @@ Deno.test("a backdated Allow can't shorten the new-payee wait: it counts from wh
   assertEquals(res.body.status, "cooling_down");
   assertEquals(res.body.unlockAt, new Date(attachedAt.getTime() + 24 * HOUR).toISOString());
 });
+
+Deno.test("the trustee app reports its decision: recorded at once, and the user is pushed", async () => {
+  const t = await setup();
+  t.markPaid(addr("9"));
+  await t.call(USER, "POST", "/push/register", { expoToken: "ExponentPushToken[user]" });
+  const p = await t.askTrustee(addr("9"), "150");
+  t.state.pushes.length = 0;
+
+  // Nothing on Arkiv yet: still waiting, nobody pushed.
+  const early = await t.call(TRUSTEE, "POST", "/trustee/decisions", { pairId: t.pairId, requestKey: p.requestKey });
+  assertEquals(early.body.status, "awaiting_trustee");
+  assertEquals(t.state.pushes, []);
+
+  t.decide(p.requestKey, { to: addr("9"), amount: 150_000_000n, nonce: p.nonce });
+  const res = await t.call(TRUSTEE, "POST", "/trustee/decisions", { pairId: t.pairId, requestKey: p.requestKey });
+  assertEquals(res.body.status, "ready");
+  assertEquals(t.state.pushes.map((x) => x.message.data.type), ["trustee_answered"]);
+  // The user's next poll sees it; telling the backend again pushes nobody.
+  assertEquals((await t.poll(p.paymentId)).body.status, "ready");
+  await t.call(TRUSTEE, "POST", "/trustee/decisions", { pairId: t.pairId, requestKey: p.requestKey });
+  assertEquals(t.state.pushes.length, 1);
+});
+
+Deno.test("only the pair's trustee can report a decision", async () => {
+  const t = await setup();
+  const p = await t.askTrustee(addr("9"), "150");
+  const asUser = await t.call(USER, "POST", "/trustee/decisions", { pairId: t.pairId, requestKey: p.requestKey });
+  assertEquals(asUser.status, 404);
+  const wrongKey = await t.call(TRUSTEE, "POST", "/trustee/decisions", { pairId: t.pairId, requestKey: hex32("7") });
+  assertEquals(wrongKey.body.error, "payment_not_found");
+});

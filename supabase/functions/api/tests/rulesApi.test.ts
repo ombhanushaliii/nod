@@ -30,7 +30,7 @@ Deno.test("the user can't change their rules, not even to tighten them", async (
 Deno.test("trustee lists who they protect", async () => {
   const t = await setup();
   const res = await t.call(TRUSTEE, "GET", "/trustee/users");
-  assertEquals(res.body.users, [{ pairId: t.pairId, walletAddress: addr("a"), amountLimit: "100", notifyMode: "first_per_payee" }]);
+  assertEquals(res.body.users, [{ pairId: t.pairId, walletAddress: addr("a"), pairKeyAddress: addr("c"), amountLimit: "100", notifyMode: "first_per_payee" }]);
   assertEquals((await t.call(USER, "GET", "/trustee/users")).body.users, []);
 });
 

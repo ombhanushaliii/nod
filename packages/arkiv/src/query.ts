@@ -25,23 +25,24 @@ async function readAll<T extends { $key: Hex }>(
   throw new Error("Too many results, stopped reading")
 }
 
-// Trustee app + push watcher: live approval requests for these pairs.
+// Trustee app: live approval requests for these pairs.
 // Expired ones are gone on their own. `creator` is who wrote it ($creator; $owner
 // can be handed to anyone). Check it against Supabase before trusting one.
-export async function queryPendingRequests(client: PublicArkivClient, pairIds: string[]) {
+// Pass createdBy (the user's wallet) so junk written by others under the same
+// pairId can't fill the pages.
+export async function queryPendingRequests(client: PublicArkivClient, pairIds: string[], opts: { createdBy?: Address } = {}) {
   if (pairIds.length === 0) return []
   const byPair = or(...pairIds.map((id) => eq("pairId", id)))
 
-  const rows = await readAll((offset) =>
-    client
+  const rows = await readAll((offset) => {
+    const q = client
       .select({ $key: true, $creator: true, $expiresAt: true, pairId: true, kind: true, createdAt: true, payload: true })
       .from(ApprovalRequest, { onMismatch: "skip" })
       .where(byPair)
       .orderBy(asc("$key"))
-      .limit(PAGE)
-      .offset(offset)
-      .fetch(),
-  )
+    if (opts.createdBy) q.createdBy(opts.createdBy)
+    return q.limit(PAGE).offset(offset).fetch()
+  })
 
   return rows.map((r) => ({
     key: r.$key,

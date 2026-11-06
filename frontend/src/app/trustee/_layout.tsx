@@ -1,11 +1,15 @@
 import { Stack } from 'expo-router';
 
-import { useStore } from '@/data/store';
+import { trusteeSide, useStore } from '@/data/store';
+import { usePushRegistration } from '@/hooks/api';
+import { useTrusteeSync } from '@/hooks/trustee';
 import { colors } from '@/theme';
 
 export default function TrusteeLayout() {
-  const status = useStore((s) => s.trusteeStatus);
+  const status = useStore(trusteeSide);
   const hasName = useStore((s) => !!s.tDisplayName);
+  useTrusteeSync();
+  usePushRegistration(status === 'active');
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {/* Home routes to the invite or profile setup until the trustee is set up. */}

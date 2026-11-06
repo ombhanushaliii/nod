@@ -31,7 +31,7 @@ export function useBalance() {
 }
 
 /** Calls the backend as the signed-in user, and a guard that throws if the account changed meanwhile. */
-function useLiveApi() {
+export function useLiveApi() {
   const { mode, getAccessToken, userId } = useWallet();
   const api = useCallback(<T,>(path: string, body?: unknown) => apiRequest<T>(getAccessToken, path, body), [getAccessToken]);
   const assertSession = useCallback(() => {
