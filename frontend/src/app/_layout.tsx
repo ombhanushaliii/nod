@@ -12,7 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
-import { AppLock, BannerHost, PrivacyCover } from '@/components';
+import { AppLock, BannerHost, PrivacyCover, WebFrame } from '@/components';
 import { useHydrated } from '@/data/clock';
 import { useStore } from '@/data/store';
 import { colors } from '@/theme';
@@ -26,7 +26,8 @@ void SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const hydrated = useHydrated();
   if (!hydrated) return null;
-  return <WalletProvider><AppLayout /></WalletProvider>;
+  // Web: every page sits in a phone-width column (WebFrame); native is unchanged.
+  return <WebFrame><WalletProvider><AppLayout /></WalletProvider></WebFrame>;
 }
 
 /** Keeps the token from an invite link until the trustee signs in and accepts. */

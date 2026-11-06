@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme';
 import { PrivacyCover } from './PrivacyCover';
+import { WebFrame } from './WebFrame';
 
 type Props = {
   visible: boolean;
@@ -28,7 +29,8 @@ export function Sheet({ visible, onClose, children, dim = 0.34, center, gap = 18
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
-      {/* Both platforms: see Screen in layout.tsx. */}
+      {/* Both platforms: see Screen in layout.tsx. Web: the sheet stays in the page's phone-width column. */}
+      <WebFrame transparent>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(37,40,43,${dim})`, opacity: v.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 1, 1] }) }]}>
@@ -45,6 +47,7 @@ export function Sheet({ visible, onClose, children, dim = 0.34, center, gap = 18
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+      </WebFrame>
       <PrivacyCover />
     </Modal>
   );
