@@ -1,4 +1,4 @@
-import { PrivyProvider, useEmbeddedEthereumWallet, useLoginWithOAuth, useLoginWithSMS, usePrivy, useSigners } from '@privy-io/expo';
+import { PrivyProvider, useEmbeddedEthereumWallet, useLoginWithOAuth, usePrivy, useSigners } from '@privy-io/expo';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EIP1193Provider } from 'viem';
 
@@ -8,7 +8,7 @@ import type { Role, Session } from '@/data/types';
 import { baseSepolia, rabdi } from './chains';
 import { isDemo, walletConfig } from './config';
 import { DemoWalletProvider, unavailableSession, WalletContext } from './context';
-import { checkProvider, requireSignerPolicy, validatePhone } from './validation';
+import { checkProvider, requireSignerPolicy } from './validation';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   if (isDemo) return <DemoWalletProvider>{children}</DemoWalletProvider>;
@@ -26,7 +26,6 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const { user, isReady, error, logout, getAccessToken } = usePrivy();
   const { wallets, create } = useEmbeddedEthereumWallet();
   const { login } = useLoginWithOAuth();
-  const { sendCode, loginWithCode } = useLoginWithSMS();
   const { addSigners } = useSigners();
   const [role, setRole] = useState<Role>(() => useStore.getState().session?.role ?? 'user');
   const [method, setMethod] = useState<Session['method']>(() => useStore.getState().session?.method ?? 'Google');
@@ -41,8 +40,7 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   }, [accountScope]);
   const google = user?.linked_accounts.find((a) => a.type === 'google_oauth');
   const email = user?.linked_accounts.find((a) => a.type === 'email');
-  const phone = user?.linked_accounts.find((a) => a.type === 'phone');
-  const contact = google?.email ?? email?.address ?? phone?.phoneNumber ?? phone?.number ?? '';
+  const contact = google?.email ?? email?.address ?? '';
   const session: Session | null = isReady && user && wallet ? { role, email: contact, method } : null;
 
   useEffect(() => {
@@ -72,15 +70,6 @@ function ConnectedSession({ children }: { children: ReactNode }) {
     signIn: async (nextRole) => {
       setRole(nextRole); setMethod('Google'); setWalletError(null);
       await login({ provider: 'google' });
-    },
-    sendPhoneCode: async (nextRole, value) => {
-      validatePhone(value);
-      setRole(nextRole); setMethod('Phone'); setWalletError(null);
-      await sendCode({ phone: value });
-    },
-    verifyPhoneCode: async (nextRole, value, code) => {
-      setRole(nextRole); setMethod('Phone');
-      await loginWithCode({ phone: value, code });
     },
     signOut: async () => { currentAccount.current = undefined; await logout(); creationAttempt.current = null; useStore.getState().signOut(); },
     getAccessToken, getProvider,

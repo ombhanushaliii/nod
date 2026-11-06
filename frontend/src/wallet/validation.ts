@@ -3,10 +3,6 @@ import { numberToHex, type EIP1193Provider } from 'viem';
 import { baseSepolia, RABDI_CHAIN_ID } from './chains';
 import { walletConfig } from './config';
 
-export function validatePhone(phone: string) {
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) throw new Error('Enter a phone number with its country code, such as +919876543210.');
-}
-
 export function requireSignerPolicy(signerId: string, policyId: string) {
   if (!signerId || !policyId) throw new Error('Configure the backend signer and its USDC policy first.');
   // An empty policy list grants unrestricted signer access in Privy.
