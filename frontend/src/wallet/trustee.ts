@@ -4,7 +4,8 @@ import type { ExportRequestPayload, PaymentRequestPayload } from '@guardian/arki
 import type { ApprovalRequest, Reason, Why } from '@/data/types';
 
 /** Someone this trustee protects, from GET /trustee/users. */
-export type LivePerson = { pairId: string; walletAddress: string; limit: number; mode: 'first_per_payee' | 'every_time' };
+// username: their @handle from the backend (made from their email), when it could tell.
+export type LivePerson = { pairId: string; walletAddress: string; username?: string | null; limit: number; mode: 'first_per_payee' | 'every_time' };
 
 /** An approval_request row from Arkiv (queryPendingRequests). */
 export type RequestRow = { key: string; creator: string; pairId: string; kind: string; createdAt: number; sealed: Uint8Array };

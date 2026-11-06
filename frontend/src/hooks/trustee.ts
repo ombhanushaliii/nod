@@ -21,9 +21,9 @@ import { onPush } from '@/wallet/push';
 import { useWalletSigning } from '@/wallet/signing';
 import { decide, type LivePerson, mergeRequests, notifyDecision, readRequests, withRefill } from '@/wallet/trustee';
 
-type UserView = { pairId: string; walletAddress: string; pairKeyAddress: string; amountLimit: string; notifyMode: LivePerson['mode'] };
+type UserView = { pairId: string; walletAddress: string; pairKeyAddress: string; username: string | null; amountLimit: string; notifyMode: LivePerson['mode'] };
 
-const toPerson = (u: UserView): LivePerson => ({ pairId: u.pairId, walletAddress: u.walletAddress, limit: Number(u.amountLimit), mode: u.notifyMode });
+const toPerson = (u: UserView): LivePerson => ({ pairId: u.pairId, walletAddress: u.walletAddress, username: u.username, limit: Number(u.amountLimit), mode: u.notifyMode });
 
 type EncKey = { publicKey: Uint8Array; secretKey: Uint8Array };
 type PairKey = { privateKey: Hex; address: Address };

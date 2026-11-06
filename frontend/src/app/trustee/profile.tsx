@@ -5,10 +5,13 @@ import { Avatar, AvatarPicker, Button, Label, Screen, TextField, Txt } from '@/c
 import { trusteeName, useStore } from '@/data/store';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 /** Trustee sets a name and avatar so the user recognises them. */
 export default function TrusteeProfile() {
-  const username = useStore((s) => s.username);
+  // Who they look after: in the demo, the wallet user on this device; live, the
+  // person whose invite they just accepted (handle from the backend, when known).
+  const who = useStore((s) => (isDemo ? s.username : (s.people[0]?.username ?? null)));
   const avatar = useStore((s) => s.trusteeAvatar);
   const setAvatar = useStore((s) => s.setTrusteeAvatar);
   const setProfile = useStore((s) => s.setTrusteeProfile);
@@ -42,7 +45,7 @@ export default function TrusteeProfile() {
             Set up your profile
           </Txt>
           <Txt size={17} lh={1.5} color={colors.sub}>
-            So @{username} knows it&apos;s you.
+            {who ? `So @${who} knows it’s you.` : 'So the person you look after knows it’s you.'}
           </Txt>
         </View>
         <View style={{ gap: 18, paddingBottom: 20 }}>
