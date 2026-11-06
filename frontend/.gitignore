@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Firebase config for push (FCM). Kept out of git; see docs/privy-wallet.md.
+google-services.json
