@@ -10,7 +10,7 @@ import { type PaymentSender, SendError } from "../lib/privySigner.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import type { ActivePair, Payment, PaymentStatus, Repo } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
-import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
+import { COOLDOWN_MS, decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
 import { syncExportDecision } from "./exports.ts";
 
@@ -127,11 +127,14 @@ export function paymentRoutes(deps: PaymentDeps) {
     if (input.to === user.wallet_address) fail(422, "self_payment");
 
     const repo = c.var.repo;
-    const [payee, rules, firstPaymentDone, paid, reports, goplus, trusteeActive] = await Promise.all([
+    const at = now().getTime();
+    const [payee, rules, firstPaymentDone, paid, sentToPayee, reports, goplus, trusteeActive] = await Promise.all([
       repo.touchPayee(user.id, input.to),
       repo.getRules(user.id),
       repo.hasSentPayment(user.id),
       repo.paidPayees(user.id),
+      // For the new-payee $10: what's already going to them in the last 24h.
+      repo.sentToPayeeSince(user.id, input.to, new Date(at - COOLDOWN_MS), new Date(at - MAX_CHECK_AGE_MS)),
       deps.scamReports.countFor(input.to),
       deps.goPlus.check(input.to),
       repo.hasActivePair(user.id),
@@ -154,7 +157,7 @@ export function paymentRoutes(deps: PaymentDeps) {
     const result = decide({
       amount, now: now(), firstPaymentDone,
       amountLimit: rules.amountLimit, notifyMode: rules.notifyMode,
-      payee, flags,
+      payee, flags, sentToPayee,
     });
 
     const nonce = randomHex32();
@@ -170,6 +173,8 @@ export function paymentRoutes(deps: PaymentDeps) {
       reasons: result.reasons,
       warnings,
       unlockAt: result.unlockAt?.toISOString() ?? null,
+      // Cooldown for a new payee: how much can still go to them right now (USDC).
+      newPayeeLeft: result.newPayeeLeft === undefined ? null : formatUsdc(result.newPayeeLeft),
       // Goes into intentHash = hash(recipient, amount, nonce) for the trustee.
       nonce,
       amount: formatUsdc(amount),

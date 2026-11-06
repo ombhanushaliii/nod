@@ -32,17 +32,25 @@ Deno.test("safe payment checked over 10 minutes ago must be re-checked", async (
   assertEquals(t.state.sent.length, 0);
 });
 
-Deno.test("new payee without trustee: blocked during the wait, re-check after it", async () => {
+Deno.test("new payee without trustee: over $10 is blocked during the wait, re-check after it", async () => {
   const t = await setup();
-  const first = await t.call(USER, "POST", "/payments/check", { to: addr("8"), amount: "5" });
+  const first = await t.call(USER, "POST", "/payments/check", { to: addr("8"), amount: "15" });
   assertEquals(first.body.verdict, "cooldown");
   assertEquals((await send(t, first.body.paymentId)).body.error, "still_cooling_down");
   t.state.now = new Date(t.state.now.getTime() + 24 * HOUR);
   // The old check is a day old: it has to be checked again.
   assertEquals((await send(t, first.body.paymentId)).body.error, "check_stale");
-  const again = await t.call(USER, "POST", "/payments/check", { to: addr("8"), amount: "5" });
+  const again = await t.call(USER, "POST", "/payments/check", { to: addr("8"), amount: "15" });
   assertEquals(again.body.verdict, "safe");
   assertEquals((await send(t, again.body.paymentId)).body.status, "submitted");
+});
+
+Deno.test("new payee: up to $10 sends right away", async () => {
+  const t = await setup();
+  const check = await t.call(USER, "POST", "/payments/check", { to: addr("8"), amount: "10" });
+  assertEquals(check.body.verdict, "safe");
+  assertEquals((await send(t, check.body.paymentId)).body.status, "submitted");
+  assertEquals(t.state.sent.at(-1)!.amount, 10_000_000n);
 });
 
 Deno.test("trustee-approved new payee: waits 24h after the Allow, then sends once", async () => {

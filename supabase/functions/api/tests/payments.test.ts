@@ -60,16 +60,39 @@ Deno.test("first-ever payment over $10 is refused", async () => {
   assertEquals(t.repo.payments.at(-1)!.status, "refused");
 });
 
-Deno.test("new payee: cooldown from the first attempt, then safe after 24h", async () => {
+Deno.test("new payee: over $10 waits from the first attempt, then safe after 24h", async () => {
   const t = await setup();
-  const first = await t.check(addr("c"), "5");
+  const first = await t.check(addr("c"), "15");
   assertEquals(first.body.verdict, "cooldown");
   assertEquals(first.body.unlockAt, new Date(t.state.now.getTime() + 24 * HOUR).toISOString());
+  assertEquals(first.body.newPayeeLeft, "10");
   // Trying again later doesn't restart the clock.
   t.state.now = new Date(t.state.now.getTime() + 23 * HOUR);
-  assertEquals((await t.check(addr("c"), "5")).body.verdict, "cooldown");
+  assertEquals((await t.check(addr("c"), "15")).body.verdict, "cooldown");
   t.state.now = new Date(t.state.now.getTime() + 1 * HOUR);
-  assertEquals((await t.check(addr("c"), "5")).body.verdict, "safe");
+  assertEquals((await t.check(addr("c"), "15")).body.verdict, "safe");
+});
+
+Deno.test("new payee: up to $10 in total goes in the first 24h, the rest waits", async () => {
+  const t = await setup();
+  const MIN = 60 * 1000;
+  const small = await t.check(addr("c"), "6");
+  assertEquals(small.body.verdict, "safe");
+  assertEquals(small.body.newPayeeLeft, null);
+  // The $6 goes out.
+  t.repo.payments.find((p) => p.id === small.body.paymentId)!.status = "sent";
+  const more = await t.check(addr("c"), "5");
+  assertEquals(more.body.verdict, "cooldown");
+  assertEquals(more.body.newPayeeLeft, "4");
+  // $4 fits, and a check that can still be sent counts too.
+  assertEquals((await t.check(addr("c"), "4")).body.verdict, "safe");
+  assertEquals((await t.check(addr("c"), "1")).body.newPayeeLeft, "0");
+  // Once that $4 check is too old to send, it no longer counts.
+  t.state.now = new Date(t.state.now.getTime() + 11 * MIN);
+  assertEquals((await t.check(addr("c"), "4")).body.verdict, "safe");
+  // After the first day, no cap.
+  t.state.now = new Date(t.state.now.getTime() + 24 * HOUR);
+  assertEquals((await t.check(addr("c"), "50")).body.verdict, "safe");
 });
 
 Deno.test("verified scam report needs the trustee; unverified only warns", async () => {

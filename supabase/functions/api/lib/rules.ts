@@ -3,6 +3,8 @@
 
 export const USDC = 1_000_000n;
 export const FIRST_PAYMENT_CAP = 10n * USDC; // fixed, not overridable
+// A new payee can get up to this much in total during their first 24h.
+export const NEW_PAYEE_CAP = 10n * USDC;
 export const COOLDOWN_MS = 24 * 3600 * 1000;
 
 export type Verdict = "refused" | "needs_trustee" | "cooldown" | "safe";
@@ -18,9 +20,16 @@ export type RuleInput = {
   payee: { firstAttemptAt: Date; firstPaidAt: Date | null; overLimitApprovedAt: Date | null };
   // Reasons the payee is flagged (verified reports, GoPlus, look-alike).
   flags: string[];
+  // Already going to this payee in the last 24h: sent, submitted or sending,
+  // plus payments checked as safe that can still be sent.
+  sentToPayee: bigint;
 };
 
-export type RuleResult = { verdict: Verdict; reasons: string[]; unlockAt: Date | null };
+export type RuleResult = {
+  verdict: Verdict; reasons: string[]; unlockAt: Date | null;
+  // Cooldown only: what can still go to this new payee before the unlock.
+  newPayeeLeft?: bigint;
+};
 
 export function decide(i: RuleInput): RuleResult {
   // 1. First-ever payment is capped at $10.
@@ -34,17 +43,22 @@ export function decide(i: RuleInput): RuleResult {
   if (overLimit && (i.notifyMode === "every_time" || !i.payee.overLimitApprovedAt)) {
     reasons.push("over_limit");
   }
-  const isNew = i.payee.firstPaidAt === null;
+  const firstDayEnds = new Date(i.payee.firstAttemptAt.getTime() + COOLDOWN_MS);
+  const inFirstDay = i.now < firstDayEnds;
+  // New: never paid, or still in their first 24h. A small payment in that
+  // window doesn't make them known, or $5 could unlock the rest at once.
+  const isNew = i.payee.firstPaidAt === null || inFirstDay;
   if (reasons.length > 0) {
     // For a new payee the 24h cooldown starts at the trustee's Allow.
     if (isNew) reasons.push("new_payee");
     return { verdict: "needs_trustee", reasons, unlockAt: null };
   }
 
-  // 4. New payee, nothing else wrong: 24h from the first attempt.
-  if (isNew) {
-    const unlockAt = new Date(i.payee.firstAttemptAt.getTime() + COOLDOWN_MS);
-    if (i.now < unlockAt) return { verdict: "cooldown", reasons: ["new_payee"], unlockAt };
+  // 4. New payee, nothing else wrong: for 24h from the first attempt, up to
+  // $10 in total can go to them; anything more waits for the unlock.
+  if (inFirstDay) {
+    const left = i.sentToPayee >= NEW_PAYEE_CAP ? 0n : NEW_PAYEE_CAP - i.sentToPayee;
+    if (i.amount > left) return { verdict: "cooldown", reasons: ["new_payee"], unlockAt: firstDayEnds, newPayeeLeft: left };
   }
 
   // 5. Safe.
