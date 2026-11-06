@@ -94,6 +94,9 @@ async function checkPairKeys(users: UserView[], pair: (pairId: string) => Promis
  * trustee app opens, when it comes back to the front, and when a push says a
  * request is waiting. Also tops up the per-pair keys' tGLM once per launch.
  */
+/** After a failed read of Arkiv (often its rate limit), try again this much later. */
+const SYNC_RETRY_MS = 30_000;
+
 export function useTrusteeSync() {
   const { live, api, assertSession } = useLiveApi();
   // The session object is rebuilt on every render; key on who is signed in.
@@ -105,6 +108,7 @@ export function useTrusteeSync() {
     if (!live || !signedIn) return;
     let stopped = false;
     let running = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
     const sync = async () => {
       if (running || stopped) return;
       running = true;
@@ -130,7 +134,18 @@ export function useTrusteeSync() {
         if (!stopped) {
           // A fresh account has nothing to read yet; that's not an error.
           const fresh = err instanceof ApiError && err.code === 'not_onboarded';
-          useStore.setState({ trusteeError: fresh ? null : err instanceof Error ? err.message : "Couldn't load requests." });
+          // Backend errors are written for people. Anything else (Arkiv busy or rate-limited,
+          // no network) is raw library text, so say it plainly and try again by itself.
+          const known = err instanceof ApiError;
+          useStore.setState({
+            trusteeError: fresh ? null : known ? err.message : "Couldn't load new requests right now. Trying again in a moment.",
+          });
+          if (!fresh && !known && !retry) {
+            retry = setTimeout(() => {
+              retry = null;
+              void sync();
+            }, SYNC_RETRY_MS);
+          }
         }
       } finally {
         running = false;
@@ -140,7 +155,12 @@ export function useTrusteeSync() {
     register().catch(() => {}).finally(() => void sync());
     const app = AppState.addEventListener('change', (st) => { if (st === 'active') void sync(); });
     const push = onPush((data) => { if (data.type === 'approval_request') void sync(); });
-    return () => { stopped = true; app.remove(); push(); };
+    return () => {
+      stopped = true;
+      if (retry) clearTimeout(retry);
+      app.remove();
+      push();
+    };
   }, [live, signedIn, userId, api, assertSession, register, keys]);
 }
 
