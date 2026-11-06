@@ -52,7 +52,7 @@ export type ApprovalError =
   | "request_key_used" | "not_awaiting_trustee" | "decision_key_used"
   | "still_cooling_down" | "not_ready" | "check_stale" | "approval_not_usable" | "not_sending"
   | "export_not_found" | "export_not_allowed";
-export type RulesError = "not_your_pair";
+export type RulesError = "not_your_pair" | "too_many_rule_changes";
 export type RepoErrorCode = InviteError | ApprovalError | RulesError;
 
 export class RepoError extends Error {
@@ -158,7 +158,7 @@ const KNOWN: RepoErrorCode[] = [
   "payment_not_found", "trustee_not_needed", "already_requested", "no_active_trustee",
   "request_key_used", "not_awaiting_trustee", "decision_key_used",
   "still_cooling_down", "not_ready", "check_stale", "approval_not_usable", "not_sending",
-  "not_your_pair", "export_not_found", "export_not_allowed",
+  "not_your_pair", "too_many_rule_changes", "export_not_found", "export_not_allowed",
 ];
 
 // deno-lint-ignore no-explicit-any
