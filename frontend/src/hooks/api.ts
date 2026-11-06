@@ -57,6 +57,8 @@ export function useCheckPayment() {
     const checked = await api<{
       paymentId: string; nonce: string; verdict: CheckResult['verdict']; reasons: string[]; unlockAt: string | null;
       amount: string; reports: { verified: number; unverified: number };
+      // Cooldown for a new person: how much of their $10 can still go now.
+      newPayeeLeft?: string | null;
     }>('/payments/check', { to: draft.address.toLowerCase(), amount });
     assertSession();
     const unlockAt = checked.unlockAt ? new Date(checked.unlockAt).getTime() : undefined;
@@ -65,6 +67,7 @@ export function useCheckPayment() {
       verdict: checked.verdict,
       unlockAt,
       newPayee: checked.reasons.includes('new_payee'),
+      left: checked.newPayeeLeft != null ? Number(checked.newPayeeLeft) : undefined,
       why: whyFrom(checked.reasons),
       reasons: reasonsFor(checked.reasons, 'user'),
       codes: checked.reasons,
