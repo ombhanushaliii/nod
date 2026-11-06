@@ -46,7 +46,7 @@ const CASES: Case[] = [
     btnFg: '#fff',
   },
   {
-    label: '$10 to Dr. Patel',
+    label: '$30 to Dr. Patel',
     hint: 'First time paying this address',
     chip: 'Waits 24h',
     tone: 'gray',
