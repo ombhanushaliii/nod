@@ -135,6 +135,9 @@ export function paymentRoutes(deps: PaymentDeps) {
 
     const repo = c.var.repo;
     const at = now().getTime();
+    // A new check replaces any earlier one to this payee you didn't send, so it
+    // doesn't eat the new-payee $10 (and can't be sent alongside this one).
+    await repo.expireUnsentChecks(user.id, input.to);
     const [payee, rules, firstPaymentDone, paid, sentToPayee, reports, goplus, trusteeActive] = await Promise.all([
       repo.touchPayee(user.id, input.to),
       repo.getRules(user.id),

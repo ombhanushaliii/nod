@@ -33,6 +33,10 @@ const LIVE_CHIPS: TestAddress[] = [
   { label: 'Reported scam', address: '0x00000952c5165e391ed0f8adffcfaf45f3b80000', name: 'Crypto Support', sub: 'Goes to trustee', tone: 'red', icon: '!' },
   // Linked to stolen funds by the security check.
   { label: 'Risky address', address: '0x7c8601d4645b93cea45f71e118a729332e6b5ca0', name: 'Airdrop', sub: 'Fails security check', tone: 'red', icon: '!' },
+  // Reported by 2 Nod trustees (scam_report entities on Arkiv): needs your trustee's OK.
+  { label: 'Reported by trustees', address: '0x0fa2a84621adcf28d3e0b6feaa366811a921581a', name: 'Prize Desk', sub: 'Needs your trustee', tone: 'amber', icon: '!' },
+  // Reported by 5 Nod trustees: blocked for everyone, nobody can allow it.
+  { label: 'Blocked address', address: '0xd149bb71b7a049b49cdf86ffce5a523e814d04ac', name: 'Giveaway', sub: 'Blocked for everyone', tone: 'red', icon: '✕' },
 ];
 
 /**

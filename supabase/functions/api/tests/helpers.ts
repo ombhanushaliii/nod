@@ -368,6 +368,14 @@ export class MemoryRepo implements Repo {
       [...this.payees.entries()].filter(([k, p]) => k.startsWith(`${userId}|`) && p.firstPaidAt).map(([k]) => k.split("|")[1]),
     );
   }
+  expireUnsentChecks(userId: string, address: string) {
+    for (const p of this.payments) {
+      if (p.userId === userId && p.toAddress === address && p.status === "ready" && p.verdict === "safe" && p.approvalId === null) {
+        p.status = "expired";
+      }
+    }
+    return Promise.resolve();
+  }
   sentToPayeeSince(userId: string, address: string, since: Date, freshAfter: Date) {
     const going = ["sending", "submitted", "sent"];
     return Promise.resolve(this.payments

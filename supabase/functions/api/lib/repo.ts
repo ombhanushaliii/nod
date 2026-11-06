@@ -97,6 +97,9 @@ export interface Repo extends JobsRepo {
   // payments, plus ready (checked safe) ones created after `freshAfter`, which
   // can still be sent. Counts toward the new-payee $10.
   sentToPayeeSince(userId: string, address: string, since: Date, freshAfter: Date): Promise<bigint>;
+  // Voids payments to this payee that were checked as safe but never sent, so a
+  // new check replaces them instead of counting them against the new-payee $10.
+  expireUnsentChecks(userId: string, address: string): Promise<void>;
   createPayment(p: NewPayment): Promise<{ id: string }>;
 
   // Approvals (D5).
@@ -357,6 +360,13 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       return data
         .filter((p) => p.status !== "ready" || new Date(p.created_at) > freshAfter)
         .reduce((sum, p) => sum + BigInt(p.amount), 0n);
+    },
+    async expireUnsentChecks(userId, address) {
+      // Only plain safe checks: a trustee-approved payment (approval_id set) stays usable.
+      const { error } = await db.from("payments").update({ status: "expired" })
+        .eq("user_id", userId).eq("to_address", address).eq("status", "ready")
+        .eq("verdict", "safe").is("approval_id", null);
+      if (error) rethrow(error);
     },
     async createPayment(p) {
       const { data, error } = await db.from("payments").insert({
