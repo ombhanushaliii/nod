@@ -1,4 +1,4 @@
-import { PrivyProvider, useCreateWallet, useLoginWithOAuth, useLoginWithSms, usePrivy, useSigners, useWallets } from '@privy-io/react-auth';
+import { PrivyProvider, useCreateWallet, useLoginWithOAuth, usePrivy, useSigners, useWallets } from '@privy-io/react-auth';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EIP1193Provider } from 'viem';
 
@@ -8,7 +8,7 @@ import type { Role, Session } from '@/data/types';
 import { baseSepolia, rabdi } from './chains';
 import { isDemo, walletConfig } from './config';
 import { DemoWalletProvider, unavailableSession, WalletContext } from './context';
-import { checkProvider, requireSignerPolicy, validatePhone } from './validation';
+import { checkProvider, requireSignerPolicy } from './validation';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   if (isDemo) return <DemoWalletProvider>{children}</DemoWalletProvider>;
@@ -16,7 +16,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return <WalletContext.Provider value={{ ...unavailableSession, error: 'Configure your Privy app ID to sign in.' }}>{children}</WalletContext.Provider>;
   }
   return <PrivyProvider appId={walletConfig.appId} config={{
-    loginMethods: ['google', 'sms'],
+    loginMethods: ['google'],
     defaultChain: baseSepolia,
     supportedChains: walletConfig.rabdiRpcUrl ? [baseSepolia, rabdi] : [baseSepolia],
     embeddedWallets: { ethereum: { createOnLogin: 'all-users' } },
@@ -26,7 +26,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 function loginPreferences(): Pick<Session, 'role' | 'method'> {
   try {
     const saved = JSON.parse(sessionStorage.getItem('haven-login') ?? 'null');
-    if (saved) return { role: saved.role === 'trustee' ? 'trustee' : 'user', method: saved.method === 'Phone' ? 'Phone' : 'Google' };
+    if (saved) return { role: saved.role === 'trustee' ? 'trustee' : 'user', method: 'Google' };
   } catch {}
   return useStore.getState().session ?? { role: 'user', method: 'Google' };
 }
@@ -36,13 +36,12 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const { wallets, ready: walletsReady } = useWallets();
   const { createWallet } = useCreateWallet();
   const { initOAuth } = useLoginWithOAuth();
-  const { sendCode, loginWithCode } = useLoginWithSms();
   const { addSigners } = useSigners();
   const [preferences, setPreferences] = useState(loginPreferences);
   const [error, setError] = useState<string | null>(null);
   const creationAttempt = useRef<string | null>(null);
   const wallet = wallets.find((w) => w.walletClientType === 'privy');
-  const contact = user?.google?.email ?? user?.email?.address ?? user?.phone?.number ?? '';
+  const contact = user?.google?.email ?? user?.email?.address ?? '';
   const session = ready && authenticated && user && wallet ? { ...preferences, email: contact } : null;
   const currentAccount = useRef<string | undefined>(wallet?.address);
   const accountScope = authenticated ? wallet?.address : undefined;
@@ -82,8 +81,6 @@ function ConnectedSession({ children }: { children: ReactNode }) {
     mode: 'privy', ready: ready && (!authenticated || walletsReady), session, userId: user?.id ?? null,
     walletAddress: session ? wallet?.address ?? null : null, error,
     signIn: async (role) => { selectLogin(role, 'Google'); await initOAuth({ provider: 'google' }); },
-    sendPhoneCode: async (role, phone) => { validatePhone(phone); selectLogin(role, 'Phone'); await sendCode({ phoneNumber: phone }); },
-    verifyPhoneCode: async (role, _phone, code) => { selectLogin(role, 'Phone'); await loginWithCode({ code }); },
     signOut: async () => { currentAccount.current = undefined; await logout(); creationAttempt.current = null; useStore.getState().signOut(); },
     getAccessToken, getProvider,
     enableBackendSigner: async () => {

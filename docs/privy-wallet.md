@@ -17,8 +17,8 @@ Copy `frontend/.env.example` to `frontend/.env.local`. Set:
 | `EXPO_PUBLIC_API_URL` | API base URL, including `/functions/v1/api` for Supabase |
 | `EXPO_PUBLIC_RABDI_RPC_URL` | Rabdi RPC URL with a mobile/user access key |
 
-Enable Google and SMS login in Privy. Configure the native client for
-`com.globalmumbai.haven` and the `haven` URL scheme. Add the web development origin
+Enable Google login in Privy. Configure the native client for
+`com.nod.app` and the `nod` URL scheme. Add the web development origin
 (`http://localhost:8081` by default) to Privy's allowed origins and OAuth redirects.
 Set the backend's `WEB_ALLOWED_ORIGINS` to the same origin. Use a comma-separated
 list when you have more than one web origin.
@@ -50,7 +50,7 @@ installed on the device/emulator; Expo Go cannot run them.
 
 ## Implemented
 
-- Google and phone OTP login, session restore, and logout on Android and web.
+- Google login, session restore, and logout on Android, iOS and web.
 - One embedded Ethereum wallet, shared between Base Sepolia and Rabdi.
 - On-chain USDC balance with loading/error states and refresh on app resume.
 - Signer enrollment and wallet registration through `useWalletSetup()`.

@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Haven",
-    "slug": "haven",
+    "name": "Nod",
+    "slug": "nod",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "haven",
+    "scheme": "nod",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F7F6F2",
     "ios": {
-      "bundleIdentifier": "com.globalmumbai.haven",
+      "bundleIdentifier": "com.nod.app",
       "supportsTablet": false
     },
     "android": {
-      "package": "com.globalmumbai.haven",
+      "package": "com.nod.app",
       "adaptiveIcon": {
         "backgroundColor": "#E55B00",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

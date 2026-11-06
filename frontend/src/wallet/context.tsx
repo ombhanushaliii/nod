@@ -15,8 +15,6 @@ export type WalletSession = {
   walletAddress: string | null;
   error: string | null;
   signIn: (role: Role, email?: string) => Promise<void>;
-  sendPhoneCode: (role: Role, phone: string) => Promise<void>;
-  verifyPhoneCode: (role: Role, phone: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: AccessToken;
   getProvider: (chainId?: number) => Promise<EIP1193Provider>;
@@ -26,7 +24,7 @@ export type WalletSession = {
 const unavailable = async (): Promise<never> => { throw new Error('Wallet connection is unavailable.'); };
 export const unavailableSession: WalletSession = {
   mode: 'privy', ready: true, session: null, userId: null, walletAddress: null, error: null,
-  signIn: unavailable, sendPhoneCode: unavailable, verifyPhoneCode: unavailable,
+  signIn: unavailable,
   signOut: unavailable, getAccessToken: unavailable, getProvider: unavailable, enableBackendSigner: unavailable,
 };
 export const WalletContext = createContext<WalletSession>(unavailableSession);

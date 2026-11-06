@@ -2,7 +2,7 @@ import type { Tone } from '@/theme';
 
 export type Role = 'user' | 'trustee';
 
-export type Session = { role: Role; email: string; method: 'Google' | 'Phone' };
+export type Session = { role: Role; email: string; method: 'Google' };
 
 export type RulesMode = 'first_per_payee' | 'every_time';
 export type Rules = { limit: number; mode: RulesMode; daily: number };
