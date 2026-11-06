@@ -195,14 +195,23 @@ export default function Settings() {
           </Txt>
           <Txt size={16} lh={1.5} color={colors.sub}>
             Anyone with your key controls your money. Scammers often ask for it, so {tn} has to OK this first.
+            {active ? '' : ` ${tn} hasn’t accepted your invite yet, so you can ask once they do.`}
           </Txt>
         </View>
         <View style={{ gap: 8, paddingTop: 4 }}>
+          {active && (
+            <Button
+              label={`Ask ${tn}`}
+              onPress={() => void askExport()}
+            />
+          )}
           <Button
-            label={`Ask ${tn}`}
-            onPress={() => void askExport()}
+            label={active ? 'Cancel' : 'OK'}
+            variant={active ? 'soft' : 'dark'}
+            height={active ? 52 : 56}
+            size={active ? 16 : 17}
+            onPress={() => setExportOpen(false)}
           />
-          <Button label="Cancel" variant="soft" height={52} size={16} onPress={() => setExportOpen(false)} />
         </View>
       </Sheet>
 
