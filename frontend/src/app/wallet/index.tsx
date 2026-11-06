@@ -74,8 +74,14 @@ function Home() {
         tone: 'gray',
         onOpen: () => {
           s.setDraft({ address: i.address, name: i.name, amount: i.amount });
-          s.setResult({ verdict: 'cooldown', unlockAt: i.unlockAt });
-          router.push('/wallet/cooldown');
+          if (isDemo) {
+            s.setResult({ verdict: 'cooldown', unlockAt: i.unlockAt });
+            router.push('/wallet/cooldown');
+            return;
+          }
+          // Live: check again, so the backend says what can still go today (and re-checks for scams).
+          s.setResult(null);
+          router.push('/wallet/checking');
         },
       });
     } else pending.push({ key: i.id, title, sub: 'Unlocked · ready to send', chip: 'Ready', tone: 'green', onOpen: () => resume(i) });
