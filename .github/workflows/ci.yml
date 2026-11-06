@@ -1,0 +1,78 @@
+# Checks every part of the repo on pushes to main and on pull requests.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Supabase Edge Function)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase/functions/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check index.ts tests/*.ts
+      - run: deno test --allow-env --allow-net tests/
+
+  arkiv:
+    name: Arkiv package and jobs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: packages/arkiv
+        working-directory: packages/arkiv
+        run: bun install --frozen-lockfile && bunx tsc --noEmit
+      - name: services/backend/jobs
+        working-directory: services/backend/jobs
+        run: bun install --frozen-lockfile && bunx tsc --noEmit
+
+  app:
+    name: App (Expo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # The app imports packages/arkiv from source, so its dependencies must be installed too.
+      - working-directory: packages/arkiv
+        run: bun install --frozen-lockfile
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - working-directory: frontend
+        run: npm run typecheck
+      - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
+        run: npm run test:wallet
+
+  landing:
+    name: Landing page
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: landing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build

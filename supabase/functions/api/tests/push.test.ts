@@ -43,8 +43,10 @@ Deno.test("attaching a request pushes all the trustee's devices, with no payment
   const t = await withTokens();
   await t.askTrustee(addr("9"), "150");
   assertEquals(t.state.pushes, [{ to: [TOK_T, TOK_T2], message: MESSAGES.approvalRequest(t.pairId) }]);
-  const text = JSON.stringify(t.state.pushes[0].message);
-  for (const secret of ["150", addr("9"), "0x9"]) assertEquals(text.includes(secret), false);
+  // Only the (random) pairId travels in data; the text has no amount or address.
+  const { title, body, data } = t.state.pushes[0].message;
+  for (const secret of ["150", addr("9"), "0x9"]) assertEquals(`${title} ${body}`.includes(secret), false);
+  assertEquals(Object.keys(data).sort(), ["pairId", "type"]);
 });
 
 Deno.test("no push when the request is rejected", async () => {
