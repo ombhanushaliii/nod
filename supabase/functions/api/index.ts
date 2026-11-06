@@ -14,11 +14,22 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
 import { brevoMailer, privyApi } from "./lib/services.ts";
 import { rabdiSeedWallet, seedFunder } from "./lib/arkivFunder.ts";
+import { runMirror, runRenewer } from "./lib/jobs.ts";
+import { createWalletClient } from "@arkiv-network/sdk";
+import { rabdi } from "@arkiv-network/sdk/chains";
+import { http } from "viem";
 
 const env = loadEnv();
 const repo = supabaseRepo(createDb(env.supabaseUrl, env.supabaseServiceRoleKey));
 const arkiv = arkivClient(env.arkivAccessKey);
-const seedAddress = privateKeyToAccount(env.arkivSeedPrivateKey as Hex).address.toLowerCase();
+const seedAccount = privateKeyToAccount(env.arkivSeedPrivateKey as Hex);
+const seedAddress = seedAccount.address.toLowerCase();
+const trustedCreators = async () => [seedAddress, ...await repo.trusteePairKeys()];
+const seedArkiv = createWalletClient({
+  account: seedAccount,
+  chain: rabdi({ accessKey: env.arkivAccessKey }),
+  transport: http(undefined, { timeout: 30_000, retryCount: 0, fetchOptions: { redirect: "error" } }),
+});
 
 const app = createApp({
   webOrigins: env.webOrigins,
@@ -30,7 +41,7 @@ const app = createApp({
   inviteUrlBase: env.inviteUrlBase,
   scamReports: arkivScamReports({
     client: arkiv,
-    trustedCreators: async () => [seedAddress, ...await repo.trusteePairKeys()],
+    trustedCreators,
     archive: (address) => repo.archivedReportCounts(address),
   }),
   arkiv: arkivApprovals(arkiv),
@@ -39,6 +50,11 @@ const app = createApp({
     appId: env.privyAppId, appSecret: env.privyAppSecret, authorizationKey: env.privyAuthorizationKey,
   }),
   push: expoPush(),
+  jobs: {
+    secret: env.jobsSecret,
+    mirror: () => runMirror({ client: arkiv, trustedCreators, repo }),
+    renew: () => runRenewer({ client: arkiv, seed: seedArkiv, repo }),
+  },
 });
 
 Deno.serve(app.fetch);

@@ -1,47 +1,51 @@
 import type { PublicArkivClient } from "@arkiv-network/sdk"
 import { addr, key } from "@arkiv-network/sdk/schema"
-import { asc, eq, exists, gt, or } from "@arkiv-network/sdk/query"
+import { asc, eq, exists, or } from "@arkiv-network/sdk/query"
 import { type Address, type Hex, hexToBytes } from "viem"
 import { ApprovalRequest, ScamReport, TrusteeDecision } from "./schemas"
 
 const PAGE = 100
 const MAX_PAGES = 10
 
-// Reads page by page using $key, so nothing is skipped or repeated.
-// Stops after MAX_PAGES so a flood of entities can't hang us.
+// Reads page by page, sorted by $key. Anyone can write entities with our
+// schema names, so ones that don't fit are skipped, not fatal. A skipped
+// entity still takes a place in the page, so pages move by offset (rows plus
+// skipped). Rows that repeat when something is written mid-read are dropped.
+// Stops after maxPages so a flood of entities can't hang us.
 async function readAll<T extends { $key: Hex }>(
-  fetchPage: (after: Hex | undefined) => Promise<{ entities: readonly T[] }>,
+  fetchPage: (offset: number) => Promise<{ entities: readonly T[]; skipped: number }>,
   maxPages = MAX_PAGES,
 ): Promise<T[]> {
-  const all: T[] = []
-  let after: Hex | undefined
+  const seen = new Map<string, T>()
   for (let i = 0; i < maxPages; i++) {
-    const { entities } = await fetchPage(after)
-    all.push(...entities)
-    if (entities.length < PAGE) return all
-    after = entities[entities.length - 1]!.$key
+    const { entities, skipped } = await fetchPage(i * PAGE)
+    for (const e of entities) seen.set(e.$key.toLowerCase(), e)
+    if (entities.length + skipped < PAGE) return [...seen.values()]
   }
   throw new Error("Too many results, stopped reading")
 }
 
 // Trustee app + push watcher: live approval requests for these pairs.
-// Expired ones are gone on their own. Check $owner against Supabase before trusting one.
+// Expired ones are gone on their own. `creator` is who wrote it ($creator; $owner
+// can be handed to anyone). Check it against Supabase before trusting one.
 export async function queryPendingRequests(client: PublicArkivClient, pairIds: string[]) {
   if (pairIds.length === 0) return []
   const byPair = or(...pairIds.map((id) => eq("pairId", id)))
 
-  const rows = await readAll((after) => {
-    const q = client
-      .select({ $key: true, $owner: true, $expiresAt: true, pairId: true, kind: true, createdAt: true, payload: true })
-      .from(ApprovalRequest, { onMismatch: "throw" })
+  const rows = await readAll((offset) =>
+    client
+      .select({ $key: true, $creator: true, $expiresAt: true, pairId: true, kind: true, createdAt: true, payload: true })
+      .from(ApprovalRequest, { onMismatch: "skip" })
+      .where(byPair)
       .orderBy(asc("$key"))
       .limit(PAGE)
-    return (after ? q.where(byPair, gt("$key", key(after))) : q.where(byPair)).fetch()
-  })
+      .offset(offset)
+      .fetch(),
+  )
 
   return rows.map((r) => ({
     key: r.$key,
-    owner: r.$owner,
+    creator: r.$creator,
     expiresAt: r.$expiresAt,
     pairId: r.pairId.value,
     kind: r.kind.value,
@@ -50,13 +54,16 @@ export async function queryPendingRequests(client: PublicArkivClient, pairIds: s
   }))
 }
 
-// Backend verify: the decision for a request, written by the pair key from Supabase.
-// Returns null if there is none (not made yet, or expired).
-export async function getDecision(client: PublicArkivClient, requestKey: Hex, expectedOwner: Address) {
+// The decision for a request, written by the pair key from Supabase.
+// Returns null if there is none (not made yet, or expired). Same rule as the
+// backend (supabase/functions/api/lib/arkivLive.ts): only decisions the pair
+// key created count, any deny wins, otherwise the earliest allow.
+export async function getDecision(client: PublicArkivClient, requestKey: Hex, pairKey: Address) {
   const { entities } = await client
     .select({
       $key: true,
-      $owner: true,
+      $creator: true,
+      $createdAt: true,
       $expiresAt: true,
       pairId: true,
       verdict: true,
@@ -65,23 +72,23 @@ export async function getDecision(client: PublicArkivClient, requestKey: Hex, ex
       validFrom: true,
       reportKey: true,
     })
-    .from(TrusteeDecision, { onMismatch: "throw" })
+    .from(TrusteeDecision, { onMismatch: "skip" })
     .where(eq("requestKey", key(requestKey)))
-    .ownedBy(expectedOwner)
-    .limit(2)
+    .createdBy(pairKey)
+    .limit(10)
     .fetch()
 
-  if (entities.length === 0) return null
-  // Two decisions for one request should never happen, so refuse to pick one
-  if (entities.length > 1) throw new Error("More than one decision for this request")
-
-  const d = entities[0]!
+  const valid = entities.filter((d) => d.verdict.value === "allow" || d.verdict.value === "deny")
+  const d =
+    valid.find((x) => x.verdict.value === "deny") ??
+    [...valid].sort((a, b) => (a.$createdAt < b.$createdAt ? -1 : a.$createdAt > b.$createdAt ? 1 : 0))[0]
+  if (!d) return null
   return {
     key: d.$key,
-    owner: d.$owner,
+    creator: d.$creator,
     expiresAt: d.$expiresAt,
     pairId: d.pairId.value,
-    verdict: d.verdict.value,
+    verdict: d.verdict.value as "allow" | "deny",
     createdAt: Number(d.createdAt.value),
     intentHash: d.intentHash?.value as Hex | undefined,
     validFrom: d.validFrom === undefined ? undefined : Number(d.validFrom.value),
@@ -107,10 +114,10 @@ async function readReports(
   maxPages?: number,
 ) {
   const match = scope.address ? eq("address", addr(scope.address)) : exists("address")
-  const rows = await readAll((after) => {
-    const q = client.select(REPORT_FIELDS).from(ScamReport, { onMismatch: "throw" }).orderBy(asc("$key")).limit(PAGE)
+  const rows = await readAll((offset) => {
+    const q = client.select(REPORT_FIELDS).from(ScamReport, { onMismatch: "skip" }).where(match).orderBy(asc("$key"))
     if (scope.createdBy) q.createdBy(scope.createdBy)
-    return (after ? q.where(match, gt("$key", key(after))) : q.where(match)).fetch()
+    return q.limit(PAGE).offset(offset).fetch()
   }, maxPages)
 
   return rows.map((r) => ({

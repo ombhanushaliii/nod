@@ -11,6 +11,8 @@ import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError, TxOutcome } from "../lib/privySigner.ts";
 import type { PushMessage } from "../lib/push.ts";
+import type { ArchiveRow } from "../lib/jobs.ts";
+import type { JobsDeps } from "../routes/jobs.ts";
 
 type Approval = {
   id: string; pairRowId: string; requestKey: string; createdAt: Date;
@@ -68,7 +70,32 @@ export class MemoryRepo implements Repo {
     return Promise.resolve();
   }
 
-  archive: { address: string; verified: boolean }[] = [];
+  archive: (ArchiveRow | { address: string; verified: boolean; entity_key?: string })[] = [];
+  expiry = new Map<string, { expiresAt: Date | null; extendedAt?: Date; failedAt?: Date }>();
+  saveArchive(rows: ArchiveRow[]) {
+    for (const r of rows) {
+      const i = this.archive.findIndex((a) => a.entity_key === r.entity_key);
+      if (i >= 0) this.archive[i] = r; else this.archive.push(r);
+      this.expiry.set(r.entity_key, { ...this.expiry.get(r.entity_key), expiresAt: new Date(r.arkiv_expires_at) });
+    }
+    return Promise.resolve();
+  }
+  renewalCandidates(before: Date, limit: number) {
+    const dayAgo = this.clock().getTime() - 24 * 3600 * 1000;
+    return Promise.resolve([...this.expiry]
+      .filter(([, e]) => e.expiresAt && e.expiresAt < before && !(e.failedAt && e.failedAt.getTime() > dayAgo))
+      .sort(([, a], [, b]) => a.expiresAt!.getTime() - b.expiresAt!.getTime())
+      .slice(0, limit).map(([entityKey]) => ({ entityKey })));
+  }
+  markExpiry(entityKey: string, expiresAt: Date | null, extended: boolean) {
+    const e = this.expiry.get(entityKey) ?? { expiresAt: null };
+    this.expiry.set(entityKey, { expiresAt, extendedAt: extended ? this.clock() : e.extendedAt });
+    return Promise.resolve();
+  }
+  markRenewFailed(entityKey: string) {
+    this.expiry.set(entityKey, { ...this.expiry.get(entityKey)!, failedAt: this.clock() });
+    return Promise.resolve();
+  }
   trusteePairKeys() {
     return Promise.resolve(this.pairs.filter((p) => p.pairKeyAddress).map((p) => p.pairKeyAddress!.toLowerCase()));
   }
@@ -310,7 +337,7 @@ export class MemoryRepo implements Repo {
   }
 }
 
-export function makeTestApp(options: { webOrigins?: string[] } = {}) {
+export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } = {}) {
   const repo = new MemoryRepo();
   const mails: { to: string; url: string }[] = [];
   const funded: string[] = [];
@@ -344,6 +371,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
 
   const app = createApp({
     webOrigins: options.webOrigins,
+    jobs: options.jobs,
     auth: privyAuth({ appId: APP_ID, verificationKey: PEM }),
     repo,
     privy: {

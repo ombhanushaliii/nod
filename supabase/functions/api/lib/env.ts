@@ -12,6 +12,7 @@ export type Env = {
   webOrigins: string[];
   arkivAccessKey: string;
   arkivSeedPrivateKey: string;
+  jobsSecret: string;
 };
 
 function required(name: string): string {
@@ -36,6 +37,8 @@ export function loadEnv(): Env {
     arkivAccessKey: required("ARKIV_ACCESS_KEY"),
     // Backend wallet on Rabdi: writes the OFAC/list reports and tops up tGLM.
     arkivSeedPrivateKey: required("ARKIV_SEED_PRIVATE_KEY"),
+    // Supabase Cron sends this to /api/jobs/*. Same value as the jobs_secret in Vault.
+    jobsSecret: required("JOBS_SECRET"),
     webOrigins: (Deno.env.get("WEB_ALLOWED_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   };
 }

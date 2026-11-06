@@ -1,5 +1,6 @@
 // All database access goes through this interface, so endpoints can be tested
 // with an in-memory fake. supabaseRepo is the real implementation.
+import type { JobsRepo } from "./jobs.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotifyMode, Verdict } from "./rules.ts";
 
@@ -46,7 +47,7 @@ export class RepoError extends Error {
   }
 }
 
-export interface Repo {
+export interface Repo extends JobsRepo {
   findUserByPrivyId(privyUserId: string): Promise<User | null>;
   findUserByWallet(address: string): Promise<User | null>;
   // Creates the user and their default rules.
@@ -385,6 +386,32 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         .eq("trustee_id", trusteeId).eq("status", "active");
       if (error) rethrow(error);
       return data.map((r) => r.pair_key_address as string);
+    },
+    async saveArchive(rows) {
+      const { error } = await db.from("scam_reports_archive").upsert(rows, { onConflict: "entity_key" });
+      if (error) rethrow(error);
+    },
+    async renewalCandidates(before, limit) {
+      const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { data, error } = await db.from("scam_reports_archive").select("entity_key")
+        .eq("verified", true).lt("arkiv_expires_at", before.toISOString())
+        .or(`renew_failed_at.is.null,renew_failed_at.lt.${dayAgo}`)
+        .order("arkiv_expires_at").limit(limit);
+      if (error) rethrow(error);
+      return data.map((r) => ({ entityKey: r.entity_key as string }));
+    },
+    async markExpiry(entityKey, expiresAt, extended) {
+      const { error } = await db.from("scam_reports_archive").update({
+        arkiv_expires_at: expiresAt?.toISOString() ?? null,
+        renew_failed_at: null,
+        ...(extended ? { last_extended_at: new Date().toISOString() } : {}),
+      }).eq("entity_key", entityKey);
+      if (error) rethrow(error);
+    },
+    async markRenewFailed(entityKey) {
+      const { error } = await db.from("scam_reports_archive").update({ renew_failed_at: new Date().toISOString() })
+        .eq("entity_key", entityKey);
+      if (error) rethrow(error);
     },
     async archivedReportCounts(address) {
       const { data, error } = await db.from("scam_reports_archive").select("verified").eq("address", address.toLowerCase());
