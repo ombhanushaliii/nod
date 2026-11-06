@@ -10,6 +10,8 @@ import { isDemo, walletConfig } from './config';
 import { DemoWalletProvider, unavailableSession, WalletContext } from './context';
 import { checkProvider, requireSignerPolicy } from './validation';
 
+const PRIVY_START_TIMEOUT_MS = 15000;
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   if (isDemo) return <DemoWalletProvider>{children}</DemoWalletProvider>;
   if (!walletConfig.appId) {
@@ -39,6 +41,21 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const { addSigners } = useSigners();
   const [preferences, setPreferences] = useState(loginPreferences);
   const [error, setError] = useState<string | null>(null);
+  // If Privy never starts (site not in Privy's allowed domains, no network) or
+  // the wallets never load, the app would stay blank. Give up after a while so
+  // the sign-in screen can say what's wrong. Same idea as the native provider.
+  const phase = !ready ? 'privy' : authenticated && !walletsReady ? `wallets:${user?.id ?? ''}` : null;
+  const [timedOut, setTimedOut] = useState<string | null>(null);
+  useEffect(() => {
+    if (!phase) return;
+    const t = setTimeout(() => setTimedOut(phase), PRIVY_START_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [phase]);
+  const startError = phase && timedOut === phase
+    ? phase === 'privy'
+      ? 'Privy is taking too long to start. Check your connection, and that this site is in Privy’s allowed domains.'
+      : 'Your wallet is taking too long to load. Reload the page to try again.'
+    : null;
   const creationAttempt = useRef<string | null>(null);
   const wallet = wallets.find((w) => w.walletClientType === 'privy');
   const contact = user?.google?.email ?? user?.email?.address ?? '';
@@ -78,8 +95,8 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   }, [ready, authenticated, wallet]);
 
   return <WalletContext.Provider value={{
-    mode: 'privy', ready: ready && (!authenticated || walletsReady), session, userId: user?.id ?? null,
-    walletAddress: session ? wallet?.address ?? null : null, error,
+    mode: 'privy', ready: !phase || !!startError, session, userId: user?.id ?? null,
+    walletAddress: session ? wallet?.address ?? null : null, error: startError ?? error,
     signIn: async (role) => { selectLogin(role, 'Google'); await initOAuth({ provider: 'google' }); },
     signOut: async () => { currentAccount.current = undefined; await logout(); creationAttempt.current = null; useStore.getState().signOut(); },
     getAccessToken, getProvider,
