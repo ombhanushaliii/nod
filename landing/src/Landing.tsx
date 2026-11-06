@@ -140,19 +140,6 @@ export default function Landing({ showWalletPhone = true, showTrustee = true }: 
           overflow: 'hidden',
         }}>
         <div data-hero-text="" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: '#FFECDC',
-              color: '#C14900',
-              fontSize: 13,
-              fontWeight: 800,
-              letterSpacing: '0.04em',
-            }}>
-            USDC WALLET · NO SEED PHRASE
-          </div>
           <h1
             style={{
               margin: 0,
