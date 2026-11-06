@@ -27,7 +27,7 @@ Deno.test("confirmed: sent, with hash and explorer link", async () => {
   const res = await t.call(USER, "GET", `/payments/${id}`);
   assertEquals(res.body.status, "sent");
   assertEquals(res.body.txHash, HASH);
-  assertEquals(res.body.explorerUrl, `https://sepolia.basescan.org/tx/${HASH}`);
+  assertEquals(res.body.explorerUrl, `https://sepolia.etherscan.io/tx/${HASH}`);
   assertEquals(res.body.amount, "25");
   // Stored: a later read doesn't need Privy.
   t.state.txLookupFails = true;
