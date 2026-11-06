@@ -90,8 +90,20 @@ add FCM credentials (see privy-wallet.md).
 
 ## 6. Scam report import (optional)
 
-Writes known exploiter addresses to Arkiv from the seed wallet. Dry run first;
-it writes nothing:
+Writes known scam wallets to Arkiv as `scam_report` entities from the seed
+wallet. The backend counts the seed wallet's reports as verified, so a payment
+to one of these addresses needs the trustee. Two lists, in this order:
+
+| List | What it takes | `source` | `category` |
+| --- | --- | --- | --- |
+| [OFAC SDN](https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML) (US Treasury) | Every 0x address listed as a "Digital Currency Address" | `ofac` | `sanctioned` |
+| [eth-labels](https://github.com/dawsbot/eth-labels) (Etherscan labels, MIT) | Labels `phish-hack`, `scam`, `heist`, `exploit`, `*-exploit`, `ofac-sanctioned`, on any EVM chain | `list` | `phishing`, `exploit` or `sanctioned` |
+
+An address on both lists is written once, as `ofac`. Labels such as `blocked`,
+`tornado-cash` and `cpimp-attack` stay out on purpose (see
+`services/backend/jobs/sources/eth-labels.ts`).
+
+Dry run first; it writes nothing:
 
 ```bash
 cd services/backend/jobs
@@ -99,14 +111,28 @@ bun install
 bun --env-file=../../../supabase/functions/.env run import
 ```
 
-The dry run prints how many reports it would write. Each write costs a little
-tGLM from the seed wallet. To write them:
+It prints how many addresses each list has, how many the seed wallet already
+reported, and the most the run can cost. Try a few writes, then the rest:
 
 ```bash
+bun --env-file=../../../supabase/functions/.env run import --yes --limit=5
 bun --env-file=../../../supabase/functions/.env run import --yes
 ```
 
-The mirror job copies them into Supabase within the hour.
+- Writes go one at a time and the first error stops the run. Nothing is retried.
+- A run skips addresses already on Arkiv, so after a stop, check the printed
+  tx on the [Rabdi explorer](https://rabdi.explorer.arkiv.network), then run
+  the same command again.
+- It refuses to start if the worst case (1M gas per report) is more than
+  `--max-spend` (default 1 GLM) or the seed wallet's balance.
+- `--source=ofac` or `--source=eth-labels` runs one list.
+- Each write is logged with its tx hash in `import-log.jsonl` (git ignores it).
+
+Run it again whenever the lists change; only new addresses are written. An
+address taken off a list keeps its report until it expires (180 days), but the
+renewer keeps renewing reports it has archived. The dry run counts these.
+
+The mirror job copies the reports into Supabase within the hour.
 
 ## 7. End-to-end test
 
