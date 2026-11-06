@@ -4,7 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Avatar, AvatarPicker, BackButton, Button, Card, DemoTools, KV, Label, ScrollScreen, Sheet, SignOutSheet, Tap, Txt } from '@/components';
-import { trusteeName, useStore } from '@/data/store';
+import { ownTrusteeName, useStore } from '@/data/store';
 import { useAuth } from '@/hooks/api';
 import { haptic } from '@/lib/haptics';
 import { colors, font, tones } from '@/theme';
@@ -14,7 +14,7 @@ const PEOPLE_COUNT = 3;
 export default function TrusteeSettings() {
   const { session, signOut } = useAuth();
   const s = useStore();
-  const tn = trusteeName(s);
+  const tn = ownTrusteeName(s);
   const [nameOpen, setNameOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
 
@@ -105,7 +105,7 @@ export default function TrusteeSettings() {
 
 function NameSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useStore();
-  const tn = trusteeName(s);
+  const tn = ownTrusteeName(s);
   const [draft, setDraft] = useState('');
   const [lastOpen, setLastOpen] = useState(false);
   if (visible !== lastOpen) {
