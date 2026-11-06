@@ -11,6 +11,8 @@ import type { GoPlusResult, ReportCounts } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError, TxOutcome } from "../lib/privySigner.ts";
 import type { PushMessage } from "../lib/push.ts";
+import type { ArchiveRow } from "../lib/jobs.ts";
+import type { JobsDeps } from "../routes/jobs.ts";
 
 type Approval = {
   id: string; pairRowId: string; requestKey: string; createdAt: Date;
@@ -66,6 +68,44 @@ export class MemoryRepo implements Repo {
   deletePushTokens(tokens: string[]) {
     tokens.forEach((t) => this.pushTokens.delete(t));
     return Promise.resolve();
+  }
+
+  archive: (ArchiveRow | { address: string; verified: boolean; entity_key?: string })[] = [];
+  expiry = new Map<string, { expiresAt: Date | null; extendedAt?: Date; failedAt?: Date }>();
+  saveArchive(rows: ArchiveRow[]) {
+    for (const r of rows) {
+      const i = this.archive.findIndex((a) => a.entity_key === r.entity_key);
+      if (i >= 0) this.archive[i] = r; else this.archive.push(r);
+      this.expiry.set(r.entity_key, { ...this.expiry.get(r.entity_key), expiresAt: new Date(r.arkiv_expires_at) });
+    }
+    return Promise.resolve();
+  }
+  renewalCandidates(before: Date, limit: number) {
+    const dayAgo = this.clock().getTime() - 24 * 3600 * 1000;
+    return Promise.resolve([...this.expiry]
+      .filter(([, e]) => e.expiresAt && e.expiresAt < before && !(e.failedAt && e.failedAt.getTime() > dayAgo))
+      .sort(([, a], [, b]) => a.expiresAt!.getTime() - b.expiresAt!.getTime())
+      .slice(0, limit).map(([entityKey]) => ({ entityKey })));
+  }
+  markExpiry(entityKey: string, expiresAt: Date | null, extended: boolean) {
+    const e = this.expiry.get(entityKey) ?? { expiresAt: null };
+    this.expiry.set(entityKey, { expiresAt, extendedAt: extended ? this.clock() : e.extendedAt });
+    return Promise.resolve();
+  }
+  markRenewFailed(entityKey: string) {
+    this.expiry.set(entityKey, { ...this.expiry.get(entityKey)!, failedAt: this.clock() });
+    return Promise.resolve();
+  }
+  trusteePairKeys() {
+    return Promise.resolve(this.pairs.filter((p) => p.pairKeyAddress).map((p) => p.pairKeyAddress!.toLowerCase()));
+  }
+  pairKeysOfTrustee(trusteeId: string) {
+    return Promise.resolve(this.pairs.filter((p) => p.trusteeId === trusteeId && p.status === "active").map((p) => p.pairKeyAddress!));
+  }
+  archivedReportCounts(address: string) {
+    const rows = this.archive.filter((r) => r.address === address.toLowerCase());
+    const verified = rows.filter((r) => r.verified).length;
+    return Promise.resolve({ verified, unverified: rows.length - verified });
   }
 
   getPayment(id: string, userId: string) {
@@ -212,6 +252,7 @@ export class MemoryRepo implements Repo {
       pairId: p.pairId,
       userId: p.userId,
       walletAddress: this.users.find((u) => u.id === p.userId)!.wallet_address,
+      pairKeyAddress: p.pairKeyAddress!,
       rules: { ...this.rules.get(p.userId)! },
     })));
   }
@@ -274,6 +315,27 @@ export class MemoryRepo implements Repo {
     }
     return Promise.resolve();
   }
+  userPair(userId: string) {
+    const p = this.pairs.find((x) => x.userId === userId && x.status !== "revoked");
+    if (!p) return Promise.resolve(null);
+    if (p.status === "active") {
+      return Promise.resolve({ status: "active" as const, pairId: p.pairId, trusteeEncPubKey: p.encPubKey!, acceptedAt: this.clock() });
+    }
+    const inv = this.invites.find((i) => i.pairRowId === p.id)!;
+    return Promise.resolve({ status: "invited" as const, pairId: p.pairId, contact: inv.contact!, inviteExpiresAt: inv.expiresAt });
+  }
+  trusteePair(pairId: string, trusteeId: string) {
+    const p = this.pairs.find((x) => x.pairId === pairId && x.trusteeId === trusteeId && x.status === "active");
+    return Promise.resolve(p ? { id: p.id, pairId: p.pairId, pairKeyAddress: p.pairKeyAddress!, trusteeId: p.trusteeId!, userId: p.userId } : null);
+  }
+  paymentByRequestKey(requestKey: string, userId: string) {
+    const a = this.approvals.find((x) => x.requestKey.toLowerCase() === requestKey.toLowerCase());
+    const p = a && this.payments.find((x) => x.approvalId === a.id && x.userId === userId);
+    return Promise.resolve(p ? { ...p } : null);
+  }
+  pairUserId(pairId: string) {
+    return Promise.resolve(this.pairs.find((p) => p.pairId === pairId)?.userId ?? null);
+  }
   findInvite(tokenHash: string) {
     const inv = this.invites.find((i) => i.tokenHash === tokenHash);
     if (!inv) return Promise.resolve(null);
@@ -297,7 +359,7 @@ export class MemoryRepo implements Repo {
   }
 }
 
-export function makeTestApp(options: { webOrigins?: string[] } = {}) {
+export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } = {}) {
   const repo = new MemoryRepo();
   const mails: { to: string; url: string }[] = [];
   const funded: string[] = [];
@@ -305,6 +367,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
   const privyWallets = new Map<string, string[]>();
   const state: {
     mailFails: boolean;
+    fundFails: boolean;
     now: Date;
     reports: Map<string, ReportCounts>;
     goplus: Map<string, GoPlusResult>;
@@ -322,7 +385,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
     deadTokens: string[];
     pushFails: boolean;
   } = {
-    mailFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
+    mailFails: false, fundFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
     arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null, txOutcomes: new Map(), txLookupFails: false,
     pushes: [], deadTokens: [], pushFails: false,
   };
@@ -330,6 +393,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
 
   const app = createApp({
     webOrigins: options.webOrigins,
+    jobs: options.jobs,
     auth: privyAuth({ appId: APP_ID, verificationKey: PEM }),
     repo,
     privy: {
@@ -338,12 +402,12 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
     },
     mailer: {
       sendTrusteeInvite(to, url) {
-        if (state.mailFails) return Promise.reject(new Error("resend down"));
+        if (state.mailFails) return Promise.reject(new Error("email down"));
         mails.push({ to, url });
         return Promise.resolve();
       },
     },
-    funder: { fund: (a) => (funded.push(a), Promise.resolve()) },
+    funder: { fund: (a) => (funded.push(a), state.fundFails ? Promise.reject(new Error("rabdi down")) : Promise.resolve()) },
     inviteUrlBase: "guardian://invite/",
     scamReports: { countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }) },
     goPlus: { check: (a) => Promise.resolve(state.goplus.get(a) ?? { flagged: [] }) },

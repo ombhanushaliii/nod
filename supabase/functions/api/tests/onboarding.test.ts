@@ -123,3 +123,68 @@ Deno.test("invite: email failure is a 502, and retrying works", async () => {
   t.state.mailFails = false;
   assertEquals((await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" })).status, 200);
 });
+
+Deno.test("tGLM top-up failing doesn't fail sign-up or accept", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set(USER, [addr("a")]);
+  t.state.fundFails = true;
+  assertEquals((await t.call(USER, "POST", "/onboarding/user", { walletAddress: addr("a") })).status, 201);
+  assertEquals(t.funded, [addr("a")]);
+});
+
+Deno.test("signing in again tops up the wallet and the trustee's pair keys", async () => {
+  const t = await setup();
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const token = tokenFrom(t.mails[0].url);
+  await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  t.funded.length = 0;
+  await t.call(TRUSTEE, "POST", "/onboarding/user", { walletAddress: addr("b") });
+  assertEquals(t.funded, [addr("b"), addr("c")]);
+  await t.call(USER, "POST", "/onboarding/user", { walletAddress: addr("a") });
+  assertEquals(t.funded, [addr("b"), addr("c"), addr("a")]);
+});
+
+Deno.test("GET /pair: none, then invited, then active with what the app needs", async () => {
+  const t = await setup();
+  assertEquals((await t.call(USER, "GET", "/pair")).body, { status: "none" });
+
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const invited = await t.call(USER, "GET", "/pair");
+  assertEquals(invited.body.status, "invited");
+  assertEquals(invited.body.contact, "t@example.com");
+  assertEquals("pairId" in invited.body, false);
+
+  const token = tokenFrom(t.mails[0].url);
+  await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  const active = await t.call(USER, "GET", "/pair");
+  assertEquals(active.body.status, "active");
+  assertEquals(active.body.pairId, t.repo.pairs[0].pairId);
+  assertEquals(active.body.trusteeEncPubKey, hex32("e"));
+  // The trustee's identity and pair key aren't shown to the user.
+  assertEquals(Object.keys(active.body).sort(), ["acceptedAt", "pairId", "status", "trusteeEncPubKey"]);
+});
+
+Deno.test("GET /pair: an expired invite says so", async () => {
+  const t = await setup();
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  t.repo.invites[0].expiresAt = new Date(Date.now() - 1000);
+  assertEquals((await t.call(USER, "GET", "/pair")).body.status, "invite_expired");
+});
+
+Deno.test("public invite status: no sign-in, no pairId, closes once used", async () => {
+  const t = await setup();
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const token = tokenFrom(t.mails[0].url);
+  const get = async (tok: string) => {
+    const res = await t.app.request(`/api/public/invites/${tok}`);
+    return { status: res.status, body: await res.json() };
+  };
+  const open = await get(token);
+  assertEquals(open.status, 200);
+  assertEquals(Object.keys(open.body).sort(), ["expiresAt", "status"]);
+  assertEquals(open.body.status, "open");
+  assertEquals((await get("nope")).status, 404);
+
+  await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  assertEquals((await get(token)).body.status, "closed");
+});

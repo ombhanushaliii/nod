@@ -27,7 +27,7 @@ export type Reason = { title: string; detail: string; tag: string; tone: Tone };
 
 export type Why = 'flagged' | 'daily' | 'limit';
 
-export type RequestStatus = 'pending' | 'allowed' | 'denied';
+export type RequestStatus = 'pending' | 'allowed' | 'denied' | 'expired';
 /** `expired` is derived: a pending request older than 30 minutes. */
 export type RequestState = RequestStatus | 'expired';
 
@@ -39,6 +39,17 @@ export type ApprovalRequest = {
   decidedAt?: number;
   /** Allowed payments become usable from here (Allow + 24h for a new person). */
   validFrom?: number;
+  /** Live: the backend's end of the approval window (otherwise validFrom + 1h). */
+  validUntil?: number;
+  /** Live: when the request runs out, from the backend (otherwise createdAt + 30 min). */
+  expiresAt?: number;
+  /** Live: the backend payment this request is for. */
+  paymentId?: string;
+  /** Live, trustee side: which person (pair) asked. */
+  pairId?: string;
+  /** Live, trustee side: the exact payment an Allow is bound to (intentHash). */
+  nonce?: string;
+  amountUnits?: string;
   used?: boolean;
   /** Hidden from the user's "In progress" list. */
   dismissed?: boolean;
@@ -63,6 +74,10 @@ export type Verdict = 'refused' | 'waiting' | 'needs_trustee' | 'safe' | 'cooldo
 export type CheckResult = {
   paymentId?: string;
   nonce?: string;
+  /** Live: the amount as the backend normalized it, e.g. "12.5". */
+  amountText?: string;
+  /** Live: scam reports for the recipient, from the check. */
+  reports?: { verified: number; unverified: number };
   verdict: Verdict;
   reqId?: string;
   why?: Why;

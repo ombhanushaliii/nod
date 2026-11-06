@@ -6,7 +6,11 @@
     "hono": "npm:hono@^4",
     "jose": "npm:jose@^6",
     "zod": "npm:zod@^3",
-    "@noble/hashes/": "npm:/@noble/hashes@1.8.0/"
+    "@noble/hashes/": "npm:/@noble/hashes@1.8.0/",
+    "@arkiv-network/sdk": "npm:@arkiv-network/sdk@1.0.1",
+    "@arkiv-network/sdk/": "npm:/@arkiv-network/sdk@1.0.1/",
+    "viem": "npm:viem@^2.57.16",
+    "viem/": "npm:/viem@^2.57.16/"
   },
   "tasks": {
     "test": "deno test --allow-env --allow-net",

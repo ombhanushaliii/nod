@@ -8,6 +8,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { DAY, money } from '@/lib/format';
 import { isDemo } from '@/wallet/config';
+import type { LivePerson } from '@/wallet/trustee';
 import { ADDR, evaluate, handleFrom, payeeBy, reqState, trusteeNameFrom } from './engine';
 import type {
   ActivityEvent,
@@ -53,7 +54,17 @@ type Data = {
   tDisplayName: string;
   requests: ApprovalRequest[];
   reports: string[];
+  /** Live: the Arkiv pairId once the trustee accepted. */
+  pairId: string | null;
+  /** Live: Arkiv request keys already written, by payment id, so a retry never writes twice. */
+  requestKeys: Record<string, string>;
   events: ActivityEvent[];
+  /** Live, trustee side: the people this account protects (GET /trustee/users). */
+  people: LivePerson[];
+  /** Live, trustee side: requests from those people, read from Arkiv. Kept apart from the user's own. */
+  inbox: ApprovalRequest[];
+  /** Live: an invite link opened on this phone, waiting to be accepted. */
+  inviteToken: string | null;
   /** Rules for the trustee's two other (mock) people. */
   mockRules: Record<string, Rules>;
 };
@@ -65,6 +76,8 @@ type Flow = {
   answers: (boolean | null)[];
   waitingId: string | null;
   sentText: string;
+  /** Live, trustee side: why requests couldn't be read. Not saved. */
+  trusteeError: string | null;
 };
 
 type Actions = {
@@ -130,14 +143,26 @@ function initialData(): Data {
     tDisplayName: '',
     requests: [],
     reports: [],
+    pairId: null,
+    requestKeys: {},
     events: [],
+    people: [],
+    inbox: [],
+    inviteToken: null,
     mockRules: { p2: { limit: 50, mode: 'every_time', daily: 100 }, p3: { limit: 100, mode: 'first_per_payee', daily: 500 } },
   };
 }
 
 function initialFlow(): Flow {
-  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '' };
+  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '', trusteeError: null };
 }
+
+/**
+ * The trustee side's state. Live mode works it out from what the backend
+ * returned, never from trusteeStatus, which is the user side's own trustee.
+ */
+export const trusteeSide = (s: Pick<Data, 'trusteeStatus' | 'people' | 'inviteToken'>): TrusteeStatus =>
+  isDemo ? s.trusteeStatus : s.inviteToken ? 'pending' : s.people.length > 0 ? 'active' : 'none';
 
 export const trusteeName = (s: Pick<Data, 'tDisplayName' | 'trusteeContact'>) => trusteeNameFrom(s.tDisplayName, s.trusteeContact);
 
@@ -156,7 +181,8 @@ export const useStore = create<Store>()(
         now,
 
         activateWalletSession: (userId, session) => set((s) => ({
-          ...(s.liveUserId !== userId ? { ...initialData(), ...initialFlow(), balance: 0, payees: [] } : {}),
+          // A new account starts clean, except an invite link opened before signing in.
+          ...(s.liveUserId !== userId ? { ...initialData(), ...initialFlow(), balance: 0, payees: [], inviteToken: s.inviteToken } : {}),
           liveUserId: userId,
           session,
           username: s.liveUserId === userId && s.username ? s.username : handleFrom(session.email || userId.slice(-12)),
@@ -292,10 +318,12 @@ export const useStore = create<Store>()(
               get().pushBanner('user', `${tn} said yes`, isNew ? `${r.name} is new, so it unlocks in 24 hours.` : 'You can send it now.');
               ev({ icon: '✓', title: `You allowed ${money(r.amount)} to ${r.name}`, sub: isNew ? 'Unlocks after 24h' : 'One time' });
             } else {
-              // Deny & report: the address is reported so other wallets get warned (Arkiv scam_report).
-              set((st) => ({ reports: [...st.reports, r.address!.toLowerCase()] }));
+              // Deny & report: a flagged address is reported so other wallets get warned (Arkiv scam_report).
+              // A deny only because of the limit reports nothing.
+              const flagged = r.why === 'flagged';
+              if (flagged) set((st) => ({ reports: [...st.reports, r.address!.toLowerCase()] }));
               get().pushBanner('user', `${tn} said no`, `The payment to ${r.name} won't go out.`);
-              ev({ icon: '✕', title: `You denied ${money(r.amount)} to ${r.name}`, sub: 'Address reported' });
+              ev({ icon: '✕', title: `You denied ${money(r.amount)} to ${r.name}`, sub: flagged ? 'Address reported' : 'Payment stopped' });
             }
           } else if (r.kind === 'export') {
             get().pushBanner('user', allow ? `${tn} allowed key export` : `${tn} said no`, allow ? 'Open Settings to view it.' : 'Your key stays hidden.');
@@ -345,7 +373,12 @@ export const useStore = create<Store>()(
         tDisplayName: s.tDisplayName,
         requests: s.requests,
         reports: s.reports,
+        pairId: s.pairId,
+        requestKeys: s.requestKeys,
         events: s.events,
+        people: s.people,
+        inbox: s.inbox,
+        inviteToken: s.inviteToken,
         mockRules: s.mockRules,
       }),
     },

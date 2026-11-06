@@ -8,7 +8,7 @@ import { checkDecision, REQUEST_TTL_MS } from "../lib/approval.ts";
 import type { ArkivApprovals } from "../lib/arkiv.ts";
 import { type PaymentSender, SendError } from "../lib/privySigner.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
-import type { Payment, PaymentStatus, Repo } from "../lib/repo.ts";
+import type { ActivePair, Payment, PaymentStatus, Repo } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
 import { decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
@@ -72,6 +72,47 @@ const statusFor: Record<Verdict, PaymentStatus> = {
 export function paymentRoutes(deps: PaymentDeps) {
   const r = new Hono<AppEnv>();
   const now = deps.now ?? (() => new Date());
+
+  // Reads the trustee's decision for a payment from Arkiv, checks it against
+  // the payment, and records it. Used by the user's poll and the trustee app.
+  async function syncDecision(repo: Repo, payment: Payment, pair: ActivePair | null) {
+    if (payment.status !== "awaiting_trustee") {
+      return { status: payment.status, unlockAt: payment.unlockAt?.toISOString() ?? null };
+    }
+    const approval = payment.approvalId ? await repo.getApproval(payment.approvalId) : null;
+    if (!approval || !pair) fail(409, "no_active_trustee");
+
+    const decision = await deps.arkiv.findDecision(approval.requestKey, pair.pairKeyAddress);
+    if (!decision) {
+      if (now().getTime() > approval.createdAt.getTime() + REQUEST_TTL_MS) {
+        await repo.expirePayment(payment.id);
+        return { status: "expired", unlockAt: null };
+      }
+      return { status: "awaiting_trustee", unlockAt: null };
+    }
+
+    const check = checkDecision({
+      decision, pairId: pair.pairId, now: now(), requestAttachedAt: approval.createdAt,
+      payment: {
+        to: payment.toAddress, amount: payment.amount, nonce: payment.nonce,
+        newPayee: payment.reasons.includes("new_payee"),
+      },
+    });
+    if (!check.ok) fail(409, check.reason, "The trustee's decision doesn't match this payment.");
+
+    const status = await repo.recordDecision(payment.id, {
+      decisionKey: decision.entityKey,
+      verdict: check.verdict,
+      validFrom: check.verdict === "allow" ? check.validFrom : null,
+      validUntil: check.verdict === "allow" ? check.validUntil : null,
+    }).catch(mapRepoError);
+
+    return {
+      status,
+      unlockAt: check.verdict === "allow" ? check.validFrom.toISOString() : null,
+      validUntil: check.verdict === "allow" ? check.validUntil.toISOString() : null,
+    };
+  }
 
   r.post("/payments/check", async (c) => {
     const user = await requireUser(c);
@@ -182,47 +223,28 @@ export function paymentRoutes(deps: PaymentDeps) {
   // records it. Safe to poll.
   r.post("/payments/:id/approval", async (c) => {
     const user = await requireUser(c);
-    const repo = c.var.repo;
-    const payment = await repo.getPayment(c.req.param("id"), user.id);
+    const payment = await c.var.repo.getPayment(c.req.param("id"), user.id);
     if (!payment) fail(404, "payment_not_found");
-    if (payment.status !== "awaiting_trustee") {
-      return c.json({ status: payment.status, unlockAt: payment.unlockAt?.toISOString() ?? null });
+    const pair = await c.var.repo.getActivePair(user.id);
+    return c.json(await syncDecision(c.var.repo, payment, pair));
+  });
+
+  // The trustee app just wrote a decision on Arkiv. The backend verifies and
+  // records it the same way, then pushes the user so they don't have to wait.
+  r.post("/trustee/decisions", async (c) => {
+    const me = await requireUser(c);
+    const { pairId, requestKey } = await body(c, z.object({ pairId: hex32, requestKey: hex32 }));
+    const repo = c.var.repo;
+    const pair = await repo.trusteePair(pairId, me.id);
+    if (!pair) fail(404, "not_your_pair", "You're not this user's trustee.");
+    const payment = await repo.paymentByRequestKey(requestKey, pair.userId);
+    if (!payment) fail(404, "payment_not_found");
+    const before = payment.status;
+    const out = await syncDecision(repo, payment, pair);
+    if (before === "awaiting_trustee" && out.status !== "awaiting_trustee") {
+      await notifyUser(repo, deps.push, pair.userId, MESSAGES.trusteeAnswered());
     }
-
-    const approval = payment.approvalId ? await repo.getApproval(payment.approvalId) : null;
-    const pair = await repo.getActivePair(user.id);
-    if (!approval || !pair) fail(409, "no_active_trustee");
-
-    const decision = await deps.arkiv.findDecision(approval.requestKey, pair.pairKeyAddress);
-    if (!decision) {
-      if (now().getTime() > approval.createdAt.getTime() + REQUEST_TTL_MS) {
-        await repo.expirePayment(payment.id);
-        return c.json({ status: "expired", unlockAt: null });
-      }
-      return c.json({ status: "awaiting_trustee", unlockAt: null });
-    }
-
-    const check = checkDecision({
-      decision, pairId: pair.pairId, now: now(),
-      payment: {
-        to: payment.toAddress, amount: payment.amount, nonce: payment.nonce,
-        newPayee: payment.reasons.includes("new_payee"),
-      },
-    });
-    if (!check.ok) fail(409, check.reason, "The trustee's decision doesn't match this payment.");
-
-    const status = await repo.recordDecision(payment.id, {
-      decisionKey: decision.entityKey,
-      verdict: check.verdict,
-      validFrom: check.verdict === "allow" ? check.validFrom : null,
-      validUntil: check.verdict === "allow" ? check.validUntil : null,
-    }).catch(mapRepoError);
-
-    return c.json({
-      status,
-      unlockAt: check.verdict === "allow" ? check.validFrom.toISOString() : null,
-      validUntil: check.verdict === "allow" ? check.validUntil.toISOString() : null,
-    });
+    return c.json(out);
   });
 
   // Sends the payment from the user's wallet as the backend signer, gas

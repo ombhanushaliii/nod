@@ -16,6 +16,9 @@ export function checkDecision(args: {
   decision: ArkivDecision;
   pairId: string;
   payment: { to: string; amount: bigint; nonce: string; newPayee: boolean };
+  // When the request reached the backend. An Allow can't be older than that,
+  // so a backdated createdAt can't shorten the 24h wait.
+  requestAttachedAt: Date;
   now: Date;
 }): DecisionCheck {
   const { decision: d, payment: p } = args;
@@ -28,7 +31,8 @@ export function checkDecision(args: {
 
   // The backend enforces the cooldown itself instead of trusting the
   // trustee app's validFrom: new payee = 24h after the Allow was written.
-  const earliest = new Date(d.createdAt.getTime() + (p.newPayee ? COOLDOWN_MS : 0));
+  const allowedAt = d.createdAt > args.requestAttachedAt ? d.createdAt : args.requestAttachedAt;
+  const earliest = new Date(allowedAt.getTime() + (p.newPayee ? COOLDOWN_MS : 0));
   const validFrom = d.validFrom && d.validFrom > earliest ? d.validFrom : earliest;
   const windowEnd = new Date(validFrom.getTime() + ALLOW_WINDOW_MS);
   const validUntil = d.expiresAt < windowEnd ? d.expiresAt : windowEnd;

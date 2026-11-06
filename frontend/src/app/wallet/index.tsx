@@ -3,11 +3,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { Avatar, Chip, FadeInRow, RingedAvatar, ScrollScreen, Tap, Txt } from '@/components';
 import { useNow } from '@/data/clock';
-import { APPROVAL_WINDOW, reqState } from '@/data/engine';
+import { approvalEnds, reqState } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
-import { useAuth, useBalance } from '@/hooks/api';
+import { useAuth, useBalance, useRefreshHome } from '@/hooks/api';
 import { ago, dur, m0, money, moneyParts, when } from '@/lib/format';
 import { colors, tones, type Tone } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 export default function WalletIndex() {
   const onboarded = useStore((s) => s.onboarded);
@@ -23,6 +24,8 @@ function Home() {
   const { balance, hasBalance, loading, error: balanceError, refresh } = useBalance();
   const s = useStore();
   const tn = trusteeName(s);
+  // Live: one read of requests in progress and payment history each time home shows.
+  useRefreshHome();
   const active = s.trusteeStatus === 'active';
   const bal = hasBalance ? moneyParts(balance) : { whole: '—', cents: '—' };
 
@@ -30,8 +33,14 @@ function Home() {
     s.setWaiting(id);
     router.push('/wallet/waiting');
   };
-  const resume = (d: { address: string; name: string; amount: number }) => {
+  const resume = (d: { address: string; name: string; amount: number }, paymentId?: string) => {
     s.setDraft(d);
+    if (!isDemo && paymentId) {
+      // An approved payment: send that exact payment, don't check a new one.
+      s.setResult({ verdict: 'safe', paymentId });
+      router.push('/wallet/review');
+      return;
+    }
     s.setResult(null);
     router.push('/wallet/checking');
   };
@@ -43,16 +52,17 @@ function Home() {
     const st = reqState(r, now);
     const title = `${m0(r.amount)} to ${r.name}`;
     const validFrom = r.validFrom ?? 0;
+    const ends = approvalEnds(r);
     const base = { key: r.id, title, onOpen: () => openWaiting(r.id) };
     if (st === 'pending') pending.push({ ...base, sub: `Waiting on ${tn}`, chip: 'Waiting', tone: 'amber' });
     else if (st === 'allowed') {
       if (now < validFrom) pending.push({ ...base, sub: `Approved · unlocks ${when(validFrom, now)}`, chip: 'Locked', tone: 'gray' });
-      else if (now < validFrom + APPROVAL_WINDOW) {
+      else if (now < ends) {
         const d = { address: r.address, name: r.name, amount: r.amount };
-        pending.push({ ...base, sub: `Approved · send within ${dur(validFrom + APPROVAL_WINDOW - now)}`, chip: 'Ready', tone: 'green', onOpen: () => resume(d) });
+        pending.push({ ...base, sub: `Approved · send within ${dur(ends - now)}`, chip: 'Ready', tone: 'green', onOpen: () => resume(d, r.paymentId) });
       } else pending.push({ ...base, sub: 'The 1-hour window passed', chip: 'Expired', tone: 'gray' });
     } else if (st === 'denied') pending.push({ ...base, sub: `${tn} said no`, chip: 'Declined', tone: 'red' });
-    else pending.push({ ...base, sub: 'No answer in 30 minutes', chip: 'Expired', tone: 'gray' });
+    else pending.push({ ...base, sub: 'No answer in time', chip: 'Expired', tone: 'gray' });
   }
   for (const i of s.intents) {
     const title = `${m0(i.amount)} to ${i.name}`;

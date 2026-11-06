@@ -1,5 +1,5 @@
-# Cloudflare Pages: `npm run deploy` builds and uploads dist/ to the "trynod"
-# project, served at https://trynod.pages.dev
-name = "trynod"
+# Cloudflare Pages: `npm run deploy` builds and uploads dist/ to the "getnod"
+# project, served at https://getnod.pages.dev
+name = "getnod"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-11-01"

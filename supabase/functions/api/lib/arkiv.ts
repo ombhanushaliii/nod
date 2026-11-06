@@ -3,7 +3,7 @@
 
 export type ArkivRequest = {
   entityKey: string;
-  owner: string; // lower-case address that wrote it
+  owner: string; // lower-case address that wrote it ($creator, which can't be transferred)
   pairId: string;
   kind: "payment" | "export";
   createdAt: Date;
@@ -24,7 +24,7 @@ export type ArkivDecision = {
 export interface ArkivApprovals {
   getRequest(entityKey: string): Promise<ArkivRequest | null>;
   // Anyone can write an entity that points at a request, so only look at
-  // decisions owned by the pair's per-pair key.
+  // decisions created by the pair's per-pair key.
   findDecision(requestKey: string, owner: string): Promise<ArkivDecision | null>;
 }
 

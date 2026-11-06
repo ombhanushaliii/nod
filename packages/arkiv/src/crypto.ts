@@ -1,5 +1,5 @@
 import nacl from "tweetnacl"
-import { type Address, encodePacked, type Hex, hexToBytes, keccak256, sha256 } from "viem"
+import { type Address, encodeAbiParameters, type Hex, hexToBytes, keccak256, sha256 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
 // Sealed bytes layout: senderPubKey (32) | nonce (24) | ciphertext
@@ -53,8 +53,15 @@ export function deriveEncKey(signature: Hex) {
   return nacl.box.keyPair.fromSecretKey(hexToBytes(sha256(signature)))
 }
 
-// intentHash = keccak256(packed recipient, amount, nonce) (D5).
-// amount is in USDC minor units (6 decimals).
-export function intentHash(recipient: Address, amount: bigint, nonce: bigint): Hex {
-  return keccak256(encodePacked(["address", "uint256", "uint256"], [recipient, amount, nonce]))
+// intentHash binds an Allow to one exact payment (D5). Must match the backend
+// (supabase/functions/api/lib/intent.ts):
+//   keccak256(abi.encode(address to, uint256 amount, bytes32 nonce))
+// amount is USDC base units (6 decimals); nonce comes from POST /payments/check.
+export function intentHash(recipient: Address, amount: bigint, nonce: Hex): Hex {
+  return keccak256(
+    encodeAbiParameters(
+      [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+      [recipient, amount, nonce],
+    ),
+  )
 }

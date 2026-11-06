@@ -42,8 +42,11 @@ export type EngineState = {
 
 export const same = (a?: string, b?: string) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
 
+/** When an allowed request stops being usable: the backend's time when live, else 1 hour after it unlocks. */
+export const approvalEnds = (r: Pick<ApprovalRequest, 'validFrom' | 'validUntil'>) => r.validUntil ?? (r.validFrom ?? 0) + APPROVAL_WINDOW;
+
 export function reqState(r: ApprovalRequest, now: number): RequestState {
-  if (r.status === 'pending' && now >= r.createdAt + REQUEST_TTL) return 'expired';
+  if (r.status === 'pending' && now >= (r.expiresAt ?? r.createdAt + REQUEST_TTL)) return 'expired';
   return r.status;
 }
 

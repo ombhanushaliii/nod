@@ -7,3 +7,10 @@
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+
+# The invite link carries a secret token: never send it as a referrer, don't
+# cache the page, and keep it out of search results.
+/invite
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
+  X-Robots-Tag: noindex

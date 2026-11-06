@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { useStore } from '@/data/store';
+import { usePushRegistration, useUserSync } from '@/hooks/api';
 import { colors } from '@/theme';
 
 /** Screens you shouldn't swipe back into: a finished check or a result. */
@@ -8,6 +9,9 @@ const noSwipe = { gestureEnabled: false } as const;
 
 export default function WalletLayout() {
   const onboarded = useStore((s) => s.onboarded);
+  // Live: trustee status and rules stay fresh; this phone gets pushes once signed up.
+  useUserSync();
+  usePushRegistration(onboarded);
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {/* Home sends new users into sign-up (avatar → trustee invite → waiting). */}

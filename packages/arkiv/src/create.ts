@@ -60,6 +60,7 @@ export function createDecision(
       pairId: input.pairId,
       requestKey: key(input.requestKey),
       verdict: input.verdict,
+      createdAt: u64(Date.now()),
       intentHash: input.intentHash,
       validFrom: input.validFrom === undefined ? undefined : u64(input.validFrom),
       reportKey: input.reportKey === undefined ? undefined : key(input.reportKey),

@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { AppLogo, Button, Screen, Txt } from '@/components';
+import { useStore } from '@/data/store';
 import type { Role } from '@/data/types';
 import { useAuth } from '@/hooks/api';
 import { colors } from '@/theme';
 
 export function WalletLogin() {
   const params = useLocalSearchParams<{ as?: string }>();
-  const [role, setRole] = useState<Role>(params.as === 'trustee' ? 'trustee' : 'user');
+  const [role, setRole] = useState<Role>(params.as === 'trustee' || useStore.getState().inviteToken ? 'trustee' : 'user');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();

@@ -5,11 +5,14 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Card, Chip, IconCircle, KV, Label, NavRow, Screen, Sheet, Tag, Txt } from '@/components';
 import { useNow } from '@/data/clock';
 import { BAD_ANSWERS, QUESTIONS, reqState } from '@/data/engine';
+import { buildPeople } from '@/data/people';
 import { useStore } from '@/data/store';
 import { useDecide } from '@/hooks/api';
+import { useLiveDecide } from '@/hooks/trustee';
 import { m0, money, short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { colors, tones, type Tone } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 const STATUS: Record<string, { label: string; tone: Tone }> = {
   pending: { label: 'Needs you', tone: 'amber' },
@@ -22,11 +25,18 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
 export default function Request() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const now = useNow();
-  const r = useStore((s) => s.requests.find((x) => x.id === id));
-  const username = useStore((s) => s.username);
-  const userAvatar = useStore((s) => s.userAvatar);
-  const decide = useDecide();
+  const r = useStore((s) => (isDemo ? s.requests : s.inbox).find((x) => x.id === id));
+  const s = useStore();
+  // Live: who asked, from the pair. Demo: the one wallet user.
+  const person = isDemo ? null : buildPeople(s, now).find((p) => p.id === r?.pairId);
+  const username = person?.username ?? s.username;
+  const userAvatar = person?.avatar ?? s.userAvatar;
+  const demoDecide = useDecide();
+  const liveDecide = useLiveDecide();
+  const decide = isDemo ? demoDecide : liveDecide;
   const [confirm, setConfirm] = useState<'allow' | 'deny' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!r) {
     return (
@@ -74,7 +84,7 @@ export default function Request() {
             btn: 'Allow export',
             btnBg: tones.red.fg,
           }
-      : isPayment
+      : isPayment && risky
         ? {
             icon: '✕',
             ...tones.plain,
@@ -83,13 +93,33 @@ export default function Request() {
             btn: 'Deny & report',
             btnBg: colors.ink,
           }
-        : { icon: '✕', ...tones.plain, title: 'Deny this request?', body: `@${username} will be told you said no.`, btn: 'Deny', btnBg: colors.ink };
+        : isPayment
+          ? {
+              icon: '✕',
+              ...tones.plain,
+              title: 'Deny this payment?',
+              body: `It won’t go out, and @${username} will be told you said no. Nothing gets reported.`,
+              btn: 'Deny',
+              btnBg: colors.ink,
+            }
+          : { icon: '✕', ...tones.plain, title: 'Deny this request?', body: `@${username} will be told you said no.`, btn: 'Deny', btnBg: colors.ink };
 
+  // Live, each answer is one or two Arkiv writes: a few seconds. One at a time.
   const onConfirm = async () => {
+    if (busy) return;
     const allow = confirm === 'allow';
     setConfirm(null);
-    await decide(r.id, allow);
-    haptic(allow ? 'success' : 'heavy');
+    setBusy(true);
+    setError(null);
+    try {
+      await decide(r.id, allow);
+      haptic(allow ? 'success' : 'heavy');
+    } catch (err) {
+      haptic('error');
+      setError(err instanceof Error ? err.message : "Your answer didn't go through. Try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -167,10 +197,15 @@ export default function Request() {
         )}
       </ScrollView>
 
+      {error && (
+        <Txt size={14} lh={1.5} color={colors.accFg} accessibilityRole="alert" style={{ paddingBottom: 8 }}>
+          {error}
+        </Txt>
+      )}
       {state === 'pending' && (
         <View style={styles.actions}>
-          <Button label={isPayment ? 'Deny & report' : 'Deny'} variant="dark" size={16} style={{ flex: 1 }} onPress={() => setConfirm('deny')} />
-          <Button label={isPayment ? 'Allow once' : 'Allow'} size={16} style={{ flex: 1 }} onPress={() => setConfirm('allow')} />
+          <Button label={risky ? 'Deny & report' : 'Deny'} variant="dark" size={16} style={{ flex: 1 }} disabled={busy} onPress={() => setConfirm('deny')} />
+          <Button label={busy ? 'Sending…' : isPayment ? 'Allow once' : 'Allow'} size={16} style={{ flex: 1 }} disabled={busy} onPress={() => setConfirm('allow')} />
         </View>
       )}
 

@@ -22,7 +22,7 @@ export function arkivReader() {
 // Seed wallet: writes imported reports and pays for renewals
 export function seedWallet() {
   return createWalletClient({
-    account: privateKeyToAccount(env("SEED_PRIVATE_KEY") as Hex),
+    account: privateKeyToAccount(env("ARKIV_SEED_PRIVATE_KEY") as Hex),
     chain: rabdi({ accessKey: env("ARKIV_ACCESS_KEY") }),
     transport: transport(),
   })

@@ -6,10 +6,13 @@ export type Env = {
   privyAppSecret: string;
   privyVerificationKey: string;
   privyAuthorizationKey: string;
-  resendApiKey: string;
+  brevoApiKey: string;
   inviteFromEmail: string;
   inviteUrlBase: string;
   webOrigins: string[];
+  arkivAccessKey: string;
+  arkivSeedPrivateKey: string;
+  jobsSecret: string;
 };
 
 function required(name: string): string {
@@ -28,9 +31,14 @@ export function loadEnv(): Env {
     privyVerificationKey: required("PRIVY_VERIFICATION_KEY").replaceAll("\\n", "\n"),
     // The backend signer's authorization key, "wallet-auth:..." (D3a).
     privyAuthorizationKey: required("PRIVY_AUTHORIZATION_KEY"),
-    resendApiKey: required("RESEND_API_KEY"),
+    brevoApiKey: required("BREVO_API_KEY"),
     inviteFromEmail: required("INVITE_FROM_EMAIL"),
     inviteUrlBase: required("INVITE_URL_BASE"),
+    arkivAccessKey: required("ARKIV_ACCESS_KEY"),
+    // Backend wallet on Rabdi: writes the OFAC/list reports and tops up tGLM.
+    arkivSeedPrivateKey: required("ARKIV_SEED_PRIVATE_KEY"),
+    // Supabase Cron sends this to /api/jobs/*. Same value as the jobs_secret in Vault.
+    jobsSecret: required("JOBS_SECRET"),
     webOrigins: (Deno.env.get("WEB_ALLOWED_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   };
 }

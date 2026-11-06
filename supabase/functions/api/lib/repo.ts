@@ -1,5 +1,6 @@
 // All database access goes through this interface, so endpoints can be tested
 // with an in-memory fake. supabaseRepo is the real implementation.
+import type { JobsRepo } from "./jobs.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotifyMode, Verdict } from "./rules.ts";
 
@@ -26,10 +27,14 @@ export type ActivePair = { id: string; pairId: string; pairKeyAddress: string; t
 export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
+// The user's open pair: waiting for the trustee, or active.
+export type UserPair =
+  | { status: "invited"; pairId: string; contact: string; inviteExpiresAt: Date }
+  | { status: "active"; pairId: string; trusteeEncPubKey: string; acceptedAt: Date };
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
-export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; rules: Rules };
+export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; pairKeyAddress: string; rules: Rules };
 
 // Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
@@ -46,13 +51,20 @@ export class RepoError extends Error {
   }
 }
 
-export interface Repo {
+export interface Repo extends JobsRepo {
   findUserByPrivyId(privyUserId: string): Promise<User | null>;
   findUserByWallet(address: string): Promise<User | null>;
   // Creates the user and their default rules.
   createUser(privyUserId: string, walletAddress: string, privyWalletId: string): Promise<User>;
   createInvite(args: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   findInvite(tokenHash: string): Promise<InviteView | null>;
+  userPair(userId: string): Promise<UserPair | null>;
+  // The user a pair protects.
+  pairUserId(pairId: string): Promise<string | null>;
+  // An active pair this person is the trustee of, with the user it protects.
+  trusteePair(pairId: string, trusteeId: string): Promise<(ActivePair & { userId: string }) | null>;
+  // The user's payment that an Arkiv approval request was attached to.
+  paymentByRequestKey(requestKey: string, userId: string): Promise<Payment | null>;
   // Returns the Arkiv pairId.
   acceptInvite(args: { tokenHash: string; trusteeId: string; pairKeyAddress: string; encPubKey: string }): Promise<string>;
 
@@ -98,6 +110,14 @@ export interface Repo {
   removePushToken(userId: string, expoToken: string): Promise<void>;
   pushTokensFor(userId: string): Promise<string[]>;
   deletePushTokens(expoTokens: string[]): Promise<void>;
+
+  // Scam reports. Lower-case pair keys of every trustee who ever accepted:
+  // reports they wrote count as verified, even after the pair ends.
+  trusteePairKeys(): Promise<string[]>;
+  // Pair keys of the active pairs this person is the trustee for (to top up tGLM).
+  pairKeysOfTrustee(trusteeId: string): Promise<string[]>;
+  // Counts from the Supabase archive, used when Arkiv can't be reached.
+  archivedReportCounts(address: string): Promise<{ verified: number; unverified: number }>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -159,6 +179,39 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         p_token_hash: tokenHash, p_expires_at: expiresAt.toISOString(),
       });
       if (error) rethrow(error);
+    },
+    async userPair(userId) {
+      const { data, error } = await db.from("pairs")
+        .select("pair_id, status, trustee_enc_pubkey, accepted_at, invites(contact, expires_at)")
+        .eq("user_id", userId).in("status", ["invited", "active"]).maybeSingle();
+      if (error) rethrow(error);
+      if (!data) return null;
+      if (data.status === "active") {
+        return { status: "active", pairId: data.pair_id, trusteeEncPubKey: data.trustee_enc_pubkey, acceptedAt: new Date(data.accepted_at) };
+      }
+      // One invite per pair; PostgREST returns it as an object or a one-item list.
+      const raw = data.invites as unknown;
+      const inv = (Array.isArray(raw) ? raw[0] : raw) as { contact: string; expires_at: string };
+      return { status: "invited", pairId: data.pair_id, contact: inv.contact, inviteExpiresAt: new Date(inv.expires_at) };
+    },
+    async trusteePair(pairId, trusteeId) {
+      const { data, error } = await db.from("pairs").select("id, pair_id, pair_key_address, trustee_id, user_id")
+        .eq("pair_id", pairId).eq("trustee_id", trusteeId).eq("status", "active").maybeSingle();
+      if (error) rethrow(error);
+      return data
+        ? { id: data.id, pairId: data.pair_id, pairKeyAddress: data.pair_key_address, trusteeId: data.trustee_id, userId: data.user_id }
+        : null;
+    },
+    async paymentByRequestKey(requestKey, userId) {
+      const { data, error } = await db.from("payments").select("*, approvals!inner(request_key)")
+        .eq("user_id", userId).eq("approvals.request_key", requestKey.toLowerCase()).maybeSingle();
+      if (error) rethrow(error);
+      return data ? toPayment(data) : null;
+    },
+    async pairUserId(pairId) {
+      const { data, error } = await db.from("pairs").select("user_id").eq("pair_id", pairId).maybeSingle();
+      if (error) rethrow(error);
+      return data?.user_id ?? null;
     },
     async findInvite(tokenHash) {
       const { data, error } = await db.from("invites")
@@ -322,7 +375,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       };
     },
     async protectedUsers(trusteeId) {
-      const pairs = await db.from("pairs").select("pair_id, user_id").eq("trustee_id", trusteeId).eq("status", "active");
+      const pairs = await db.from("pairs").select("pair_id, user_id, pair_key_address").eq("trustee_id", trusteeId).eq("status", "active");
       if (pairs.error) rethrow(pairs.error);
       if (pairs.data.length === 0) return [];
       const ids = pairs.data.map((p) => p.user_id);
@@ -336,6 +389,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         pairId: p.pair_id,
         userId: p.user_id,
         walletAddress: users.data.find((u) => u.id === p.user_id)!.wallet_address,
+        pairKeyAddress: p.pair_key_address,
         rules: toRules(rules.data.find((r) => r.user_id === p.user_id)!),
       }));
     },
@@ -365,6 +419,50 @@ export function supabaseRepo(db: SupabaseClient): Repo {
     async deletePushTokens(expoTokens) {
       const { error } = await db.from("push_tokens").delete().in("expo_token", expoTokens);
       if (error) rethrow(error);
+    },
+
+    async trusteePairKeys() {
+      const { data, error } = await db.from("pairs").select("pair_key_address").not("pair_key_address", "is", null);
+      if (error) rethrow(error);
+      return data.map((r) => (r.pair_key_address as string).toLowerCase());
+    },
+    async pairKeysOfTrustee(trusteeId) {
+      const { data, error } = await db.from("pairs").select("pair_key_address")
+        .eq("trustee_id", trusteeId).eq("status", "active");
+      if (error) rethrow(error);
+      return data.map((r) => r.pair_key_address as string);
+    },
+    async saveArchive(rows) {
+      const { error } = await db.from("scam_reports_archive").upsert(rows, { onConflict: "entity_key" });
+      if (error) rethrow(error);
+    },
+    async renewalCandidates(before, limit) {
+      const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { data, error } = await db.from("scam_reports_archive").select("entity_key")
+        .eq("verified", true).lt("arkiv_expires_at", before.toISOString())
+        .or(`renew_failed_at.is.null,renew_failed_at.lt.${dayAgo}`)
+        .order("arkiv_expires_at").limit(limit);
+      if (error) rethrow(error);
+      return data.map((r) => ({ entityKey: r.entity_key as string }));
+    },
+    async markExpiry(entityKey, expiresAt, extended) {
+      const { error } = await db.from("scam_reports_archive").update({
+        arkiv_expires_at: expiresAt?.toISOString() ?? null,
+        renew_failed_at: null,
+        ...(extended ? { last_extended_at: new Date().toISOString() } : {}),
+      }).eq("entity_key", entityKey);
+      if (error) rethrow(error);
+    },
+    async markRenewFailed(entityKey) {
+      const { error } = await db.from("scam_reports_archive").update({ renew_failed_at: new Date().toISOString() })
+        .eq("entity_key", entityKey);
+      if (error) rethrow(error);
+    },
+    async archivedReportCounts(address) {
+      const { data, error } = await db.from("scam_reports_archive").select("verified").eq("address", address.toLowerCase());
+      if (error) rethrow(error);
+      const verified = data.filter((r) => r.verified).length;
+      return { verified, unverified: data.length - verified };
     },
   };
 }

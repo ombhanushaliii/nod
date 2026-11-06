@@ -9,6 +9,7 @@ import { trusteeName, useStore } from '@/data/store';
 import { useBalance, useRules } from '@/hooks/api';
 import { m0, money } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
+import { isDemo } from '@/wallet/config';
 import { colors, tones } from '@/theme';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
@@ -31,7 +32,9 @@ export default function Amount() {
   const overBal = amt > balance;
   const hintFirst = !firstDone;
   const curPayee = cur.address ? payeeBy({ payees }, cur.address) : undefined;
-  const curIsNew = !!cur.address && (!curPayee || now < curPayee.unlockAt);
+  // Demo only: up to $10 to a new person in their first 24h. Live, the backend
+  // holds any payment to a new person for 24h, and the check says so.
+  const curIsNew = isDemo && !!cur.address && (!curPayee || now < curPayee.unlockAt);
   const left = cur.address ? capLeft({ payees, payments }, cur.address, now) : 10;
 
   const amountColor = overBal ? tones.red.fg : (hintFirst && amt > 10) || (curIsNew && amt > left) ? tones.amber.fg : colors.ink;
@@ -100,7 +103,7 @@ export default function Amount() {
           <InfoDot color={hint.fg} />
         </Tap>
         <Txt size={14} w={500} color={overBal ? tones.red.fg : colors.sub}>
-          {overBal ? 'Not enough money' : `Balance ${money(balance)} · ${m0(Math.max(0, R.daily - sentToday({ payments }, now)))} left today`}
+          {overBal ? 'Not enough money' : isDemo ? `Balance ${money(balance)} · ${m0(Math.max(0, R.daily - sentToday({ payments }, now)))} left today` : `Balance ${money(balance)}`}
         </Txt>
       </View>
 

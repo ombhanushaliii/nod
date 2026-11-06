@@ -58,11 +58,16 @@ export function useUsdcBalance() {
   };
 }
 
-export function useWalletSetup() {
+/**
+ * Registers the wallet with the backend (and tops up tGLM). The user's wallet
+ * also lets the backend send its checked payments; a trustee sends none, so
+ * their app passes signer: false.
+ */
+export function useWalletSetup({ signer = true }: { signer?: boolean } = {}) {
   const { enableBackendSigner, getAccessToken, walletAddress } = useWallet();
   return useCallback(async () => {
     if (!walletAddress) throw new Error('Connect your wallet first.');
-    await enableBackendSigner();
+    if (signer) await enableBackendSigner();
     return apiRequest(getAccessToken, '/onboarding/user', { walletAddress: walletAddress.toLowerCase() });
-  }, [enableBackendSigner, getAccessToken, walletAddress]);
+  }, [signer, enableBackendSigner, getAccessToken, walletAddress]);
 }

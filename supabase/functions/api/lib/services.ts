@@ -9,7 +9,7 @@ export interface Mailer {
   sendTrusteeInvite(to: string, inviteUrl: string): Promise<void>;
 }
 
-// Sends a little tGLM to a new Arkiv address (D1). Owned by the Arkiv work.
+// Tops up an Arkiv address with tGLM (D1). See arkivFunder.ts.
 export interface ArkivFunder {
   fund(address: string): Promise<void>;
 }
@@ -34,32 +34,35 @@ export function privyApi(appId: string, appSecret: string): PrivyApi {
   };
 }
 
-// Resend: POST https://api.resend.com/emails with a Bearer API key.
-export function resendMailer(apiKey: string, from: string): Mailer {
+// "Nod <invites@example.com>" or a bare address -> Brevo's sender object.
+export function parseSender(from: string): { name?: string; email: string } {
+  const m = from.trim().match(/^"?([^"<]*?)"?\s*<([^<>\s]+@[^<>\s]+)>$/);
+  if (m) return m[1].trim() ? { name: m[1].trim(), email: m[2] } : { email: m[2] };
+  if (/^[^<>\s]+@[^<>\s]+$/.test(from.trim())) return { email: from.trim() };
+  throw new Error(`INVITE_FROM_EMAIL isn't an email address: ${from}`);
+}
+
+// Brevo transactional email: POST https://api.brevo.com/v3/smtp/email with
+// the api-key header. The sender must be verified in Brevo.
+export function brevoMailer(apiKey: string, from: string, opts: { fetch?: typeof fetch } = {}): Mailer {
+  const sender = parseSender(from);
+  const doFetch = opts.fetch ?? fetch;
   return {
     async sendTrusteeInvite(to, inviteUrl) {
-      const res = await fetch("https://api.resend.com/emails", {
+      const res = await doFetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
-        headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+        headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({
-          from,
-          to,
-          subject: "Someone chose you as their trusted person",
-          text:
-            "Someone you know picked you to help keep their wallet safe.\n\n" +
+          sender,
+          to: [{ email: to }],
+          subject: "Someone chose you as their trusted person on Nod",
+          textContent:
+            "Someone you know picked you to help keep their Nod wallet safe.\n\n" +
             "You'll be asked to approve risky payments before they go out.\n\n" +
             `Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
         }),
       });
-      if (!res.ok) throw new Error(`Resend failed: ${res.status} ${await res.text()}`);
+      if (!res.ok) throw new Error(`Brevo failed: ${res.status} ${await res.text()}`);
     },
   };
 }
-
-// Placeholder until the Arkiv person adds real tGLM top-ups.
-export const noopArkivFunder: ArkivFunder = {
-  fund(address) {
-    console.log(`[arkiv-funder] TODO top up tGLM for ${address}`);
-    return Promise.resolve();
-  },
-};

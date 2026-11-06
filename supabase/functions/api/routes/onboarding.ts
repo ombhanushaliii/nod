@@ -6,12 +6,14 @@ import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { randomHex32, randomToken, sha256Hex } from "../lib/crypto.ts";
 import { mapRepoError, statusOf } from "../lib/errors.ts";
 import type { ArkivFunder, Mailer, PrivyApi } from "../lib/services.ts";
+import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
 
 export type OnboardingDeps = {
   privy: PrivyApi;
   mailer: Mailer;
   funder: ArkivFunder;
+  push: PushSender;
   // The invite token is appended, e.g. "myapp://invite/" or "https://.../invite/".
   inviteUrlBase: string;
 };
@@ -22,12 +24,19 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   const r = new Hono<AppEnv>();
 
   // Register the caller's Privy embedded wallet. Idempotent.
+  // Best effort: a failed top-up never fails the request. The app calls
+  // /onboarding/user on every sign-in, which tops up again if needed.
+  const topUp = (addresses: string[]) =>
+    Promise.all(addresses.map((a) => deps.funder.fund(a).catch((err) => console.error(`tGLM top-up failed for ${a}`, err))));
+
   r.post("/onboarding/user", async (c) => {
     const { walletAddress } = await body(c, z.object({ walletAddress: evmAddress }));
 
     const existing = await c.var.repo.findUserByPrivyId(c.var.privyUserId);
     if (existing) {
       if (existing.wallet_address !== walletAddress) fail(409, "wallet_mismatch", "This account is registered with another wallet.");
+      // Refill the wallet and, for a trustee, their per-pair keys.
+      await topUp([existing.wallet_address, ...await c.var.repo.pairKeysOfTrustee(existing.id)]);
       return c.json({ user: existing, created: false });
     }
 
@@ -37,7 +46,7 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     if (await c.var.repo.findUserByWallet(walletAddress)) fail(409, "wallet_taken");
 
     const user = await c.var.repo.createUser(c.var.privyUserId, walletAddress, owned.id);
-    await deps.funder.fund(walletAddress);
+    await topUp([walletAddress]);
     return c.json({ user, created: true }, 201);
   });
 
@@ -73,6 +82,24 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     return c.json({ pairId: invite.pairId, expiresAt: invite.expiresAt });
   });
 
+  // The user's trustee link. While invited: who was asked and until when.
+  // Once active: what the app needs to write approval requests (the pairId for
+  // the Arkiv entity, and the trustee's key to seal the payment details).
+  r.get("/pair", async (c) => {
+    const user = await requireUser(c);
+    const pair = await c.var.repo.userPair(user.id);
+    if (!pair) return c.json({ status: "none" });
+    if (pair.status === "active") {
+      return c.json({ status: "active", pairId: pair.pairId, trusteeEncPubKey: pair.trusteeEncPubKey, acceptedAt: pair.acceptedAt.toISOString() });
+    }
+    const expired = pair.inviteExpiresAt.getTime() <= Date.now();
+    return c.json({
+      status: expired ? "invite_expired" : "invited",
+      contact: pair.contact,
+      inviteExpiresAt: pair.inviteExpiresAt.toISOString(),
+    });
+  });
+
   r.post("/pairs/accept", async (c) => {
     const trustee = await requireUser(c);
     const { token, pairKeyAddress, encPubKey } = await body(c, z.object({
@@ -87,7 +114,10 @@ export function onboardingRoutes(deps: OnboardingDeps) {
       tokenHash: await sha256Hex(token), trusteeId: trustee.id, pairKeyAddress, encPubKey,
     }).catch(mapRepoError);
 
-    await deps.funder.fund(pairKeyAddress);
+    await topUp([pairKeyAddress]);
+    // Tell the user, so their app doesn't have to keep asking. Never throws.
+    const userId = await c.var.repo.pairUserId(pairId);
+    if (userId) await notifyUser(c.var.repo, deps.push, userId, MESSAGES.trusteeAccepted());
     return c.json({ pairId });
   });
 
