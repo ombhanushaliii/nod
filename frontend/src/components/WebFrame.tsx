@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Linking, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaFrameContext, SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { colors } from '@/theme';
+import { Button } from './Button';
+import { Txt } from './Txt';
 
 // iPhone 17 Pro Max-sized screen, in points, and the bezel drawn around it.
 const SCREEN_W = 440;
@@ -20,6 +24,11 @@ const SCREEN_FRAME = { x: 0, y: 0, width: SCREEN_W, height: SCREEN_H };
 const FRAME_MIN_WIDTH = 700;
 const MARGIN = 24;
 
+// The Android app, from the GitHub release. Shown beside the phone when there's room.
+const ANDROID_APK_URL = 'https://github.com/ombhanushaliii/nod/releases/download/v1.0.0/nod-v1.0.0.apk';
+const PANEL_W = 280;
+const PANEL_GAP = 64;
+
 /** The column narrower screens get. */
 export const WEB_MAX_WIDTH = 512;
 
@@ -28,7 +37,9 @@ function useFrame() {
   if (Platform.OS !== 'web' || width < FRAME_MIN_WIDTH) return null;
   // Short windows scale the whole phone down so it always fits.
   const scale = Math.min(1, (height - 2 * MARGIN) / DEVICE_H, (width - 2 * MARGIN) / DEVICE_W);
-  return { scale };
+  // The Android card only when phone, gap and card all fit side by side.
+  const panel = width >= DEVICE_W * scale + PANEL_GAP + PANEL_W + 2 * MARGIN;
+  return { scale, panel };
 }
 
 /**
@@ -53,9 +64,9 @@ export function WebFrame({ children, transparent }: { children: ReactNode; trans
     );
   }
 
-  const { scale } = frame;
+  const { scale, panel } = frame;
   return (
-    <View style={[styles.outer, styles.center, !transparent && styles.white]} pointerEvents="box-none">
+    <View style={[styles.outer, styles.center, styles.row, !transparent && styles.white]} pointerEvents="box-none">
       {/* Takes the scaled size in the layout; the phone inside is drawn at full size and scaled. */}
       <View style={{ width: DEVICE_W * scale, height: DEVICE_H * scale }} pointerEvents="box-none">
         <View
@@ -82,11 +93,52 @@ export function WebFrame({ children, transparent }: { children: ReactNode; trans
           </View>
         </View>
       </View>
+      {/* Sheets draw the same empty space, so they stay lined up with the phone. */}
+      {panel && (
+        <View style={{ width: PANEL_W, marginLeft: PANEL_GAP }} pointerEvents={transparent ? 'none' : 'auto'}>
+          {!transparent && <AndroidCard />}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** "Also on Android": a QR code and a button for the APK, beside the web phone. */
+function AndroidCard() {
+  return (
+    <View style={styles.card}>
+      <View style={styles.androidBadge}>
+        <Svg width={32} height={24} viewBox="4 6 16 12" fill="none" aria-hidden>
+          <Path d="M5 15a7 7 0 0 1 14 0v1H5v-1z" fill="#3DDC84" />
+          <Path d="M7.5 9.6 6 7.2M16.5 9.6 18 7.2" stroke="#3DDC84" strokeWidth={1.6} strokeLinecap="round" />
+          <Circle cx={9.3} cy={12.6} r={0.9} fill="#fff" />
+          <Circle cx={14.7} cy={12.6} r={0.9} fill="#fff" />
+        </Svg>
+      </View>
+      <View style={{ gap: 6 }}>
+        <Txt size={22} w={800} ls={-0.02}>
+          Also on Android
+        </Txt>
+        <Txt size={15} lh={1.45} color={colors.sub}>
+          Scan with your Android phone to download the Nod app.
+        </Txt>
+      </View>
+      <View style={styles.qr}>
+        <QRCode value={ANDROID_APK_URL} size={168} color={colors.ink} backgroundColor={colors.white} />
+      </View>
+      <Button label="Download APK" variant="dark" height={50} size={16} onPress={() => void Linking.openURL(ANDROID_APK_URL)} />
+      <Txt size={12} color={colors.sub} align="center">
+        v1.0.0
+      </Txt>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center' },
+  card: { gap: 18, padding: 24, borderRadius: 28, backgroundColor: colors.bg },
+  androidBadge: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#E8F8EF', alignItems: 'center', justifyContent: 'center' },
+  qr: { alignSelf: 'center', padding: 14, borderRadius: 20, backgroundColor: colors.white },
   outer: { flex: 1, alignItems: 'center' },
   center: { justifyContent: 'center' },
   white: { backgroundColor: colors.white },
