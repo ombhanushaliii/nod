@@ -84,8 +84,20 @@ test('allow binds to this exact payment and waits 24h for a new person', async (
   assert.equal(log.reports, 0);
 });
 
-test('deny reports the address, and still denies if the report fails', async () => {
+test('deny of a limit-only payment reports nothing', async () => {
   const [r] = read([row()]);
+  assert.equal(r.why, 'limit');
+  const { log, deps: d } = deps();
+  const patch = await decide(r, false, d);
+  assert.equal(log.reports, 0);
+  assert.equal(log.decisions[0].verdict, 'deny');
+  assert.equal(log.decisions[0].reportKey, undefined);
+  assert.equal(patch.status, 'denied');
+});
+
+test('deny of a flagged payment reports the address, and still denies if the report fails', async () => {
+  const [r] = read([row({ sealed: seal({ ...payload, reasons: ['look_alike', 'new_payee'] }, enc.publicKey) })]);
+  assert.equal(r.why, 'flagged');
   const ok = deps();
   await decide(r, false, ok.deps);
   assert.equal(ok.log.decisions[0].reportKey, `0x${'ee'.repeat(32)}`);
@@ -119,9 +131,26 @@ test('withRefill tops up once on insufficient funds', async () => {
 test('inviteTokenFrom takes only a well-formed invite link', async () => {
   const { inviteTokenFrom } = await import('../src/wallet/trustee.ts');
   const t = 'A'.repeat(42) + '_';
-  assert.equal(inviteTokenFrom('trustee/invite', t), t);
-  assert.equal(inviteTokenFrom('/trustee/invite', t), t);
-  assert.equal(inviteTokenFrom('wallet', t), null);
-  assert.equal(inviteTokenFrom('trustee/invite', 'short'), null);
-  assert.equal(inviteTokenFrom('trustee/invite', [t]), null);
+  // nod://trustee/invite?token=… as Linking.parse returns it
+  assert.equal(inviteTokenFrom({ hostname: 'trustee', path: 'invite' }, t), t);
+  // dev link: exp://host/--/trustee/invite
+  assert.equal(inviteTokenFrom({ hostname: null, path: 'trustee/invite' }, t), t);
+  assert.equal(inviteTokenFrom({ hostname: 'wallet', path: null }, t), null);
+  assert.equal(inviteTokenFrom({ hostname: 'evil', path: 'trustee/invite/x' }, t), null);
+  assert.equal(inviteTokenFrom({ hostname: 'trustee', path: 'invite' }, 'short'), null);
+  assert.equal(inviteTokenFrom({ hostname: 'trustee', path: 'invite' }, [t]), null);
+});
+
+test('notifyDecision asks again while Arkiv catches up, then stops', async () => {
+  const { notifyDecision } = await import('../src/wallet/trustee.ts');
+  const waits = [];
+  const answers = ['awaiting_trustee', 'ready'];
+  let calls = 0;
+  await notifyDecision(async () => ({ status: answers[calls++] }), async (ms) => { waits.push(ms); });
+  assert.equal(calls, 2);
+  assert.deepEqual(waits, [1500]);
+
+  calls = 0;
+  await notifyDecision(async () => { calls++; return { status: 'awaiting_trustee' }; }, async () => {});
+  assert.equal(calls, 3);
 });

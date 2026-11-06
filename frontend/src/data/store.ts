@@ -318,10 +318,12 @@ export const useStore = create<Store>()(
               get().pushBanner('user', `${tn} said yes`, isNew ? `${r.name} is new, so it unlocks in 24 hours.` : 'You can send it now.');
               ev({ icon: '✓', title: `You allowed ${money(r.amount)} to ${r.name}`, sub: isNew ? 'Unlocks after 24h' : 'One time' });
             } else {
-              // Deny & report: the address is reported so other wallets get warned (Arkiv scam_report).
-              set((st) => ({ reports: [...st.reports, r.address!.toLowerCase()] }));
+              // Deny & report: a flagged address is reported so other wallets get warned (Arkiv scam_report).
+              // A deny only because of the limit reports nothing.
+              const flagged = r.why === 'flagged';
+              if (flagged) set((st) => ({ reports: [...st.reports, r.address!.toLowerCase()] }));
               get().pushBanner('user', `${tn} said no`, `The payment to ${r.name} won't go out.`);
-              ev({ icon: '✕', title: `You denied ${money(r.amount)} to ${r.name}`, sub: 'Address reported' });
+              ev({ icon: '✕', title: `You denied ${money(r.amount)} to ${r.name}`, sub: flagged ? 'Address reported' : 'Payment stopped' });
             }
           } else if (r.kind === 'export') {
             get().pushBanner('user', allow ? `${tn} allowed key export` : `${tn} said no`, allow ? 'Open Settings to view it.' : 'Your key stays hidden.');

@@ -34,8 +34,8 @@ function useInviteLink() {
   const url = Linking.useURL();
   useEffect(() => {
     if (isDemo || !url) return;
-    const { path, queryParams } = Linking.parse(url);
-    const token = inviteTokenFrom(path, queryParams?.token);
+    const { hostname, path, queryParams } = Linking.parse(url);
+    const token = inviteTokenFrom({ hostname, path }, queryParams?.token);
     if (token) useStore.setState({ inviteToken: token });
   }, [url]);
 }

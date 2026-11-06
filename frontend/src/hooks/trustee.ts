@@ -19,7 +19,7 @@ import { useWallet } from '@/wallet/context';
 import { useWalletSetup } from '@/wallet/hooks';
 import { onPush } from '@/wallet/push';
 import { useWalletSigning } from '@/wallet/signing';
-import { decide, type LivePerson, mergeRequests, readRequests, withRefill } from '@/wallet/trustee';
+import { decide, type LivePerson, mergeRequests, notifyDecision, readRequests, withRefill } from '@/wallet/trustee';
 
 type UserView = { pairId: string; walletAddress: string; pairKeyAddress: string; amountLimit: string; notifyMode: LivePerson['mode'] };
 
@@ -95,11 +95,13 @@ async function checkPairKeys(users: UserView[], pair: (pairId: string) => Promis
  */
 export function useTrusteeSync() {
   const { live, api, assertSession } = useLiveApi();
-  const { session } = useWallet();
+  // The session object is rebuilt on every render; key on who is signed in.
+  const { userId, session } = useWallet();
+  const signedIn = !!session;
   const register = useWalletSetup({ signer: false });
   const keys = useTrusteeKeys();
   useEffect(() => {
-    if (!live || !session) return;
+    if (!live || !signedIn) return;
     let stopped = false;
     let running = false;
     const sync = async () => {
@@ -136,7 +138,7 @@ export function useTrusteeSync() {
     const app = AppState.addEventListener('change', (st) => { if (st === 'active') void sync(); });
     const push = onPush((data) => { if (data.type === 'approval_request') void sync(); });
     return () => { stopped = true; app.remove(); push(); };
-  }, [live, session, api, assertSession, register, keys]);
+  }, [live, signedIn, userId, api, assertSession, register, keys]);
 }
 
 /** The trustee accepts the invite link opened on this phone. */
@@ -188,7 +190,7 @@ export function useLiveDecide() {
         pairId: d.pairId, requestKey: d.requestKey as Hex, verdict: d.verdict,
         intentHash: d.intentHash as Hex | undefined, validFrom: d.validFrom, reportKey: d.reportKey as Hex | undefined,
       })).entityKey, refill),
-      notify: (pairId, key) => api('/trustee/decisions', { pairId, requestKey: key }),
+      notify: (pairId, key) => notifyDecision(() => api<{ status?: string }>('/trustee/decisions', { pairId, requestKey: key })),
     });
     assertSession();
     patchInbox(r.id, patch);

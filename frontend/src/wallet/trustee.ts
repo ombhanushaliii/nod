@@ -10,8 +10,11 @@ export type LivePerson = { pairId: string; walletAddress: string; limit: number;
 export type RequestRow = { key: string; creator: string; pairId: string; kind: string; createdAt: number; sealed: Uint8Array };
 
 /** The token from an invite link (nod://trustee/invite?token=…): 32 random bytes, base64url. */
-export function inviteTokenFrom(path: string | null | undefined, token: unknown): string | null {
-  if (!path || !/^\/?trustee\/invite\/?$/.test(path)) return null;
+// Linking.parse puts "trustee" in hostname for nod://trustee/invite, and in
+// path for dev links (exp://…/--/trustee/invite). Both count.
+export function inviteTokenFrom(link: { hostname?: string | null; path?: string | null }, token: unknown): string | null {
+  const full = [link.hostname, link.path].filter(Boolean).join('/').replace(/^\/+|\/+$/g, '');
+  if (full !== 'trustee/invite' && link.path?.replace(/^\/+|\/+$/g, '') !== 'trustee/invite') return null;
   return typeof token === 'string' && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 }
 
@@ -113,6 +116,21 @@ export function mergeRequests(current: ApprovalRequest[], fresh: ApprovalRequest
   return merged.sort((a, b) => b.createdAt - a.createdAt).slice(0, 100);
 }
 
+/**
+ * Tells the backend about a decision. Arkiv may take a block or two to show
+ * it, so while the backend still says awaiting_trustee, ask again (1.5s, 3s).
+ */
+export async function notifyDecision(
+  post: () => Promise<{ status?: string }>,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await post();
+    if (res?.status !== 'awaiting_trustee' || attempt >= 2) return;
+    await wait(1500 * (attempt + 1));
+  }
+}
+
 export type DecideDeps = {
   intentHash: (to: `0x${string}`, amount: bigint, nonce: `0x${string}`) => string;
   writeReport: (address: string) => Promise<string>;
@@ -126,8 +144,9 @@ export type DecideDeps = {
 
 /**
  * Writes the trustee's answer with the per-pair key. Allow is bound to this
- * exact payment (intentHash). Deny also reports the address publicly; if the
- * report fails, the deny still goes out.
+ * exact payment (intentHash). Deny of a flagged payment also reports the
+ * address publicly; if the report fails, the deny still goes out. A deny only
+ * because of the limit reports nothing: the address may be someone real.
  */
 export async function decide(r: ApprovalRequest, allow: boolean, deps: DecideDeps): Promise<Partial<ApprovalRequest>> {
   if (!r.pairId || !r.address || !r.amountUnits || !r.nonce) throw new Error('This request is missing details.');
@@ -142,10 +161,12 @@ export async function decide(r: ApprovalRequest, allow: boolean, deps: DecideDep
     return { status: 'allowed', decidedAt: now, validFrom };
   }
   let reportKey: string | undefined;
-  try {
-    reportKey = await deps.writeReport(r.address);
-  } catch {
-    reportKey = undefined;
+  if (r.why === 'flagged') {
+    try {
+      reportKey = await deps.writeReport(r.address);
+    } catch {
+      reportKey = undefined;
+    }
   }
   await deps.writeDecision({ pairId: r.pairId, requestKey: r.id, verdict: 'deny', reportKey });
   await deps.notify(r.pairId, r.id).catch(() => {});

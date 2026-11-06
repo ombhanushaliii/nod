@@ -37,7 +37,7 @@ function livePeople(s: Store, now: number): Person[] {
       return {
         id: r.id, icon: allowed ? '✓' : '✕', tone: (allowed ? 'green' : 'red') as Tone,
         title: `You ${allowed ? 'allowed' : 'denied'} ${m0(r.amount ?? 0)} to ${r.name}`,
-        sub: allowed ? (r.newPayee ? 'Unlocks after 24h' : 'One time') : 'Address reported',
+        sub: allowed ? (r.newPayee ? 'Unlocks after 24h' : 'One time') : r.why === 'flagged' ? 'Address reported' : 'Payment stopped',
         time: ago(r.decidedAt ?? r.createdAt, now),
       };
     });

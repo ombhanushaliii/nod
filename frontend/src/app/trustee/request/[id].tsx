@@ -84,7 +84,7 @@ export default function Request() {
             btn: 'Allow export',
             btnBg: tones.red.fg,
           }
-      : isPayment
+      : isPayment && risky
         ? {
             icon: '✕',
             ...tones.plain,
@@ -93,7 +93,16 @@ export default function Request() {
             btn: 'Deny & report',
             btnBg: colors.ink,
           }
-        : { icon: '✕', ...tones.plain, title: 'Deny this request?', body: `@${username} will be told you said no.`, btn: 'Deny', btnBg: colors.ink };
+        : isPayment
+          ? {
+              icon: '✕',
+              ...tones.plain,
+              title: 'Deny this payment?',
+              body: `It won’t go out, and @${username} will be told you said no. Nothing gets reported.`,
+              btn: 'Deny',
+              btnBg: colors.ink,
+            }
+          : { icon: '✕', ...tones.plain, title: 'Deny this request?', body: `@${username} will be told you said no.`, btn: 'Deny', btnBg: colors.ink };
 
   // Live, each answer is one or two Arkiv writes: a few seconds. One at a time.
   const onConfirm = async () => {
@@ -195,7 +204,7 @@ export default function Request() {
       )}
       {state === 'pending' && (
         <View style={styles.actions}>
-          <Button label={isPayment ? 'Deny & report' : 'Deny'} variant="dark" size={16} style={{ flex: 1 }} disabled={busy} onPress={() => setConfirm('deny')} />
+          <Button label={risky ? 'Deny & report' : 'Deny'} variant="dark" size={16} style={{ flex: 1 }} disabled={busy} onPress={() => setConfirm('deny')} />
           <Button label={busy ? 'Sending…' : isPayment ? 'Allow once' : 'Allow'} size={16} style={{ flex: 1 }} disabled={busy} onPress={() => setConfirm('allow')} />
         </View>
       )}
