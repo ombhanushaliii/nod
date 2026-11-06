@@ -58,6 +58,11 @@ type Data = {
   pairId: string | null;
   /** Live: Arkiv request keys already written, by payment id, so a retry never writes twice. */
   requestKeys: Record<string, string>;
+  /**
+   * Live: "wallet|signerId|policyId" once the backend signer was added to this
+   * wallet. Privy appends signers on every add, so it's added once, not per action.
+   */
+  signerAddedFor: string | null;
   events: ActivityEvent[];
   /** Live, trustee side: the people this account protects (GET /trustee/users). */
   people: LivePerson[];
@@ -145,6 +150,7 @@ function initialData(): Data {
     reports: [],
     pairId: null,
     requestKeys: {},
+    signerAddedFor: null,
     events: [],
     people: [],
     inbox: [],
@@ -375,6 +381,7 @@ export const useStore = create<Store>()(
         reports: s.reports,
         pairId: s.pairId,
         requestKeys: s.requestKeys,
+        signerAddedFor: s.signerAddedFor,
         events: s.events,
         people: s.people,
         inbox: s.inbox,

@@ -93,7 +93,14 @@ export function useSendPayment() {
       const tx = buildUsdcTransfer(draft.address, amountString(draft.amount ?? 0));
       await setup();
       // The backend rebuilds the transfer from its saved payment.
-      const txHash = await sendCheckedPayment(result.paymentId, tx, api, assertSession);
+      let txHash: string;
+      try {
+        txHash = await sendCheckedPayment(result.paymentId, tx, api, assertSession);
+      } catch (err) {
+        // Privy refused: the signer may have been removed. Add it again next time.
+        if (err instanceof ApiError && err.code === 'send_failed') useStore.setState({ signerAddedFor: null });
+        throw err;
+      }
       const state = useStore.getState();
       useStore.setState({
         sentText: `${amountString(draft.amount ?? 0)} USDC to ${draft.name}`,

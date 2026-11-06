@@ -6,6 +6,7 @@ import { useStore } from '@/data/store';
 
 import { apiRequest } from './backend';
 import { paymentClient, USDC_ADDRESS } from './chains';
+import { walletConfig } from './config';
 import { useWallet } from './context';
 
 export function useWalletAuth() {
@@ -67,7 +68,15 @@ export function useWalletSetup({ signer = true }: { signer?: boolean } = {}) {
   const { enableBackendSigner, getAccessToken, walletAddress } = useWallet();
   return useCallback(async () => {
     if (!walletAddress) throw new Error('Connect your wallet first.');
-    if (signer) await enableBackendSigner();
+    if (signer) {
+      // Privy's addSigners appends to the wallet's list every time, so only
+      // add the backend signer when this wallet doesn't have this one yet.
+      const tag = `${walletAddress.toLowerCase()}|${walletConfig.signerId}|${walletConfig.policyId}`;
+      if (useStore.getState().signerAddedFor !== tag) {
+        await enableBackendSigner();
+        useStore.setState({ signerAddedFor: tag });
+      }
+    }
     return apiRequest(getAccessToken, '/onboarding/user', { walletAddress: walletAddress.toLowerCase() });
   }, [signer, enableBackendSigner, getAccessToken, walletAddress]);
 }
