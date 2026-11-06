@@ -317,6 +317,7 @@ export class MemoryRepo implements Repo {
     return Promise.resolve(this.pairs.filter((p) => p.trusteeId === trusteeId && p.status === "active").map((p) => ({
       pairId: p.pairId,
       userId: p.userId,
+      privyUserId: this.users.find((u) => u.id === p.userId)!.privy_user_id,
       walletAddress: this.users.find((u) => u.id === p.userId)!.wallet_address,
       pairKeyAddress: p.pairKeyAddress!,
       rules: { ...this.rules.get(p.userId)! },

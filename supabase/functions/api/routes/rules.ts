@@ -5,8 +5,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { mapRepoError } from "../lib/errors.ts";
+import { handleFrom } from "../lib/handle.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import type { Rules } from "../lib/repo.ts";
+import type { PrivyApi } from "../lib/services.ts";
 import { FIRST_PAYMENT_CAP, formatUsdc, parseUsdc } from "../lib/rules.ts";
 import { body, hex32 } from "../lib/validate.ts";
 
@@ -16,7 +18,7 @@ const notifyMode = z.enum(["first_per_payee", "every_time"]);
 
 const show = (r: Rules) => ({ amountLimit: formatUsdc(r.amountLimit), notifyMode: r.notifyMode });
 
-export type RulesDeps = { push: PushSender };
+export type RulesDeps = { push: PushSender; privy: Pick<PrivyApi, "contactEmail"> };
 
 export function rulesRoutes(deps: RulesDeps) {
   const r = new Hono<AppEnv>();
@@ -41,7 +43,16 @@ export function rulesRoutes(deps: RulesDeps) {
   r.get("/trustee/users", async (c) => {
     const me = await requireUser(c);
     const list = await c.var.repo.protectedUsers(me.id);
-    return c.json({ users: list.map((u) => ({ pairId: u.pairId, walletAddress: u.walletAddress, pairKeyAddress: u.pairKeyAddress, ...show(u.rules) })) });
+    const users = await Promise.all(list.map(async (u) => {
+      // Their @handle, made from their Google email like the app does. Best
+      // effort: without it the trustee app shows a short wallet address.
+      const email = await deps.privy.contactEmail(u.privyUserId).catch(() => null);
+      return {
+        pairId: u.pairId, walletAddress: u.walletAddress, pairKeyAddress: u.pairKeyAddress,
+        username: email ? handleFrom(email) : null, ...show(u.rules),
+      };
+    }));
+    return c.json({ users });
   });
 
   r.patch("/trustee/users/:pairId/rules", async (c) => {

@@ -43,7 +43,7 @@ export type UserPair =
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
-export type ProtectedUser = { pairId: string; userId: string; walletAddress: string; pairKeyAddress: string; rules: Rules };
+export type ProtectedUser = { pairId: string; userId: string; privyUserId: string; walletAddress: string; pairKeyAddress: string; rules: Rules };
 
 // Short codes raised by the SQL functions in the migrations.
 export type InviteError = "pair_active" | "invite_not_found" | "invite_used" | "invite_expired" | "self_trustee";
@@ -478,7 +478,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       if (pairs.data.length === 0) return [];
       const ids = pairs.data.map((p) => p.user_id);
       const [users, rules] = await Promise.all([
-        db.from("users").select("id, wallet_address").in("id", ids),
+        db.from("users").select("id, wallet_address, privy_user_id").in("id", ids),
         db.from("rules").select("user_id, amount_limit, notify_mode").in("user_id", ids),
       ]);
       if (users.error) rethrow(users.error);
@@ -486,6 +486,7 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       return pairs.data.map((p) => ({
         pairId: p.pair_id,
         userId: p.user_id,
+        privyUserId: users.data.find((u) => u.id === p.user_id)!.privy_user_id,
         walletAddress: users.data.find((u) => u.id === p.user_id)!.wallet_address,
         pairKeyAddress: p.pair_key_address,
         rules: toRules(rules.data.find((r) => r.user_id === p.user_id)!),
