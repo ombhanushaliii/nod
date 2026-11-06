@@ -12,7 +12,7 @@ export type AppEnv = {
 
 export type AppContext = Context<AppEnv>;
 
-export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 410 | 422 | 500 | 502;
+export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 410 | 422 | 429 | 500 | 502;
 
 // Throw from any handler to answer with a JSON error.
 export function fail(status: HttpStatus, code: string, message?: string): never {

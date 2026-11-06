@@ -2,23 +2,29 @@
 // trustee changes them, and changes apply at once. The user can read them but
 // can't change or propose changes. The $10 first-payment cap is fixed.
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { mapRepoError } from "../lib/errors.ts";
 import { handleFrom } from "../lib/handle.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
-import type { Rules } from "../lib/repo.ts";
+import { RepoError, type Rules } from "../lib/repo.ts";
 import type { PrivyApi } from "../lib/services.ts";
 import { FIRST_PAYMENT_CAP, formatUsdc, parseUsdc } from "../lib/rules.ts";
 import { body, hex32 } from "../lib/validate.ts";
 
 const HISTORY_LIMIT = 20;
 
+// A trustee can change one person's rules at most this often (enforced in the
+// set_rules SQL function, rule_change_limit migration; keep the two in step).
+export const RULE_CHANGE_LIMIT = 5;
+export const RULE_CHANGE_WINDOW_MS = 10 * 60 * 1000;
+
 const notifyMode = z.enum(["first_per_payee", "every_time"]);
 
 const show = (r: Rules) => ({ amountLimit: formatUsdc(r.amountLimit), notifyMode: r.notifyMode });
 
-export type RulesDeps = { push: PushSender; privy: Pick<PrivyApi, "contactEmail"> };
+export type RulesDeps = { push: PushSender; privy: Pick<PrivyApi, "contactEmail">; now?: () => Date };
 
 export function rulesRoutes(deps: RulesDeps) {
   const r = new Hono<AppEnv>();
@@ -78,7 +84,22 @@ export function rulesRoutes(deps: RulesDeps) {
     if (!before) fail(404, "not_your_pair", "You're not this user's trustee.");
     const rules = await repo.setRules(pairId.data, me.id, {
       amountLimit, notifyMode: input.notifyMode ?? null,
-    }).catch(mapRepoError);
+    }).catch(async (err) => {
+      if (!(err instanceof RepoError && err.code === "too_many_rule_changes")) return mapRepoError(err);
+      // Free again once the oldest of the last 5 changes is 10 minutes old.
+      const now = (deps.now ?? (() => new Date()))().getTime();
+      const { history } = await repo.rulesView(before.userId, RULE_CHANGE_LIMIT);
+      const oldest = history[history.length - 1]?.at.getTime() ?? now;
+      const retryAt = new Date(Math.max(oldest + RULE_CHANGE_WINDOW_MS, now + 1000));
+      const minutes = Math.ceil((retryAt.getTime() - now) / 60_000);
+      throw new HTTPException(429, {
+        res: Response.json({
+          error: "too_many_rule_changes",
+          message: `You can change these rules ${RULE_CHANGE_LIMIT} times in 10 minutes. Try again in ${minutes} min.`,
+          retryAt: retryAt.toISOString(),
+        }, { status: 429, headers: { "Retry-After": String(Math.ceil((retryAt.getTime() - now) / 1000)) } }),
+      });
+    });
 
     if (rules.amountLimit !== before.rules.amountLimit || rules.notifyMode !== before.rules.notifyMode) {
       await notifyUser(repo, deps.push, before.userId, MESSAGES.rulesChanged());

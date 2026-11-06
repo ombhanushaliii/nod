@@ -329,6 +329,12 @@ export class MemoryRepo implements Repo {
     if (!pair) return Promise.reject(new RepoError("not_your_pair"));
     const from = this.rules.get(pair.userId)!;
     const to = { amountLimit: patch.amountLimit ?? from.amountLimit, notifyMode: patch.notifyMode ?? from.notifyMode };
+    // The rule_change_limit migration: at most 5 real changes in 10 minutes.
+    const changed = to.amountLimit !== from.amountLimit || to.notifyMode !== from.notifyMode;
+    const since = this.clock().getTime() - 10 * 60 * 1000;
+    if (changed && this.ruleHistory.filter((h) => h.userId === pair.userId && h.at.getTime() > since).length >= 5) {
+      return Promise.reject(new RepoError("too_many_rule_changes"));
+    }
     this.rules.set(pair.userId, to);
     this.rulesMeta.set(pair.userId, { updatedAt: this.clock(), updatedBy: trusteeId });
     if (to.amountLimit !== from.amountLimit || to.notifyMode !== from.notifyMode) {

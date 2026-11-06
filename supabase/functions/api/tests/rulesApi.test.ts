@@ -96,3 +96,44 @@ Deno.test("trustee sees each person's @handle, made from their email like the ap
   const res = await t.call(TRUSTEE, "GET", "/trustee/users");
   assertEquals(res.body.users[0].username, "yashjoisarme");
 });
+
+const MINUTE = 60 * 1000;
+
+Deno.test("rate limit: 5 rule changes in 10 minutes, the 6th waits", async () => {
+  const t = await setup();
+  for (const [i, limit] of ["110", "120", "130", "140", "150"].entries()) {
+    t.state.now = new Date(t.state.now.getTime() + MINUTE); // minutes 1..5
+    assertEquals((await setRules(t, TRUSTEE, { amountLimit: limit })).status, 200, `change ${i + 1}`);
+  }
+  const pushesBefore = t.state.pushes.length;
+
+  t.state.now = new Date(t.state.now.getTime() + MINUTE); // minute 6
+  const sixth = await setRules(t, TRUSTEE, { notifyMode: "every_time" });
+  assertEquals(sixth.status, 429);
+  assertEquals(sixth.body.error, "too_many_rule_changes");
+  // The oldest change (minute 1) frees up at minute 11: 5 minutes from now.
+  assertEquals(sixth.body.message, "You can change these rules 5 times in 10 minutes. Try again in 5 min.");
+  assertEquals(sixth.body.retryAt, new Date(t.state.now.getTime() + 5 * MINUTE).toISOString());
+
+  // Nothing changed, nothing was pushed, and the history has 5 entries.
+  const view = (await t.call(USER, "GET", "/rules")).body;
+  assertEquals([view.amountLimit, view.notifyMode, view.history.length], ["150", "first_per_payee", 5]);
+  assertEquals(t.state.pushes.length, pushesBefore);
+
+  // Saving the same values isn't a change, so it still goes through.
+  assertEquals((await setRules(t, TRUSTEE, { amountLimit: "150" })).status, 200);
+});
+
+Deno.test("rate limit: the window slides, so changes come back one at a time", async () => {
+  const t = await setup();
+  const start = t.state.now.getTime();
+  for (const limit of ["110", "120", "130", "140", "150"]) {
+    assertEquals((await setRules(t, TRUSTEE, { amountLimit: limit })).status, 200);
+  }
+  // All 5 at minute 0: still blocked just before minute 10, free just after.
+  t.state.now = new Date(start + 10 * MINUTE - 1000);
+  assertEquals((await setRules(t, TRUSTEE, { amountLimit: "160" })).status, 429);
+  t.state.now = new Date(start + 10 * MINUTE + 1000);
+  assertEquals((await setRules(t, TRUSTEE, { amountLimit: "160" })).status, 200);
+  assertEquals((await setRules(t, TRUSTEE, { amountLimit: "170" })).status, 200);
+});
