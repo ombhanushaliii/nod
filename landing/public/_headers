@@ -14,3 +14,10 @@
   Referrer-Policy: no-referrer
   Cache-Control: no-store
   X-Robots-Tag: noindex
+
+# Key export: no referrer, no caching, no search results, and no framing.
+/export
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
+  X-Robots-Tag: noindex
+  X-Frame-Options: DENY
