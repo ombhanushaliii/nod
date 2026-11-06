@@ -8,15 +8,43 @@ import { ADDR, capLeft, isValidAddress, payeeBy } from '@/data/engine';
 import { useStore } from '@/data/store';
 import { dur, m0, short } from '@/lib/format';
 import { colors, tones, type Tone } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
-/** Test addresses that trigger each rule, so the flow can be demoed without a backend. */
-const DEMO_CHIPS: { label: string; address: string; name: string; sub: string; tone: Tone; icon: string }[] = [
+const isEvmAddress = (v: string) => /^0x[0-9a-fA-F]{40}$/.test(v);
+
+type TestAddress = { label: string; address: string; name: string; sub: string; tone: Tone; icon: string };
+
+/** Demo: made-up addresses the phone's own engine knows to flag. */
+const DEMO_CHIPS: TestAddress[] = [
   { label: 'New person', address: ADDR.ARI, name: 'Ari', sub: '$10 max for 24h', tone: 'green', icon: '✓' },
   { label: 'Reported scam', address: ADDR.SCAM, name: 'Crypto Support', sub: 'Goes to trustee', tone: 'red', icon: '!' },
   { label: 'Risky address', address: ADDR.RISKY, name: 'Airdrop', sub: 'Fails security check', tone: 'red', icon: '!' },
   { label: 'Mom look-alike', address: ADDR.LOOK, name: 'Mom (new)', sub: 'Copycat address', tone: 'amber', icon: '≈' },
   { label: 'Unconfirmed', address: ADDR.RUMOR, name: 'Jules', sub: 'Reports not verified', tone: 'info', icon: '?' },
 ];
+
+/**
+ * Live: the backend checks the real address, so each chip must be one that really
+ * trips the rule it names. Made-up addresses would come back clean and let you send.
+ */
+const LIVE_CHIPS: TestAddress[] = [
+  { label: 'New person', address: ADDR.ARI, name: 'Ari', sub: '$10 max for 24h', tone: 'green', icon: '✓' },
+  // A known phishing wallet (eth-labels "Fake_Phishing59"; also flagged for phishing by the security check).
+  { label: 'Reported scam', address: '0x00000952c5165e391ed0f8adffcfaf45f3b80000', name: 'Crypto Support', sub: 'Goes to trustee', tone: 'red', icon: '!' },
+  // Linked to stolen funds by the security check.
+  { label: 'Risky address', address: '0x7c8601d4645b93cea45f71e118a729332e6b5ca0', name: 'Airdrop', sub: 'Fails security check', tone: 'red', icon: '!' },
+];
+
+/**
+ * A copy of an address you paid: same first 4 and last 4 characters after 0x (what
+ * the backend's look-alike check compares), different middle. The middle is the
+ * original's, reversed and shifted, so it never matches the real one.
+ */
+function lookAlikeOf(address: string) {
+  const a = address.toLowerCase();
+  const middle = a.slice(6, -4).split('').reverse().map((c) => ((parseInt(c, 16) + 7) % 16).toString(16)).join('');
+  return `${a.slice(0, 6)}${middle}${a.slice(-4)}`;
+}
 
 /** "Send to": paste an address, pick a test address, or pick someone already added. */
 export default function SendTo() {
@@ -26,6 +54,13 @@ export default function SendTo() {
   const setDraft = useStore((s) => s.setDraft);
   const [to, setTo] = useState('');
   const [name, setName] = useState('');
+  // Live: a look-alike of the last person you paid, when there is one.
+  const lastPaid = payments.find((p) => p.address && isEvmAddress(p.address));
+  const chips: TestAddress[] = isDemo
+    ? DEMO_CHIPS
+    : lastPaid
+      ? [...LIVE_CHIPS, { label: `${lastPaid.to} look-alike`, address: lookAlikeOf(lastPaid.address), name: `${lastPaid.to} (new)`, sub: 'Copycat address', tone: 'amber', icon: '≈' }]
+      : LIVE_CHIPS;
 
   const tv = to.trim();
   const valid = isValidAddress(tv);
@@ -67,7 +102,7 @@ export default function SendTo() {
           keyboardShouldPersistTaps="handled"
           style={{ marginHorizontal: -20 }}
           contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 2, paddingBottom: 6 }}>
-          {DEMO_CHIPS.map((d) => {
+          {chips.map((d) => {
             const t = tones[d.tone];
             const on = to.toLowerCase() === d.address.toLowerCase();
             return (
