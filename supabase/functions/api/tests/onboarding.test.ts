@@ -255,11 +255,19 @@ Deno.test("invites by email: nothing for another email, no email, or your own in
   assertEquals((await t.call(USER, "GET", "/trustee/invites")).body.invites, []);
 });
 
-Deno.test("invites by email: needs onboarding first", async () => {
-  const t = makeTestApp();
-  const res = await t.call(TRUSTEE, "GET", "/trustee/invites");
-  assertEquals(res.status, 403);
-  assertEquals(res.body.error, "not_onboarded");
+Deno.test("invites by email: works straight after sign-in, before the account is set up", async () => {
+  const t = await setup();
+  t.privyEmails.set(USER, "user@example.com");
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "new@example.com" });
+  // Signed in with Privy, no Nod account yet.
+  const NEWCOMER = "did:privy:newcomer";
+  t.privyEmails.set(NEWCOMER, "new@example.com");
+  const res = await t.call(NEWCOMER, "GET", "/trustee/invites");
+  assertEquals(res.status, 200);
+  assertEquals(res.body.invites.length, 1);
+  assertEquals(res.body.invites[0].from, "user@example.com");
+  // Still needs a valid sign-in.
+  assertEquals((await t.call(null, "GET", "/trustee/invites")).status, 401);
 });
 
 Deno.test("accept by invite id: only the invited email can, then it drops off the list", async () => {

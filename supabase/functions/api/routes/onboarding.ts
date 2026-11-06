@@ -128,8 +128,9 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   const callerEmail = async (privyUserId: string) =>
     (await deps.privy.contactEmail(privyUserId))?.trim().toLowerCase() ?? null;
 
+  // Works before the account is set up (signed in only), so the app can open a
+  // newly invited trustee on the trustee side straight after their first sign-in.
   r.get("/trustee/invites", async (c) => {
-    await requireUser(c);
     const email = await callerEmail(c.var.privyUserId);
     if (!email) return c.json({ invites: [] });
     const open = (await c.var.repo.invitesFor(email)).filter((i) => i.inviterPrivyUserId !== c.var.privyUserId);
