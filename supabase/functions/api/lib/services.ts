@@ -1,4 +1,5 @@
 // Outside services the API calls. Each is an interface so tests can fake it.
+import { trusteeInviteEmail } from "./inviteEmail.ts";
 
 export interface PrivyApi {
   // The user's Privy embedded Ethereum wallets (lower-case address + Privy wallet id).
@@ -6,7 +7,8 @@ export interface PrivyApi {
 }
 
 export interface Mailer {
-  sendTrusteeInvite(to: string, inviteUrl: string): Promise<void>;
+  // inviterName: the user's @handle from their app, untrusted; optional.
+  sendTrusteeInvite(to: string, inviteUrl: string, inviterName?: string | null): Promise<void>;
 }
 
 // Tops up an Arkiv address with tGLM (D1). See arkivFunder.ts.
@@ -48,18 +50,18 @@ export function brevoMailer(apiKey: string, from: string, opts: { fetch?: typeof
   const sender = parseSender(from);
   const doFetch = opts.fetch ?? fetch;
   return {
-    async sendTrusteeInvite(to, inviteUrl) {
+    async sendTrusteeInvite(to, inviteUrl, inviterName) {
+      // HTML from email/trustee-invite.html, plus a plain-text copy.
+      const email = trusteeInviteEmail({ inviteUrl, inviterName, expiresDays: 7 });
       const res = await doFetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({
           sender,
           to: [{ email: to }],
-          subject: "Someone chose you as their trusted person on Nod",
-          textContent:
-            "Someone you know picked you to help keep their Nod wallet safe.\n\n" +
-            "You'll be asked to approve risky payments before they go out.\n\n" +
-            `Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+          subject: email.subject,
+          htmlContent: email.html,
+          textContent: email.text,
         }),
       });
       if (!res.ok) throw new Error(`Brevo failed: ${res.status} ${await res.text()}`);

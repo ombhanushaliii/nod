@@ -427,7 +427,7 @@ export class MemoryRepo implements Repo {
 
 export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } = {}) {
   const repo = new MemoryRepo();
-  const mails: { to: string; url: string }[] = [];
+  const mails: { to: string; url: string; inviterName?: string | null }[] = [];
   const funded: string[] = [];
   // Privy DID -> embedded wallets, as Privy's API would report.
   const privyWallets = new Map<string, string[]>();
@@ -467,9 +467,9 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
         Promise.resolve((privyWallets.get(did) ?? []).map((a) => ({ address: a.toLowerCase(), id: `wallet-${a.toLowerCase()}` }))),
     },
     mailer: {
-      sendTrusteeInvite(to, url) {
+      sendTrusteeInvite(to, url, inviterName) {
         if (state.mailFails) return Promise.reject(new Error("email down"));
-        mails.push({ to, url });
+        mails.push({ to, url, inviterName });
         return Promise.resolve();
       },
     },

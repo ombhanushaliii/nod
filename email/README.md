@@ -20,3 +20,14 @@ The templates are filled in with sample content. Replace it when you send them:
 - **Links:** the `https://nod.app/...` links (accept, invite, trustee rules, help, email settings) are
   placeholders.
 - **Footer address:** `100 Example Street, San Francisco` is a placeholder. Use a real mailing address.
+
+## In use
+
+`trustee-invite.html` is sent by the API (`POST /onboarding/invite`) through
+Brevo. Its HTML lives in `supabase/functions/api/lib/inviteEmail.ts`, since the
+Edge Function can't read this folder: change both when the design changes.
+There, the sample name becomes the inviter's `@handle` (or "your contact"),
+the button opens the invite link, the logo is
+`https://getnod.pages.dev/assets/nod-logo.png`, and the sample address and
+placeholder links are gone. `welcome.html` and `trustee-welcome.html` aren't
+sent yet.

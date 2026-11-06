@@ -117,7 +117,8 @@ export function useInviteTrustee() {
     if (live) {
       // Registers the wallet first (the invite needs an account) and tops up tGLM.
       await setup();
-      await api('/onboarding/invite', { trusteeEmail: contact.trim() });
+      // The @handle the user sees in the app, so the trustee knows who asked.
+      await api('/onboarding/invite', { trusteeEmail: contact.trim(), inviterName: useStore.getState().username || undefined });
       assertSession();
     }
     invite(contact);

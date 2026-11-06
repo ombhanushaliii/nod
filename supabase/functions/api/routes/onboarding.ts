@@ -54,7 +54,11 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   // with a fresh link (the old link stops working).
   r.post("/onboarding/invite", async (c) => {
     const user = await requireUser(c);
-    const { trusteeEmail } = await body(c, z.object({ trusteeEmail: z.string().trim().toLowerCase().email() }));
+    const { trusteeEmail, inviterName } = await body(c, z.object({
+      trusteeEmail: z.string().trim().toLowerCase().email(),
+      // The user's @handle, shown in the email. Checked and escaped by the mailer.
+      inviterName: z.string().max(64).optional(),
+    }));
 
     const token = randomToken();
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
@@ -64,7 +68,7 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     }).catch(mapRepoError);
 
     try {
-      await deps.mailer.sendTrusteeInvite(trusteeEmail, deps.inviteUrlBase + token);
+      await deps.mailer.sendTrusteeInvite(trusteeEmail, deps.inviteUrlBase + token, inviterName);
     } catch (err) {
       console.error(err);
       fail(502, "email_failed", "The invite was saved but the email didn't send. Try again.");
