@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { parseEther } from "viem"
-import { parseArgs, planImport, worstCaseCost } from "./import-plan"
+import { parseArgs, planImport, planPrune, worstCaseCost } from "./import-plan"
 import type { ScamEntry } from "./sources/types"
 
 const A = "0x098B716B8Aaf21512996dC57EB0615e2383E2f96"
@@ -37,16 +37,32 @@ test("worst-case cost is 1M gas per report", () => {
 })
 
 test("parseArgs: dry run of everything by default", () => {
-  expect(parseArgs([])).toEqual({ write: false, sources: ["ofac", "eth-labels"], limit: null, maxSpend: "1" })
+  expect(parseArgs([])).toEqual({ write: false, prune: false, sources: ["ofac", "eth-labels"], limit: null, maxSpend: "1" })
 })
 
 test("parseArgs: one source, a limit, a cap and --yes", () => {
   expect(parseArgs(["--source=ofac", "--limit=5", "--max-spend=0.1", "--yes"]))
-    .toEqual({ write: true, sources: ["ofac"], limit: 5, maxSpend: "0.1" })
+    .toEqual({ write: true, prune: false, sources: ["ofac"], limit: 5, maxSpend: "0.1" })
 })
 
 test("parseArgs refuses bad values", () => {
   expect(() => parseArgs(["--source=goplus"])).toThrow("--source")
   expect(() => parseArgs(["--limit=0"])).toThrow("--limit")
   expect(() => parseArgs(["--max-spend=lots"])).toThrow("--max-spend")
+})
+
+test("planPrune: only the seed's imported reports for addresses no list has", () => {
+  const gone = "0x0000000000000000000000000000000000000abc"
+  const reports = [
+    { key: "0x01", address: A.toLowerCase(), source: "ofac" },
+    { key: "0x02", address: gone, source: "ofac" },
+    { key: "0x03", address: gone.toUpperCase().replace("0X", "0x"), source: "list" },
+    { key: "0x04", address: gone, source: "trustee" },
+  ]
+  expect(planPrune([ofac, labels], reports).map((r) => r.key)).toEqual(["0x02", "0x03"])
+})
+
+test("parseArgs: --prune needs both lists", () => {
+  expect(parseArgs(["--prune"]).prune).toBe(true)
+  expect(() => parseArgs(["--prune", "--source=ofac"])).toThrow("--prune needs both lists")
 })

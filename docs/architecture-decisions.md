@@ -155,6 +155,6 @@ Example query any judge can run: `select().from(ScamReport).where(eq("address", 
 - Key export (D2's mitigation): **built**; still to test on a device. Keep Privy's allowed domains to `getnod.pages.dev` only in production.
 - Privy Expo on the custom Rabdi chain (ID 7794095): needs a quick test.
 - Arkiv access key in a mobile app: `EXPO_PUBLIC_RABDI_RPC_URL` carries the key, and origin allowlisting doesn't apply to native apps, so it can be pulled out of the app. Use a separate key from the backend's. Worth raising in `friction.md`.
-- Lists imported alongside OFAC: **decided**, eth-labels (Etherscan labels) for phishing, exploit and sanctioned wallets. See deploy.md §6 for which labels count. Still open: removing reports for addresses taken off a list (today they expire, but the renewer keeps renewing archived ones).
+- Lists imported alongside OFAC: **decided**, eth-labels (Etherscan labels) for phishing, exploit and sanctioned wallets. See deploy.md §6 for which labels count. Addresses taken off a list: the importer's `--prune` deletes the seed wallet's reports for them, and the renewer then stops extending them. The Supabase archive keeps the history.
 - Gas for USDC transfers: **decided**, Privy sponsorship relayed by the backend (D3a). Still to confirm: TEE execution works for Expo embedded wallets. The backend's permission comes from it being a signer on the user's wallet (D3a).
 - The test USDC contract address: take it from Circle's docs, don't hardcode it from memory.

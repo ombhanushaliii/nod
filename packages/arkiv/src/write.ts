@@ -3,6 +3,8 @@ import {
   type CreateEntityOptions,
   type CreateEntityReturnType,
   type CreateEntityValues,
+  type DeleteEntityParameters,
+  type DeleteEntityReturnType,
   type ExtendEntityParameters,
   type ExtendEntityReturnType,
   type Schema,
@@ -115,4 +117,13 @@ export function safeExtend(
   data: ExtendEntityParameters,
 ): Promise<ExtendEntityReturnType> {
   return safeWrite(wallet, (client, params) => client.extendEntity(data, params))
+}
+
+// Deletes one entity safely (the importer's --prune: reports for addresses
+// no list has any more). Only the entity's owner can delete it.
+export function safeDelete(
+  wallet: WalletArkivClient,
+  data: DeleteEntityParameters,
+): Promise<DeleteEntityReturnType> {
+  return safeWrite(wallet, (client, params) => client.deleteEntity(data, params))
 }

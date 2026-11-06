@@ -42,15 +42,28 @@ export function planImport(sources: ScamEntry[][], alreadyReported: Iterable<str
   }
 }
 
+export type SeedReport = { key: string; address: string; source: string }
+
+// --prune: the seed wallet's own imported reports (ofac / list) whose address
+// is on none of the lists loaded now, e.g. taken off the OFAC list. Trustee
+// reports are never touched: they come from per-pair keys, not the seed wallet.
+export function planPrune(sources: ScamEntry[][], reports: SeedReport[]): SeedReport[] {
+  const listed = new Set(sources.flat().map((e) => e.address.toLowerCase()))
+  return reports.filter((r) => (r.source === "ofac" || r.source === "list") && !listed.has(r.address.toLowerCase()))
+}
+
 // The most `reports` writes can cost at this gas price, in wei.
 export const worstCaseCost = (reports: number, gasPrice: bigint) => BigInt(reports) * GAS_PER_REPORT * gasPrice
 
-export type Options = { write: boolean; sources: ("ofac" | "eth-labels")[]; limit: number | null; maxSpend: string }
+export type Options = { write: boolean; prune: boolean; sources: ("ofac" | "eth-labels")[]; limit: number | null; maxSpend: string }
 
 export function parseArgs(argv: string[]): Options {
   const value = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3)
   const source = value("source") ?? "all"
   if (!["all", "ofac", "eth-labels"].includes(source)) throw new Error(`--source must be all, ofac or eth-labels, not ${source}`)
+  const prune = argv.includes("--prune")
+  // With one list loaded, every address only on the other would look delisted.
+  if (prune && source !== "all") throw new Error("--prune needs both lists: leave out --source")
   const limitText = value("limit")
   const limit = limitText === undefined ? null : Number(limitText)
   if (limit !== null && (!Number.isInteger(limit) || limit < 1)) throw new Error("--limit must be a whole number above 0")
@@ -58,6 +71,7 @@ export function parseArgs(argv: string[]): Options {
   if (!/^\d+(\.\d+)?$/.test(maxSpend)) throw new Error("--max-spend must be a GLM amount, e.g. 0.5")
   return {
     write: argv.includes("--yes"),
+    prune,
     sources: source === "all" ? ["ofac", "eth-labels"] : [source as "ofac" | "eth-labels"],
     limit,
     maxSpend,

@@ -134,9 +134,17 @@ bun --env-file=../../../supabase/functions/.env run import --yes
 - `--source=ofac` or `--source=eth-labels` runs one list.
 - Each write is logged with its tx hash in `import-log.jsonl` (git ignores it).
 
-Run it again whenever the lists change; only new addresses are written. An
-address taken off a list keeps its report until it expires (180 days), but the
-renewer keeps renewing reports it has archived. The dry run counts these.
+Run it again whenever the lists change; only new addresses are written.
+
+An address taken off a list (for example delisted by OFAC) keeps its report
+until you prune it. `--prune` lists the seed wallet's reports for addresses on
+neither list; `--prune --yes` deletes them, one at a time like writes. Once a
+report is gone from Arkiv, the renewer stops extending it. Trustee reports are
+never pruned.
+
+```bash
+bun --env-file=../../../supabase/functions/.env run import --prune
+```
 
 The mirror job copies the reports into Supabase within the hour.
 
