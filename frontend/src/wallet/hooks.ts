@@ -8,6 +8,7 @@ import { apiRequest } from './backend';
 import { paymentClient, USDC_ADDRESS } from './chains';
 import { walletConfig } from './config';
 import { useWallet } from './context';
+import { isAlreadyAddedSigner } from './signers';
 
 export function useWalletAuth() {
   const wallet = useWallet();
@@ -73,7 +74,9 @@ export function useWalletSetup({ signer = true }: { signer?: boolean } = {}) {
       // add the backend signer when this wallet doesn't have this one yet.
       const tag = `${walletAddress.toLowerCase()}|${walletConfig.signerId}|${walletConfig.policyId}`;
       if (useStore.getState().signerAddedFor !== tag) {
-        await enableBackendSigner();
+        // The phone only remembers this locally. After a reinstall Privy says
+        // the signer is a duplicate, which means it's already on the wallet.
+        await enableBackendSigner().catch((err) => { if (!isAlreadyAddedSigner(err)) throw err; });
         useStore.setState({ signerAddedFor: tag });
       }
     }
