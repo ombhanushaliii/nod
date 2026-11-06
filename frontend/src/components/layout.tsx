@@ -143,7 +143,7 @@ export function StepBars({ step, total = 2 }: { step: number; total?: number }) 
   );
 }
 
-/** Haven mark: orange rounded tile with a white ring. */
+/** Nod mark: orange rounded tile with a white ring. */
 export function AppLogo({ size = 64 }: { size?: number }) {
   const ring = size * 0.40625;
   return (

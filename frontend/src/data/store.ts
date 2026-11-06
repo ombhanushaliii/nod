@@ -26,7 +26,7 @@ import type {
   TrusteeStatus,
 } from './types';
 
-export const APP_NAME = 'Haven';
+export const APP_NAME = 'Nod';
 
 /** The two demo Google accounts. Which one signs in decides the UI. */
 export const DEMO_USER_EMAIL = 'alex.rivera@gmail.com';
