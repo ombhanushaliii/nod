@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '@/data/store';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/theme';
+import { AppLogo } from './layout';
 import { Txt } from './Txt';
 
 /**
@@ -45,9 +46,7 @@ export function BannerHost() {
         { top: insets.top + 6, opacity: v.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }), transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-140, 0] }) }] },
       ]}>
       <Pressable onPress={onPress} accessibilityRole="alert" accessibilityLabel={`${banner.title}. ${banner.body}`} style={styles.banner}>
-        <View style={styles.icon}>
-          <View style={styles.ring} />
-        </View>
+        <AppLogo size={38} />
         <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Txt size={13} w={700} numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -82,6 +81,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
   },
-  icon: { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.acc, alignItems: 'center', justifyContent: 'center' },
-  ring: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: colors.white },
 });
