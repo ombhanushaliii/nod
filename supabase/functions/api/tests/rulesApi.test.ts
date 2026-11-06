@@ -30,7 +30,7 @@ Deno.test("the user can't change their rules, not even to tighten them", async (
 Deno.test("trustee lists who they protect", async () => {
   const t = await setup();
   const res = await t.call(TRUSTEE, "GET", "/trustee/users");
-  assertEquals(res.body.users, [{ pairId: t.pairId, walletAddress: addr("a"), pairKeyAddress: addr("c"), amountLimit: "100", notifyMode: "first_per_payee" }]);
+  assertEquals(res.body.users, [{ pairId: t.pairId, walletAddress: addr("a"), pairKeyAddress: addr("c"), username: null, amountLimit: "100", notifyMode: "first_per_payee" }]);
   assertEquals((await t.call(USER, "GET", "/trustee/users")).body.users, []);
 });
 
@@ -88,4 +88,11 @@ Deno.test("someone who isn't the trustee can't change the rules", async () => {
   const res = await setRules(t, STRANGER, { amountLimit: "5000" });
   assertEquals(res.status, 404);
   assertEquals((await t.call(USER, "GET", "/rules")).body.amountLimit, "100");
+});
+
+Deno.test("trustee sees each person's @handle, made from their email like the app does", async () => {
+  const t = await setup();
+  t.privyEmails.set(USER, "Yash.Joisar.me@gmail.com");
+  const res = await t.call(TRUSTEE, "GET", "/trustee/users");
+  assertEquals(res.body.users[0].username, "yashjoisarme");
 });

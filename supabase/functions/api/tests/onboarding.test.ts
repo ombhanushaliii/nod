@@ -217,3 +217,88 @@ Deno.test("welcome emails: a failed email never fails sign-up", async () => {
   const res = await t.call("did:privy:u", "POST", "/onboarding/user", { walletAddress: addr("a") });
   assertEquals(res.status, 201);
 });
+
+// Accepting in the app, without the email link: invites are matched to the
+// signed-in person's email, which comes from Privy, never from the request.
+const OTHER = "did:privy:other";
+
+Deno.test("invites by email: the trustee sees invites sent to their email, with the sender", async () => {
+  const t = await setup();
+  t.privyEmails.set(USER, "user@example.com");
+  // Privy may return any case; invites are stored lower-case.
+  t.privyEmails.set(TRUSTEE, " T@Example.com ");
+  assertEquals((await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites, []);
+
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const res = await t.call(TRUSTEE, "GET", "/trustee/invites");
+  assertEquals(res.status, 200);
+  assertEquals(res.body.invites.length, 1);
+  const [invite] = res.body.invites;
+  assertEquals(invite.pairId, t.repo.pairs[0].pairId);
+  assertEquals(invite.from, "user@example.com");
+  // The token hash never leaves the server.
+  assertEquals(invite.tokenHash, undefined);
+  assertEquals(Object.keys(invite).sort(), ["expiresAt", "from", "inviteId", "pairId"]);
+});
+
+Deno.test("invites by email: nothing for another email, no email, or your own invite", async () => {
+  const t = await setup();
+  t.privyEmails.set(USER, "user@example.com");
+  t.privyEmails.set(TRUSTEE, "someone-else@example.com");
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  assertEquals((await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites, []);
+  t.privyEmails.delete(TRUSTEE);
+  assertEquals((await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites, []);
+
+  // A user who invites their own email doesn't see it as a trustee invite.
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "user@example.com" });
+  assertEquals((await t.call(USER, "GET", "/trustee/invites")).body.invites, []);
+});
+
+Deno.test("invites by email: needs onboarding first", async () => {
+  const t = makeTestApp();
+  const res = await t.call(TRUSTEE, "GET", "/trustee/invites");
+  assertEquals(res.status, 403);
+  assertEquals(res.body.error, "not_onboarded");
+});
+
+Deno.test("accept by invite id: only the invited email can, then it drops off the list", async () => {
+  const t = await setup();
+  t.privyWallets.set(OTHER, [addr("d")]);
+  assertEquals((await t.call(OTHER, "POST", "/onboarding/user", { walletAddress: addr("d") })).status, 201);
+  t.privyEmails.set(TRUSTEE, "t@example.com");
+  t.privyEmails.set(OTHER, "other@example.com");
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const inviteId = (await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites[0].inviteId;
+
+  // Someone else can't accept it, even knowing the id.
+  const stolen = await t.call(OTHER, "POST", "/pairs/accept", { inviteId, pairKeyAddress: addr("e"), encPubKey: hex32("e") });
+  assertEquals(stolen.status, 404);
+  assertEquals(t.repo.pairs[0].status, "invited");
+
+  const acc = await t.call(TRUSTEE, "POST", "/pairs/accept", { inviteId, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  assertEquals(acc.status, 200);
+  assertEquals(acc.body.pairId, t.repo.pairs[0].pairId);
+  assertEquals(t.repo.pairs[0].status, "active");
+  assert(t.funded.includes(addr("c")));
+  assertEquals((await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites, []);
+  assertEquals((await t.call(TRUSTEE, "POST", "/pairs/accept", { inviteId, pairKeyAddress: addr("c"), encPubKey: hex32("e") })).status, 404);
+});
+
+Deno.test("accept by invite id: the per-pair key still can't be the main wallet", async () => {
+  const t = await setup();
+  t.privyEmails.set(TRUSTEE, "t@example.com");
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const inviteId = (await t.call(TRUSTEE, "GET", "/trustee/invites")).body.invites[0].inviteId;
+  const res = await t.call(TRUSTEE, "POST", "/pairs/accept", { inviteId, pairKeyAddress: addr("b"), encPubKey: hex32("e") });
+  assertEquals(res.status, 422);
+  assertEquals(res.body.error, "pair_key_is_main_wallet");
+});
+
+Deno.test("accept: needs exactly one of the link token or the invite id", async () => {
+  const t = await setup();
+  const keys = { pairKeyAddress: addr("c"), encPubKey: hex32("e") };
+  assertEquals((await t.call(TRUSTEE, "POST", "/pairs/accept", keys)).status, 422);
+  const both = { ...keys, token: "abc", inviteId: crypto.randomUUID() };
+  assertEquals((await t.call(TRUSTEE, "POST", "/pairs/accept", both)).status, 422);
+});

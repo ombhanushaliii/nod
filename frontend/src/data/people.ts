@@ -28,7 +28,7 @@ export const reqTitle = (r: ApprovalRequest) => (r.kind === 'payment' ? `${m0(r.
 
 const toneFor = (icon: string): Tone => (icon === '✕' ? 'red' : icon === '✓' ? 'green' : 'plain');
 
-/** Live: the people from the backend, with their requests from Arkiv. The trustee only knows their address. */
+/** Live: the people from the backend (address, and @handle when the backend could tell), with their requests from Arkiv. */
 function livePeople(s: Store, now: number): Person[] {
   return s.people.map((p) => {
     const mine = s.inbox.filter((r) => r.pairId === p.pairId);
@@ -51,7 +51,7 @@ function livePeople(s: Store, now: number): Person[] {
     });
     return {
       id: p.pairId,
-      username: short(p.walletAddress),
+      username: p.username || short(p.walletAddress),
       since: 'You look after them',
       avatar: avatarFor(p.walletAddress, AVATAR_COUNT),
       feed,
