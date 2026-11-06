@@ -6,12 +6,14 @@ import { type AppEnv, fail, requireUser } from "../lib/http.ts";
 import { randomHex32, randomToken, sha256Hex } from "../lib/crypto.ts";
 import { mapRepoError, statusOf } from "../lib/errors.ts";
 import type { ArkivFunder, Mailer, PrivyApi } from "../lib/services.ts";
+import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
 
 export type OnboardingDeps = {
   privy: PrivyApi;
   mailer: Mailer;
   funder: ArkivFunder;
+  push: PushSender;
   // The invite token is appended, e.g. "myapp://invite/" or "https://.../invite/".
   inviteUrlBase: string;
 };
@@ -113,6 +115,9 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     }).catch(mapRepoError);
 
     await topUp([pairKeyAddress]);
+    // Tell the user, so their app doesn't have to keep asking. Never throws.
+    const userId = await c.var.repo.pairUserId(pairId);
+    if (userId) await notifyUser(c.var.repo, deps.push, userId, MESSAGES.trusteeAccepted());
     return c.json({ pairId });
   });
 

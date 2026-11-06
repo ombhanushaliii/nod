@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:wallet": "node --test tests/wallet.test.mjs"
+    "test:wallet": "node --test tests/wallet.test.mjs tests/approvals.test.mjs"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
@@ -25,10 +25,12 @@
     "expo-clipboard": "~58.0.4",
     "expo-constants": "~58.0.15",
     "expo-dev-client": "~58.0.18",
+    "expo-device": "~58.0.5",
     "expo-font": "~58.0.11",
     "expo-haptics": "~58.0.7",
     "expo-linking": "~58.0.16",
     "expo-local-authentication": "~58.0.2",
+    "expo-notifications": "~58.1.8",
     "expo-router": "~58.0.30",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.13",

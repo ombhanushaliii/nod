@@ -113,7 +113,8 @@ export default function Settings() {
           </View>
           <KV k={`Asks ${tn} above`} v={<Txt w={600}>{m0(R.limit)}</Txt>} />
           <KV k="How often" v={<Txt w={600}>{modeLabel(R.mode)}</Txt>} />
-          <View style={styles.row}>
+          {/* The live backend has no daily max. */}
+          {mode === 'demo' && <View style={styles.row}>
             <View style={{ gap: 2 }}>
               <Txt color={colors.sub}>Daily max</Txt>
               <Txt size={13} color={colors.sub}>
@@ -121,7 +122,7 @@ export default function Settings() {
               </Txt>
             </View>
             <Txt w={600}>{m0(R.daily)}</Txt>
-          </View>
+          </View>}
         </Card>
         <Txt size={13} lh={1.45} color={colors.sub} style={{ paddingHorizontal: 4 }}>
           Set by {tn}. Only your trustee can change these.

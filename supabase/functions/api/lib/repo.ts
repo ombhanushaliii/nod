@@ -59,6 +59,8 @@ export interface Repo extends JobsRepo {
   createInvite(args: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   findInvite(tokenHash: string): Promise<InviteView | null>;
   userPair(userId: string): Promise<UserPair | null>;
+  // The user a pair protects.
+  pairUserId(pairId: string): Promise<string | null>;
   // Returns the Arkiv pairId.
   acceptInvite(args: { tokenHash: string; trusteeId: string; pairKeyAddress: string; encPubKey: string }): Promise<string>;
 
@@ -187,6 +189,11 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       const raw = data.invites as unknown;
       const inv = (Array.isArray(raw) ? raw[0] : raw) as { contact: string; expires_at: string };
       return { status: "invited", pairId: data.pair_id, contact: inv.contact, inviteExpiresAt: new Date(inv.expires_at) };
+    },
+    async pairUserId(pairId) {
+      const { data, error } = await db.from("pairs").select("user_id").eq("pair_id", pairId).maybeSingle();
+      if (error) rethrow(error);
+      return data?.user_id ?? null;
     },
     async findInvite(tokenHash) {
       const { data, error } = await db.from("invites")

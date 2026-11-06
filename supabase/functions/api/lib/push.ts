@@ -50,6 +50,12 @@ export const MESSAGES = {
     body: "A payment is waiting for your answer.",
     data: { type: "approval_request", pairId },
   }),
+  // To the user, when the person they invited accepted.
+  trusteeAccepted: (): PushMessage => ({
+    title: "Your trustee is set up",
+    body: "They'll check risky payments before they go out.",
+    data: { type: "trustee_accepted" },
+  }),
   // To the user, when their trustee changed their rules.
   rulesChanged: (): PushMessage => ({
     title: "Your trustee changed your payment rules",

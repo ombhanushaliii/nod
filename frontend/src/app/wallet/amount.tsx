@@ -9,6 +9,7 @@ import { trusteeName, useStore } from '@/data/store';
 import { useBalance, useRules } from '@/hooks/api';
 import { m0, money } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
+import { isDemo } from '@/wallet/config';
 import { colors, tones } from '@/theme';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
@@ -100,7 +101,7 @@ export default function Amount() {
           <InfoDot color={hint.fg} />
         </Tap>
         <Txt size={14} w={500} color={overBal ? tones.red.fg : colors.sub}>
-          {overBal ? 'Not enough money' : `Balance ${money(balance)} · ${m0(Math.max(0, R.daily - sentToday({ payments }, now)))} left today`}
+          {overBal ? 'Not enough money' : isDemo ? `Balance ${money(balance)} · ${m0(Math.max(0, R.daily - sentToday({ payments }, now)))} left today` : `Balance ${money(balance)}`}
         </Txt>
       </View>
 

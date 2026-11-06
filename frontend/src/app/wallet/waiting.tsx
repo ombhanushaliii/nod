@@ -3,12 +3,13 @@ import { View } from 'react-native';
 
 import { Button, Card, IconCircle, KV, Screen, Txt } from '@/components';
 import { useNow } from '@/data/clock';
-import { APPROVAL_WINDOW } from '@/data/engine';
+import { approvalEnds } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
 import { useApprovalStatus } from '@/hooks/api';
 import { goWalletHome, useBackGoesHome } from '@/hooks/nav';
 import { dur, money, when } from '@/lib/format';
 import { colors, tones } from '@/theme';
+import { isDemo } from '@/wallet/config';
 
 type View_ = {
   icon: string;
@@ -41,15 +42,28 @@ export default function Waiting() {
   }
 
   const validFrom = req.validFrom ?? 0;
+  const ends = approvalEnds(req);
   const draft = { address: req.address ?? '', name: req.name ?? '', amount: req.amount ?? 0 };
   const resume = () => {
     setDraft(draft);
+    if (!isDemo && req.paymentId) {
+      // The OK is for this exact payment, so send it as is (a new check would be a new payment).
+      setResult({ verdict: 'safe', paymentId: req.paymentId });
+      router.replace('/wallet/review');
+      return;
+    }
     setResult(null);
     router.replace('/wallet/checking');
   };
   const askAgain = () => {
     dismissRequest(req.id);
     setDraft(draft);
+    if (!isDemo) {
+      // Live: a fresh check makes a fresh payment to ask about.
+      setResult(null);
+      router.replace('/wallet/checking');
+      return;
+    }
     setResult({ verdict: 'needs_trustee', reasons: req.reasons, why: req.why });
     resetAnswers();
     router.replace('/wallet/questions');
@@ -76,13 +90,13 @@ export default function Waiting() {
       body: `${req.name} is new, so it unlocks ${when(validFrom, now)}. You'll then have 1 hour to send.`,
       done: 'OK',
     };
-  } else if (state === 'allowed' && now < validFrom + APPROVAL_WINDOW) {
+  } else if (state === 'allowed' && now < ends) {
     v = {
       icon: '✓',
       ...tones.green,
       anim: 'pop',
       title: `${tn} said yes`,
-      body: `You can send it now. This OK works once, for the next ${dur(validFrom + APPROVAL_WINDOW - now)}.`,
+      body: `You can send it now. This OK works once, for the next ${dur(ends - now)}.`,
       primary: { label: 'Continue', onPress: resume },
       done: 'Later',
     };
@@ -111,13 +125,13 @@ export default function Waiting() {
       ...tones.gray,
       anim: 'none',
       title: 'Request expired',
-      body: `${tn} didn't answer in 30 minutes.`,
+      body: `${tn} didn't answer in time.`,
       primary: { label: 'Ask again', onPress: askAgain },
       done: 'Not now',
     };
   }
 
-  const finished = state === 'denied' || state === 'expired' || (state === 'allowed' && now >= validFrom + APPROVAL_WINDOW);
+  const finished = state === 'denied' || state === 'expired' || (state === 'allowed' && now >= ends);
   const done = () => {
     if (finished) dismissRequest(req.id);
     goWalletHome();

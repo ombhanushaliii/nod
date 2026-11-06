@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { addr, hex32 } from "./helpers.ts";
+import { addr, hex32, makeTestApp } from "./helpers.ts";
 import { setup, TRUSTEE, USER } from "./flow.ts";
 import { EXPO_PUSH_URL, expoPush, MESSAGES } from "../lib/push.ts";
 
@@ -108,4 +108,17 @@ Deno.test("expoPush: batches of 100, reports DeviceNotRegistered tokens", async 
 Deno.test("expoPush: HTTP errors throw", async () => {
   const push = expoPush({ fetch: () => Promise.resolve(new Response("nope", { status: 500 })) });
   await assertRejects(() => push.send(["ExponentPushToken[a]"], MESSAGES.rulesChanged()));
+});
+
+Deno.test("the trustee accepting pushes the user", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set(USER, [addr("a")]);
+  t.privyWallets.set(TRUSTEE, [addr("b")]);
+  await t.call(USER, "POST", "/onboarding/user", { walletAddress: addr("a") });
+  await t.call(TRUSTEE, "POST", "/onboarding/user", { walletAddress: addr("b") });
+  await t.call(USER, "POST", "/push/register", { expoToken: TOK_U });
+  await t.call(USER, "POST", "/onboarding/invite", { trusteeEmail: "t@example.com" });
+  const token = t.mails[0].url.replace("guardian://invite/", "");
+  await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  assertEquals(t.state.pushes, [{ to: [TOK_U], message: MESSAGES.trusteeAccepted() }]);
 });

@@ -323,6 +323,9 @@ export class MemoryRepo implements Repo {
     const inv = this.invites.find((i) => i.pairRowId === p.id)!;
     return Promise.resolve({ status: "invited" as const, pairId: p.pairId, contact: inv.contact!, inviteExpiresAt: inv.expiresAt });
   }
+  pairUserId(pairId: string) {
+    return Promise.resolve(this.pairs.find((p) => p.pairId === pairId)?.userId ?? null);
+  }
   findInvite(tokenHash: string) {
     const inv = this.invites.find((i) => i.tokenHash === tokenHash);
     if (!inv) return Promise.resolve(null);

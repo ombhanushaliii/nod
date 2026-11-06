@@ -53,6 +53,10 @@ type Data = {
   tDisplayName: string;
   requests: ApprovalRequest[];
   reports: string[];
+  /** Live: the Arkiv pairId once the trustee accepted. */
+  pairId: string | null;
+  /** Live: Arkiv request keys already written, by payment id, so a retry never writes twice. */
+  requestKeys: Record<string, string>;
   events: ActivityEvent[];
   /** Rules for the trustee's two other (mock) people. */
   mockRules: Record<string, Rules>;
@@ -130,6 +134,8 @@ function initialData(): Data {
     tDisplayName: '',
     requests: [],
     reports: [],
+    pairId: null,
+    requestKeys: {},
     events: [],
     mockRules: { p2: { limit: 50, mode: 'every_time', daily: 100 }, p3: { limit: 100, mode: 'first_per_payee', daily: 500 } },
   };
@@ -345,6 +351,8 @@ export const useStore = create<Store>()(
         tDisplayName: s.tDisplayName,
         requests: s.requests,
         reports: s.reports,
+        pairId: s.pairId,
+        requestKeys: s.requestKeys,
         events: s.events,
         mockRules: s.mockRules,
       }),
