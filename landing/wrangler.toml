@@ -1,5 +1,6 @@
-# Cloudflare Pages: `npm run deploy` builds and uploads dist/ to the "trynod"
-# project, served at https://trynod.pages.dev
-name = "trynod"
+# Cloudflare Pages project "getnod" (https://getnod.pages.dev). It's connected
+# to GitHub: every push to main builds and deploys it.
+# Cloudflare reads pages_build_output_dir from here; the name must match.
+name = "getnod"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-11-01"
