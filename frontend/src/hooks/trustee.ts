@@ -5,7 +5,7 @@ import { createDecision, createScamReport } from '@guardian/arkiv/src/create';
 import { exportIntentHash, intentHash, open } from '@guardian/arkiv/src/crypto';
 import { parseExportPayload, parsePaymentPayload } from '@guardian/arkiv/src/payload';
 import { queryPendingRequests } from '@guardian/arkiv/src/query';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 import { bytesToHex, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -143,20 +143,29 @@ export function useTrusteeSync() {
   }, [live, signedIn, userId, api, assertSession, register, keys]);
 }
 
-/** The trustee accepts the invite link opened on this phone. */
+/** An invite sent to the signed-in trustee's email, from GET /trustee/invites. */
+export type EmailInvite = { inviteId: string; pairId: string; expiresAt: string; from: string | null };
+
+/**
+ * The trustee accepts an invite: the link opened on this phone, or, when given,
+ * an invite sent to their email (no link needed; the backend checks the email).
+ */
 export function useAcceptInvite() {
   const { api, assertSession } = useLiveApi();
   const register = useWalletSetup({ signer: false });
   const keys = useTrusteeKeys();
-  return useCallback(async () => {
+  return useCallback(async (emailInvite?: Pick<EmailInvite, 'inviteId' | 'pairId'>) => {
     const token = useStore.getState().inviteToken;
-    if (!token) throw new Error('Open the invite link again.');
+    if (!emailInvite && !token) throw new Error('Open the invite link again.');
     try {
       await register();
-      const { pairId } = await api<{ pairId: string }>(`/invites/${encodeURIComponent(token)}`);
+      const pairId = emailInvite?.pairId ?? (await api<{ pairId: string }>(`/invites/${encodeURIComponent(token!)}`)).pairId;
       assertSession();
       const [pair, enc] = await Promise.all([keys.pair(pairId), keys.enc()]);
-      await api('/pairs/accept', { token, pairKeyAddress: pair.address.toLowerCase(), encPubKey: bytesToHex(enc.publicKey) });
+      await api('/pairs/accept', {
+        ...(emailInvite ? { inviteId: emailInvite.inviteId } : { token }),
+        pairKeyAddress: pair.address.toLowerCase(), encPubKey: bytesToHex(enc.publicKey),
+      });
       assertSession();
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
@@ -170,6 +179,45 @@ export function useAcceptInvite() {
     assertSession();
     useStore.setState({ inviteToken: null, people: users.map(toPerson) });
   }, [api, assertSession, register, keys]);
+}
+
+/**
+ * Invites sent to the signed-in trustee's email, so they can accept in the app
+ * without opening the email link. Read when the screen opens and when the app
+ * comes back to the front.
+ */
+export function useEmailInvites() {
+  const { live, api, assertSession } = useLiveApi();
+  const register = useWalletSetup({ signer: false });
+  const [state, setState] = useState<{ invites: EmailInvite[]; loading: boolean; error: string | null }>({
+    invites: [], loading: live, error: null,
+  });
+  // "Check again" bumps this to read once more.
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!live) return;
+    let stopped = false;
+    const read = async () => {
+      try {
+        // The list needs an account, like accepting does.
+        await register();
+        const { invites } = await api<{ invites: EmailInvite[] }>('/trustee/invites');
+        if (stopped) return;
+        assertSession();
+        setState({ invites, loading: false, error: null });
+      } catch {
+        if (!stopped) setState((s) => ({ ...s, loading: false, error: "Couldn't check for invites. Try again." }));
+      }
+    };
+    void read();
+    const app = AppState.addEventListener('change', (st) => { if (st === 'active') void read(); });
+    return () => { stopped = true; app.remove(); };
+  }, [live, revision, api, assertSession, register]);
+  const reload = useCallback(() => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    setRevision((v) => v + 1);
+  }, []);
+  return { ...state, reload };
 }
 
 /** Allow or deny, written to Arkiv with the per-pair key. The backend then tells the user. */
