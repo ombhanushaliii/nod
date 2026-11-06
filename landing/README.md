@@ -20,7 +20,7 @@ The build goes to `dist/`, a static site you can host anywhere.
 
 ## Deploy (Cloudflare Pages)
 
-It's served at https://trynod.pages.dev from the Cloudflare Pages project `trynod` (set in `wrangler.toml`).
+It's served at https://getnod.pages.dev from the Cloudflare Pages project `getnod` (set in `wrangler.toml`). Cloudflare also builds and deploys every new commit by itself.
 
 ```bash
 npx wrangler login   # once

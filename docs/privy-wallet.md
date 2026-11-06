@@ -56,27 +56,37 @@ installed on the device/emulator; Expo Go cannot run them.
 - Signer enrollment and wallet registration through `useWalletSetup()`.
 - Backend payment check, exact USDC calldata, sponsored send, and confirmation
   polling. Retrying resumes the same payment instead of posting another send.
-- `useWalletSigning().getArkivWalletClient()` for the user's Rabdi writes.
-- `deriveTrusteeKeys(pairId)` using the existing Arkiv derivations. Messages are
-  `guardian-pair:<lowercase pairId>` and `guardian-encryption:v1`. Keys stay in memory.
+- `deriveEncryptionKey()` and `derivePairKey(pairId)` using the Arkiv
+  derivations. Messages are `guardian-encryption:v1` and
+  `guardian-pair:<lowercase pairId>`. Keys stay in memory and never leave the phone.
+- User side: approval requests sealed to the trustee and written to Rabdi from
+  the Privy wallet, then attached with `POST /payments/:id/request`.
+- Trustee side: invite accept, requests read from Rabdi and opened on the phone,
+  Allow/Deny written with the per-pair key, rules saved through the API.
 
 Demo and Privy data use separate storage. Switching Privy accounts clears the
 previous account's local UI state. Roles select the UI; the backend authorizes
 trustee operations.
 
-## Integration still needed
+## Push notifications
 
-The backend currently uses `noArkivApprovals`, `noScamReports`, and
-`noopArkivFunder`. Connect these before testing approvals or writing on Rabdi.
-Trustee/invite/rules screens still contain prototype data. Live approval and key
-export actions stay blocked until the approval integration is complete.
+The push code is in (`src/wallet/push.ts`) but stays off until the app has an
+EAS project: run `eas init`, add Firebase (FCM) credentials for Android, and
+rebuild the development client. Until then the app registers no token. The
+user's waiting screen still asks the backend, and the trustee app reads new
+requests when it opens or comes back to the front.
 
-Privy requires a hosted React page for native key export. That page and a verified,
-single-use export approval are not implemented here. Demo approvals cannot unlock
-a real key.
+## Not built yet
 
-Device login, the Rabdi write, signer-policy rejection, and a sponsored transfer
-need real configuration to test. Local checks do not establish those results.
+Key export shows "Coming soon" in the live app. Privy needs a hosted React page
+for native key export, plus a verified, single-use export approval.
+
+## Still to test on a device
+
+Device login, the Rabdi write from the Privy wallet, the per-pair key writes,
+that Privy signs the same message the same way every time (the trustee app
+checks its derived key against the backend and shows an error if not), push,
+signer-policy rejection, and a sponsored transfer. Local checks don't cover these.
 
 ## Checks
 

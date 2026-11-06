@@ -65,8 +65,8 @@ A builds screens against these hooks, backed by mock data. B and C replace the m
 | `createApprovalRequest(walletClient, {pairId, kind, sealed})` | App (user) |
 | `createDecision(pairKeyClient, {pairId, requestKey, verdict, intentHash, validFrom})` | App (trustee) |
 | `createScamReport(client, {address, source, category, reason})` | App (trustee), importer |
-| `queryPendingRequests(pairIds)` | Trustee app |
-| `getDecision(requestKey, expectedOwner)` | Backend verify |
+| `queryPendingRequests(client, pairIds, {createdBy})` | Trustee app |
+| `getDecision(client, requestKey, pairKey)` (by creator) | Backend verify |
 | `queryReports(address, trustedCreators)` → `{verified, unverified}` | Backend rules, app warnings |
 | `seal(payload, trusteePubKey)` / `open(sealed, encSecretKey)` (tweetnacl) | App |
 | `derivePairKey(signature)` / `deriveEncKey(signature)` | App (B passes in the Privy signature) |
@@ -97,9 +97,9 @@ Done when: every screen works on mocks, and swapping a hook's implementation nee
 - [ ] **Day-1 test, with C:** add the backend signer (`useSigners().addSigners`) with a policy that only allows USDC `transfer` on Ethereum Sepolia, then have C send one sponsored transfer. Confirm the TEE setting works with Expo.
 - [ ] Privy login: Google + phone, one embedded wallet per person
 - [ ] Chains: Ethereum Sepolia + Rabdi; test USDC address taken from Circle's docs
-- [ ] Build the USDC `transfer` tx for `POST /payments/:id/send`
-- [ ] Privy `signMessage` for the two derivations (pair key, encryption key), using D's functions
-- [ ] Key export gated behind an approved `export` request
+- [x] Build the USDC `transfer` tx for `POST /payments/:id/send`
+- [x] Privy `signMessage` for the two derivations (pair key, encryption key), using D's functions
+- [ ] Key export gated behind an approved `export` request (shows "Coming soon" for now)
 - [ ] Real implementations of `useAuth`, `useBalance`, and the signing parts of the other hooks
 
 Done when: a fresh phone can log in, see its USDC, and write to Arkiv. The backend can send a sponsored payment from that wallet, and the signer policy rejects anything that isn't a USDC transfer.
@@ -108,11 +108,11 @@ Done when: a fresh phone can log in, see its USDC, and write to Arkiv. The backe
 
 - [ ] Supabase project, migrations for the tables above, row-level security so users only see their own rows
 - [ ] Privy server setup: key quorum for the signer, the signer policy (with B), gas sponsorship enabled on the Dashboard
-- [ ] `POST /payments/check`: the D3 rules in order: $10 first-payment cap → flagged (D's `queryReports` + GoPlus + look-alike) → over limit + toggle → new-payee 24h cooldown
-- [ ] `POST /payments/:id/send`: re-check, then relay with `sponsor: true`; mark approvals as used
-- [ ] `POST /payments/:id/approval`: verify via D's `getDecision` (owner = `pair_key_address`, `intentHash`, `validFrom`, expiry, unused)
-- [ ] Onboarding and invites (email/SMS sender), pair accept, tGLM top-ups
-- [x] Expo push sender: trustee on request attach, user on rule change
+- [x] `POST /payments/check`: the D3 rules in order: $10 first-payment cap → flagged (D's `queryReports` + GoPlus + look-alike) → over limit + toggle → new-payee 24h cooldown
+- [x] `POST /payments/:id/send`: re-check, then relay with `sponsor: true`; mark approvals as used
+- [x] `POST /payments/:id/approval`: verify via D's `getDecision` (creator = `pair_key_address`, `intentHash`, `validFrom`, expiry, unused)
+- [x] Onboarding and invites (email through Brevo), pair accept, tGLM top-ups
+- [x] Expo push sender: trustee on request attach; user on accept, trustee answer and rule change
 - [x] Rules endpoints: trustee-only edits, applied at once; user reads rules + history
 
 Done when: the full flow works through the API using a test script, without the app.
@@ -120,10 +120,11 @@ Done when: the full flow works through the API using a test script, without the 
 ## D: Arkiv person
 
 - [ ] **Day-1 test with B:** Rabdi write from the Privy wallet (see B)
-- [ ] `packages/arkiv`: the schemas with indexed fields exactly as in decisions doc §3, plus every helper above
-- [ ] Scam reports created with `permissionlessExtension`; 180-day expiry; trusted-creator filtering
-- [ ] Encryption helpers (tweetnacl `box`) and the key derivations
-- [ ] Backend jobs: **report mirror** (to Supabase), **renewer** (extends live reports before they expire), **importer** (OFAC + other lists, from a seed wallet)
+- [x] `packages/arkiv`: the schemas with indexed fields exactly as in decisions doc §3, plus every helper above
+- [x] Scam reports created with `permissionlessExtension`; 180-day expiry; trusted-creator filtering
+- [x] Encryption helpers (tweetnacl `box`) and the key derivations
+- [x] Backend jobs: **report mirror** (to Supabase) and **renewer** (extends live reports before they expire), hourly on Supabase Cron
+- [ ] **Importer** (OFAC + other lists, from the seed wallet): built (`services/backend/jobs/arkiv-importer.ts`), not run yet
 - [ ] Judging files: `/arkiv/schema.md`, `friction.md` (log friction as you hit it, with reproduction steps), `reach.md`, `why-arkiv.md`, `how-you-use-arkiv.md`
 - [ ] README: the wallet addresses that wrote entities, and one query judges can run
 
@@ -146,10 +147,10 @@ Done when: a judge can run the README query and see real reports, and every judg
 | The wording of the 3 scam questions | A, team agrees |
 | Which "older lists" to import besides OFAC | D |
 | Can a user remove the backend signer, and what does the app do then? | B |
-| Does Privy let the app gate its export-key screen? | B |
+| Key export: coming soon (needs Privy's hosted export page) | B |
 | Arkiv access key in a mobile app (it can be extracted); note this in `friction.md` | D |
-| Where the backend is hosted | C |
-| How invites are sent (email/SMS provider) | C |
+| Where the backend is hosted: **decided**, Supabase Edge Functions + Supabase Cron | C |
+| How invites are sent: **decided**, email through Brevo, link to getnod.pages.dev/invite | C |
 
 ## Submission requirements (D checks before submitting)
 

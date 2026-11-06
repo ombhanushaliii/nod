@@ -18,7 +18,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 | Smart contract | **None** | — | [team] |
 | Shared, expiring data | Approval requests, trustee decisions, live scam reports | Arkiv (Rabdi testnet, `@arkiv-network/sdk`) | [team] |
 | Permanent data | Users, user–trustee link, rules, push tokens, scam report archive | Supabase | [team] |
-| Backend | Payment checks, trustee push, report mirror + renewer, list importer, tGLM top-up | Node service | [team] |
+| Backend | Payment checks, pushes, report mirror + renewer, tGLM top-up | Supabase Edge Function (Deno + Hono); the mirror and renewer run hourly on Supabase Cron. The list importer is a one-off script | [team] |
 | Live address check | Risk lookup for unknown addresses | GoPlus API, called by the backend | [team] |
 | Encryption | Request details readable only by the trustee | tweetnacl `box` (x25519) | [team] |
 | Optional | Verified-human trustees; report evidence files | World ID, Swarm (drawn dashed) | [from original plan] |
@@ -28,7 +28,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 ### D1. Each person's own Privy wallet owns their Arkiv entities. [team]
 - One Privy embedded wallet per person, with the same address on Ethereum Sepolia and Arkiv. **[proposed]**
 - The backend tops up new wallets with a little tGLM, so nobody sees a faucet. **[team]**
-- Why: the backend can never forge a user's request or a trustee's decision. Arkiv's owner field proves who wrote what.
+- Why: the backend can never forge a user's request or a trustee's decision. Arkiv's creator field (`$creator`) proves who wrote what. The owner field doesn't: owners can hand an entity to anyone (`changeOwnership`), so every check uses the creator.
 - Verified in docs: the Arkiv SDK wallet client accepts an EIP-1193 provider (`custom(provider)`), and Privy Expo provides one (`wallet.getProvider()`). **Still to test:** Privy on the custom Rabdi chain (ID 7794095).
 
 ### D2. The backend decides, the app obeys, and no contract. [team]
@@ -36,6 +36,7 @@ Status legend: **[team]** = decided by the team · **[proposed]** = derived from
 - For an approved payment, the backend also verifies the trustee decision on Arkiv before answering `safe` (D5).
 - **Known limit, stated openly:** the user still owns their wallet, so a modified app could sign a transfer itself and skip the backend. Since D3a this is much harder: the wallet holds no ETH for gas, so the user would have to fund it with ETH first.
 - **Mitigation [team]:** key export is itself an approval request (`kind = export`). The app only shows Privy's export screen after the trustee allows it.
+- **Status:** not built yet. In the live app, key export shows "Coming soon". Privy's mobile export needs a hosted page, and a verified, single-use export approval.
 
 ### D3. Payment rules the backend applies, in order. [team]
 The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
@@ -80,23 +81,24 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 
 ### D5. Trustee decision = separate Arkiv entity, owned by a per-pair trustee key. [team: the link must stay hidden]
 - Arkiv only lets the owner change an entity, so the trustee writes their own decision entity instead of editing the request.
-- **Per-pair key [proposed mechanism]:** for each user the trustee protects, the trustee app derives a separate Arkiv key from a Privy signature over `"guardian-pair:" + pairId`. Its address is stored **only in Supabase**. On Arkiv, the decision owner can't be traced back to the trustee's main wallet, so the user–trustee link stays hidden, while authorship is still provable.
+- **Per-pair key [proposed mechanism]:** for each user the trustee protects, the trustee app derives a separate Arkiv key from a Privy signature over `"guardian-pair:" + pairId`. Its address is stored **only in Supabase**. On Arkiv, the decision's creator can't be traced back to the trustee's main wallet, so the user–trustee link stays hidden, while authorship is still provable.
 - The backend tops up per-pair keys with tGLM, which links nothing to the trustee.
 - Allow once: carries `intentHash = keccak256(abi.encode(address recipient, uint256 amount, bytes32 nonce))` (amount in USDC base units, nonce from `POST /payments/check`), `validFrom` and `createdAt`. The backend starts a new payee's 24h wait at `createdAt`, but never earlier than when the request reached it.
   - Known payee: `validFrom` = now, expires in **1 hour**.
   - New payee: `validFrom` = Allow + 24h (cooldown), expires **25 hours** after the Allow, so there's a 1-hour window to send once the cooldown ends.
-  - The backend accepts it only if: the owner is the pair key stored in Supabase, the hash matches, `validFrom` has passed, it hasn't expired, and it's unused (marked in Supabase).
-- Deny & report: the decision (deny) plus a public `scam_report`, both written by the per-pair key.
+  - The backend accepts it only if: the creator is the pair key stored in Supabase, the hash matches, `validFrom` has passed, it hasn't expired, and it's unused (marked in Supabase).
+- Deny: the decision (deny), written by the per-pair key. **Report only when flagged [team]:** if the payment was flagged (scam report, look-alike, security check), the per-pair key also writes a public `scam_report`. A deny only because of the limit reports nothing: the address may be a real person, and a trustee report counts as verified for every Nod user.
 
 ### D6. Scam reports: live on Arkiv, permanent archive in Supabase. [team]
 - Every report is an Arkiv entity anyone can query, so other wallets read it without our API.
-- Owner = the reporter (a per-pair trustee key, or our seed wallet for imported lists like OFAC).
-- Expiry 180 days (Arkiv max is about 182.5). Created with `permissionlessExtension`, so the backend renews reports still on file in Supabase. **[proposed mechanism]**
-- The backend mirrors every report into Supabase as the permanent record.
+- Creator = the reporter (a per-pair trustee key, or our seed wallet for imported lists like OFAC). Only those creators count as verified.
+- Expiry 180 days (Arkiv max is about 182.5). Created with `permissionlessExtension`, so the backend renews reports still on file in Supabase.
+- The backend mirrors verified reports into Supabase as the permanent record.
+- **How [team]:** two Supabase Cron jobs call the API (`POST /jobs/mirror` on the hour, `POST /jobs/renew` at half past), guarded by a shared secret kept in Vault. The renewer extends reports that are close to expiring, paid by the seed wallet.
 - No endorsements. **[team]**
 
 ### D7. The user–trustee link and contacts live in Supabase, never on Arkiv. [team]
-- Onboarding requires the trustee's email or phone. The trustee joins via Privy.
+- Onboarding requires the trustee's email. The backend emails an invite link (Brevo) to `getnod.pages.dev/invite?token=…`, which opens the app. The trustee joins via Privy and accepts there.
 - Supabase holds: user ↔ trustee, `pairId`, the per-pair key address, and the trustee's encryption public key.
 
 ### D8. The trustee's encryption key is derived, not stored. [proposed]
@@ -107,11 +109,12 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 - After writing an `approval_request` to Arkiv, the app calls `POST /payments/:id/request` with its entity key. The backend checks the entity on Arkiv, maps `pairId → trustee push tokens` in Supabase, and sends an Expo push saying "a payment needs you". The push carries no details.
 - The trustee app reads and decrypts the request straight from Arkiv.
 - Why not poll Arkiv: a poller runs all day even when nobody is paying, and alerts lag by the poll interval. Every request has to come through `POST /payments/:id/request` anyway (the payment can't go ahead without it), so pushing there costs nothing when idle and is instant. If the app crashes before that call, it retries it, and the push goes out then.
-- The user also gets a push when their trustee changes their rules.
+- The user gets a push when their trustee accepts the invite, answers a request (the trustee app calls `POST /trustee/decisions`, and the backend checks the decision on Arkiv first), or changes their rules.
+- Pushes are a nudge, not the only path: while the waiting screen is open, the user app also asks the backend, backing off from 5s to 30s.
 
 ## 3. Arkiv entities (draft for `/arkiv/schema.md`)
 
-| Entity | Owner | Expires | Indexed (filtered on) | Stored only | Who reads it |
+| Entity | Written by (`$creator`) | Expires | Indexed (filtered on) | Stored only | Who reads it |
 |---|---|---|---|---|---|
 | `approval_request` | User's Privy wallet | 30 min | `pairId`, `kind`, `createdAt` | encrypted payload (bytes) | Trustee app (decrypts), backend (verifies on attach) |
 | `trustee_decision` | Per-pair trustee key | Allow: 1 h (known payee) or 25 h (new payee, 24h cooldown) · Deny: 30 min | `pairId`, `requestKey`, `verdict`, `createdAt` | `intentHash`, `validFrom`, `reportKey` | Backend (verifies), user app (shows result) |
@@ -138,15 +141,15 @@ Example query any judge can run: `select().from(ScamReport).where(eq("address", 
 4. **Needs trustee (flagged or over limit):** the user answers the 3 questions. The app encrypts the details to the trustee's pubkey and writes an `approval_request` to Arkiv (30 min).
 5. The app hands the request's key to the backend, which checks it on Arkiv and sends an Expo push to the trustee.
 6. The trustee app reads and decrypts the request from Arkiv and shows the context card.
-7. **Allow once:** the per-pair key writes a `trustee_decision` (allow, 1 h, `intentHash`). **Deny & report:** a `trustee_decision` (deny) plus a public `scam_report`.
-8. The app asks the backend again. The backend verifies the decision (owner = pair key, hash, `validFrom`, expiry, unused). For a new payee the answer is `cooldown` until 24h after the Allow, then `safe`. The backend then sends the transfer as signer (sponsored). On deny, the app shows the denial.
+7. **Allow once:** the per-pair key writes a `trustee_decision` (allow, 1 h, `intentHash`). **Deny:** a `trustee_decision` (deny), plus a public `scam_report` if the payment was flagged. The trustee app then calls `POST /trustee/decisions`, and the backend pushes the user.
+8. The user's app asks the backend. The backend verifies the decision (creator = pair key, hash, `validFrom`, expiry, unused). For a new payee the answer is `cooldown` until 24h after the Allow, then `safe`. The backend then sends the transfer as signer (sponsored). On deny, the app shows the denial.
 9. The backend mirrors reports to Supabase and renews them on Arkiv. Every wallet now sees the report for that address.
 
 ## 6. Open items still to confirm
 
-- Does Privy let the app hide or gate its own export-key screen? Needed for D2's mitigation.
+- Key export (D2's mitigation): coming soon. Needs Privy's hosted export page.
 - Privy Expo on the custom Rabdi chain (ID 7794095): needs a quick test.
-- Arkiv access key in a mobile app: origin allowlisting doesn't apply to native apps, so the key would be extractable. Worth raising in `friction.md`.
+- Arkiv access key in a mobile app: `EXPO_PUBLIC_RABDI_RPC_URL` carries the key, and origin allowlisting doesn't apply to native apps, so it can be pulled out of the app. Use a separate key from the backend's. Worth raising in `friction.md`.
 - Which "older lists" to import alongside OFAC.
 - Gas for USDC transfers: **decided**, Privy sponsorship relayed by the backend (D3a). Still to confirm: TEE execution works for Expo embedded wallets. The backend's permission comes from it being a signer on the user's wallet (D3a).
 - The test USDC contract address: take it from Circle's docs, don't hardcode it from memory.

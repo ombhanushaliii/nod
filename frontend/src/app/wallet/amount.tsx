@@ -32,7 +32,9 @@ export default function Amount() {
   const overBal = amt > balance;
   const hintFirst = !firstDone;
   const curPayee = cur.address ? payeeBy({ payees }, cur.address) : undefined;
-  const curIsNew = !!cur.address && (!curPayee || now < curPayee.unlockAt);
+  // Demo only: up to $10 to a new person in their first 24h. Live, the backend
+  // holds any payment to a new person for 24h, and the check says so.
+  const curIsNew = isDemo && !!cur.address && (!curPayee || now < curPayee.unlockAt);
   const left = cur.address ? capLeft({ payees, payments }, cur.address, now) : 10;
 
   const amountColor = overBal ? tones.red.fg : (hintFirst && amt > 10) || (curIsNew && amt > left) ? tones.amber.fg : colors.ink;
