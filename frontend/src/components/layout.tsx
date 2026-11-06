@@ -1,7 +1,6 @@
 import {
   Image,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   type StyleProp,
   StyleSheet,
@@ -40,7 +39,10 @@ export function Screen({ children, padH = 24, style, keyboard }: ScreenProps) {
   );
   if (!keyboard) return body;
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    // 'padding' on Android too: apps draw edge-to-edge there, so the window no longer
+    // shrinks for the keyboard and inputs ended up under it. It pads only by how much
+    // the keyboard actually covers, so a phone that does shrink the window gets none.
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior="padding">
       {body}
     </KeyboardAvoidingView>
   );

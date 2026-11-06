@@ -21,10 +21,21 @@ export default function TrusteeProfile() {
   const ok = !!name.trim();
   // The avatar grid leaves no room for the name field once the keyboard is up,
   // so the content scrolls, and opening the keyboard scrolls the field into view.
+  // On Android the screen shrinks just after this event, so it scrolls again once it has (onLayout).
   const scroll = useRef<ScrollViewInstance>(null);
+  const keyboardUp = useRef(false);
   useEffect(() => {
-    const sub = Keyboard.addListener('keyboardDidShow', () => scroll.current?.scrollToEnd({ animated: true }));
-    return () => sub.remove();
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardUp.current = true;
+      scroll.current?.scrollToEnd({ animated: true });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardUp.current = false;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
   }, []);
 
   const done = () => {
@@ -37,6 +48,7 @@ export default function TrusteeProfile() {
     <Screen keyboard>
       <ScrollView
         ref={scroll}
+        onLayout={() => keyboardUp.current && scroll.current?.scrollToEnd({ animated: true })}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 16 }}
         keyboardShouldPersistTaps="handled"
