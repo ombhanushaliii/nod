@@ -29,5 +29,11 @@ Edge Function can't read this folder: change both when the design changes.
 There, the sample name becomes the inviter's `@handle` (or "your contact"),
 the button opens the invite link, the logo is
 `https://getnod.pages.dev/assets/nod-logo.png`, and the sample address and
-placeholder links are gone. `welcome.html` and `trustee-welcome.html` aren't
-sent yet.
+placeholder links are gone.
+
+`welcome.html` goes to a new user after sign-up (`POST /onboarding/user`, with
+their `@handle`), and `trustee-welcome.html` to the trustee after they accept
+(`POST /pairs/accept`, with the user's real limit). Their HTML is in
+`supabase/functions/api/lib/welcomeEmails.ts`. The trustee email doesn't name
+the user, since the backend keeps no names. The address comes from Privy (the
+Google account). A failed welcome email never fails the request.

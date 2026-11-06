@@ -8,6 +8,7 @@ import { mapRepoError, statusOf } from "../lib/errors.ts";
 import type { ArkivFunder, Mailer, PrivyApi } from "../lib/services.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
+import { formatUsdc } from "../lib/rules.ts";
 
 export type OnboardingDeps = {
   privy: PrivyApi;
@@ -26,11 +27,25 @@ export function onboardingRoutes(deps: OnboardingDeps) {
   // Register the caller's Privy embedded wallet. Idempotent.
   // Best effort: a failed top-up never fails the request. The app calls
   // /onboarding/user on every sign-in, which tops up again if needed.
+  // Best effort, like the top-up: a welcome email that fails never fails the request.
+  const emailThem = async (privyUserId: string, send: (to: string) => Promise<void>) => {
+    try {
+      const to = await deps.privy.contactEmail(privyUserId);
+      if (to) await send(to);
+    } catch (err) {
+      console.error("welcome email failed", err);
+    }
+  };
+
   const topUp = (addresses: string[]) =>
     Promise.all(addresses.map((a) => deps.funder.fund(a).catch((err) => console.error(`tGLM top-up failed for ${a}`, err))));
 
   r.post("/onboarding/user", async (c) => {
-    const { walletAddress } = await body(c, z.object({ walletAddress: evmAddress }));
+    const { walletAddress, username } = await body(c, z.object({
+      walletAddress: evmAddress,
+      // The user's @handle, for the welcome email; trustees leave it out. Checked and escaped by the mailer.
+      username: z.string().max(64).optional(),
+    }));
 
     const existing = await c.var.repo.findUserByPrivyId(c.var.privyUserId);
     if (existing) {
@@ -47,6 +62,8 @@ export function onboardingRoutes(deps: OnboardingDeps) {
 
     const user = await c.var.repo.createUser(c.var.privyUserId, walletAddress, owned.id);
     await topUp([walletAddress]);
+    // Only the user's sign-up sends a username; a trustee's account gets no user welcome.
+    if (username !== undefined) await emailThem(c.var.privyUserId, (to) => deps.mailer.sendWelcome(to, username));
     return c.json({ user, created: true }, 201);
   });
 
@@ -122,6 +139,10 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     // Tell the user, so their app doesn't have to keep asking. Never throws.
     const userId = await c.var.repo.pairUserId(pairId);
     if (userId) await notifyUser(c.var.repo, deps.push, userId, MESSAGES.trusteeAccepted());
+    if (userId) {
+      await emailThem(c.var.privyUserId, async (to) =>
+        deps.mailer.sendTrusteeWelcome(to, formatUsdc((await c.var.repo.getRules(userId)).amountLimit)));
+    }
     return c.json({ pairId });
   });
 

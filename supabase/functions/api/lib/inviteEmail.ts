@@ -5,8 +5,8 @@
 // Every value put into the HTML is escaped. The inviter's name comes from the
 // user's app, so it's treated as untrusted text.
 
-const SITE = "https://getnod.pages.dev";
-const LOGO = `${SITE}/assets/nod-logo.png`;
+export const SITE = "https://getnod.pages.dev";
+export const LOGO = `${SITE}/assets/nod-logo.png`;
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");

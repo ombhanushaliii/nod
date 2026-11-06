@@ -188,3 +188,32 @@ Deno.test("public invite status: no sign-in, no pairId, closes once used", async
   await t.call(TRUSTEE, "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
   assertEquals((await get(token)).body.status, "closed");
 });
+
+Deno.test("welcome emails: the new user, then the trustee with the real limit", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set("did:privy:u", [addr("a")]);
+  t.privyWallets.set("did:privy:t", [addr("b")]);
+  t.privyEmails.set("did:privy:u", "user@example.com");
+  t.privyEmails.set("did:privy:t", "trustee@example.com");
+  await t.call("did:privy:u", "POST", "/onboarding/user", { walletAddress: addr("a"), username: "omkar" });
+  // Signing in again sends nothing new.
+  await t.call("did:privy:u", "POST", "/onboarding/user", { walletAddress: addr("a"), username: "omkar" });
+  assertEquals(t.welcomes, [{ kind: "user", to: "user@example.com", handle: "omkar" }]);
+
+  await t.call("did:privy:t", "POST", "/onboarding/user", { walletAddress: addr("b") });
+  await t.call("did:privy:u", "POST", "/onboarding/invite", { trusteeEmail: "trustee@example.com", inviterName: "omkar" });
+  assertEquals(t.mails[0].inviterName, "omkar");
+  const token = t.mails[0].url.replace("guardian://invite/", "");
+  const ok = await t.call("did:privy:t", "POST", "/pairs/accept", { token, pairKeyAddress: addr("c"), encPubKey: hex32("e") });
+  assertEquals(ok.status, 200);
+  assertEquals(t.welcomes.at(-1), { kind: "trustee", to: "trustee@example.com", limit: "100" });
+});
+
+Deno.test("welcome emails: a failed email never fails sign-up", async () => {
+  const t = makeTestApp();
+  t.privyWallets.set("did:privy:u", [addr("a")]);
+  t.privyEmails.set("did:privy:u", "user@example.com");
+  t.state.mailFails = true;
+  const res = await t.call("did:privy:u", "POST", "/onboarding/user", { walletAddress: addr("a") });
+  assertEquals(res.status, 201);
+});

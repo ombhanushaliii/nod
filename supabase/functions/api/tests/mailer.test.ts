@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { brevoMailer, parseSender } from "../lib/services.ts";
 import { cleanInviterName, trusteeInviteEmail } from "../lib/inviteEmail.ts";
+import { trusteeWelcomeEmail, welcomeEmail } from "../lib/welcomeEmails.ts";
 
 Deno.test("sender: 'Name <email>', quoted name, or a bare address", () => {
   assertEquals(parseSender("Nod <invites@nod.app>"), { name: "Nod", email: "invites@nod.app" });
@@ -68,4 +69,15 @@ Deno.test("invite email: odd or missing names fall back, and nothing is injected
   assertEquals(html.includes("Your contact wants you as their trustee"), true);
   assertEquals(html.includes("<b>x</b>"), false);
   assertEquals(html.includes('href="https://x.test/i?a=1&amp;b=&quot;2&quot;"'), true);
+});
+
+Deno.test("welcome emails: no sample names, placeholder links or fake address left", () => {
+  for (const { html } of [welcomeEmail({ handle: "omkar" }), trusteeWelcomeEmail({ limit: "250" })]) {
+    for (const leftover of ["Alex", "@alex", "Sam", "nod.app", "Example Street", 'src="assets/', "${"]) {
+      assertEquals(html.includes(leftover), false, leftover);
+    }
+  }
+  assertEquals(welcomeEmail({ handle: "omkar" }).html.includes("Welcome to Nod, @omkar"), true);
+  assertEquals(welcomeEmail({ handle: "<x>" }).html.includes("Welcome to Nod<"), true);
+  assertEquals(trusteeWelcomeEmail({ limit: "250" }).html.includes("It starts at $250."), true);
 });

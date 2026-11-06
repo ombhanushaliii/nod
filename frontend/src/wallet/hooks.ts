@@ -77,6 +77,8 @@ export function useWalletSetup({ signer = true }: { signer?: boolean } = {}) {
         useStore.setState({ signerAddedFor: tag });
       }
     }
-    return apiRequest(getAccessToken, '/onboarding/user', { walletAddress: walletAddress.toLowerCase() });
+    // A user's sign-up sends their @handle for the welcome email; a trustee's doesn't.
+    const username = signer ? useStore.getState().username || undefined : undefined;
+    return apiRequest(getAccessToken, '/onboarding/user', { walletAddress: walletAddress.toLowerCase(), username });
   }, [signer, enableBackendSigner, getAccessToken, walletAddress]);
 }

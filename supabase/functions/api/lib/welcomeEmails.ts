@@ -1,0 +1,188 @@
+// The two welcome emails, from the designs in email/welcome.html and
+// email/trustee-welcome.html (the Edge Function can't read that folder).
+// Every value put into the HTML is escaped.
+import { cleanInviterName, escapeHtml, LOGO, SITE } from "./inviteEmail.ts";
+
+export type Email = { subject: string; html: string; text: string };
+
+// To a new user, once their wallet exists. handle: their @handle from the app.
+export function welcomeEmail(args: { handle?: string | null }): Email {
+  const name = cleanInviterName(args.handle);
+  const greet = name ? `, ${escapeHtml(name)}` : "";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Welcome to Nod</title>
+<style>
+@media (max-width:620px){.wrap{padding:16px 8px!important}.px{padding-left:22px!important;padding-right:22px!important}.h1{font-size:26px!important;line-height:32px!important;padding-top:28px!important}.bx{padding-left:22px!important;padding-right:22px!important}.bh{font-size:22px!important;line-height:28px!important}.bt{padding-top:28px!important}.card{border-radius:20px!important}}
+a{color:#C14900}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F7F6F2;">
+<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;">Your wallet is ready. One more step: pick the person who checks risky payments.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7F6F2" style="background:#F7F6F2;">
+<tr><td align="center" class="wrap" style="padding:32px 12px;">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:0 8px 20px 8px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="40" style="width:40px;"><img src="${LOGO}" width="40" height="40" alt="Nod" style="display:block;width:40px;height:40px;border:0;border-radius:11px;"></td>
+    <td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:24px;">Nod</td>
+  </tr></table>
+</td></tr>
+<tr><td class="card" bgcolor="#FFFFFF" style="background:#FFFFFF;border-radius:24px;border:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px h1" style="padding:40px 40px 14px 40px;font-family:Helvetica,Arial,sans-serif;font-size:32px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:38px;letter-spacing:-0.5px;">Welcome to Nod${greet}</td></tr><tr><td class="px" style="padding:0 40px 16px 40px;font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#25282B;mso-line-height-rule:exactly;line-height:25px;">Your wallet is ready. You can receive USDC right away, and you don’t need a seed phrase or gas.</td></tr><tr><td class="px" style="padding:0 40px 24px 40px;font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#25282B;mso-line-height-rule:exactly;line-height:25px;">One step left: invite a trustee. That’s someone you trust who checks payments that look risky before they go out.</td></tr><tr><td class="px" style="padding:8px 40px 32px 40px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#E55B00" style="background:#E55B00;border-radius:14px;mso-padding-alt:16px 28px;">
+<a href="${SITE}" style="display:block;padding:16px 28px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:14px;">Invite your trustee</a>
+</td></tr></table></td></tr><tr><td class="px" style="padding:0 40px 10px 40px;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:1px;color:#6e6e73;">GOOD TO KNOW</td></tr><tr><td class="px" style="padding:0 40px 32px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7F6F2" style="background:#F7F6F2;border-radius:18px;">
+<tr><td style="padding:16px 18px;border-bottom:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">1</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">Your first payment is capped at $10</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">So you can try things out safely. After that, the cap goes away.</div>
+</td></tr></table></td></tr><tr><td style="padding:16px 18px;border-bottom:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">2</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">New people wait 24 hours</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">The first time you pay someone, it unlocks a day later.</div>
+</td></tr></table></td></tr><tr><td style="padding:16px 18px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">3</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">Risky payments go to your trustee</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">Reported scams, look-alike addresses and big amounts wait for their OK.</div>
+</td></tr></table></td></tr>
+</table></td></tr><tr><td class="px" style="padding:0 40px 40px 40px;font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">Questions? Just reply to this email.</td></tr></table>
+</td></tr>
+<tr><td style="padding:16px 0 0 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E55B00" style="background:#E55B00;border-radius:24px;">
+<tr><td align="center" class="bt" style="padding:40px 32px 12px 32px;"><img src="${LOGO}" width="56" height="56" alt="Nod" style="display:block;width:56px;height:56px;border:2px solid #F28A4A;border-radius:16px;"></td></tr>
+<tr><td align="center" class="bx bh" style="padding:8px 32px 10px 32px;font-family:Helvetica,Arial,sans-serif;font-size:28px;font-weight:bold;color:#FFFFFF;mso-line-height-rule:exactly;line-height:34px;letter-spacing:-0.5px;">Set it up with the person you’d call anyway.</td></tr>
+<tr><td align="center" class="bx" style="padding:0 40px 40px 40px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#FFFFFF;mso-line-height-rule:exactly;line-height:23px;">Your trustee needs Nod too. Invite them from the app and you’re all set.</td></tr>
+</table></td></tr>
+<tr><td class="px" style="padding:24px 8px 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6e6e73;mso-line-height-rule:exactly;line-height:20px;">
+You’re getting this because you created a Nod wallet.<br>
+<a href="${SITE}" style="color:#6e6e73;text-decoration:underline;">getnod.pages.dev</a>
+</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>`;
+  return {
+    subject: "Welcome to Nod",
+    html,
+    text: [
+      `Welcome to Nod${name ? `, ${name}` : ""}.`,
+      "One step left: invite a trustee, someone you trust who checks payments that look risky before they go out.",
+      "Invite them from the Nod app.",
+    ].join("\n\n"),
+  };
+}
+
+// To the trustee, once they accepted. limit: the user's current amount limit, e.g. "100".
+export function trusteeWelcomeEmail(args: { limit: string }): Email {
+  const limit = escapeHtml(`$${args.limit}`);
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>You’re now a trustee on Nod</title>
+<style>
+@media (max-width:620px){.wrap{padding:16px 8px!important}.px{padding-left:22px!important;padding-right:22px!important}.h1{font-size:26px!important;line-height:32px!important;padding-top:28px!important}.bx{padding-left:22px!important;padding-right:22px!important}.bh{font-size:22px!important;line-height:28px!important}.bt{padding-top:28px!important}.card{border-radius:20px!important}}
+a{color:#C14900}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F7F6F2;">
+<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;">You’re set up. Here are three things to do first, and what to expect.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7F6F2" style="background:#F7F6F2;">
+<tr><td align="center" class="wrap" style="padding:32px 12px;">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:0 8px 20px 8px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="40" style="width:40px;"><img src="${LOGO}" width="40" height="40" alt="Nod" style="display:block;width:40px;height:40px;border:0;border-radius:11px;"></td>
+    <td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:24px;">Nod</td>
+  </tr></table>
+</td></tr>
+<tr><td class="card" bgcolor="#FFFFFF" style="background:#FFFFFF;border-radius:24px;border:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td class="px" style="padding:40px 40px 0 40px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="44" height="44" align="center" bgcolor="#3d5a80" style="width:44px;height:44px;border-radius:22px;background:#3d5a80;font-family:Helvetica,Arial,sans-serif;font-size:18px;font-weight:bold;color:#FFFFFF;">N</td>
+<td style="padding-left:12px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#DCE7EA" style="background:#DCE7EA;border-radius:999px;padding:5px 10px;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:bold;color:#2F4A52;">Active trustee</td></tr></table></td>
+</tr></table></td></tr>
+<tr><td class="px h1" style="padding:20px 40px 14px 40px;font-family:Helvetica,Arial,sans-serif;font-size:32px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:38px;letter-spacing:-0.5px;">You’re their trustee now</td></tr>
+<tr><td class="px" style="padding:0 40px 16px 40px;font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#25282B;mso-line-height-rule:exactly;line-height:25px;">Thanks for saying yes. Most of their payments go through on their own. You’ll only hear from us when one looks off.</td></tr>
+<tr><td class="px" style="padding:0 40px 16px 40px;font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#25282B;mso-line-height-rule:exactly;line-height:25px;">Three things to do first:</td></tr>
+<tr><td class="px" style="padding:0 40px 32px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7F6F2" style="background:#F7F6F2;border-radius:18px;">
+<tr><td style="padding:16px 18px;border-bottom:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">1</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">Check their limit</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">It starts at ${limit}. Payments over it come to you. You can change it any time in the app.</div>
+</td></tr></table></td></tr><tr><td style="padding:16px 18px;border-bottom:1px solid #ECE9E2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">2</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">Turn on notifications</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">That’s how you’ll know a payment is waiting on you.</div>
+</td></tr></table></td></tr><tr><td style="padding:16px 18px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" valign="top" style="width:32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" bgcolor="#FFECDC" style="width:26px;height:26px;border-radius:13px;background:#FFECDC;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#C14900;">3</td></tr></table></td>
+<td style="padding-left:10px;font-family:Helvetica,Arial,sans-serif;">
+<div style="font-size:15px;font-weight:bold;color:#25282B;mso-line-height-rule:exactly;line-height:22px;">When a request comes in, read the why</div>
+<div style="font-size:14px;color:#6e6e73;mso-line-height-rule:exactly;line-height:21px;">You’ll see who it’s to, how much, why it was flagged, and their answers.</div>
+</td></tr></table></td></tr>
+</table></td></tr>
+<tr><td class="px" style="padding:0 40px 24px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFF1CC" style="background:#FFF1CC;border-radius:18px;"><tr>
+<td style="padding:16px 18px;font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#7B5100;mso-line-height-rule:exactly;line-height:21px;"><b>Not sure about a payment?</b> Call them on a number you already have before you allow it. You can always deny.</td>
+</tr></table></td></tr>
+<tr><td class="px" style="padding:0 40px 40px 40px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="#E55B00" style="background:#E55B00;border-radius:14px;mso-padding-alt:16px 28px;">
+<a href="${SITE}" style="display:block;padding:16px 28px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:14px;">Review their rules</a>
+</td></tr></table></td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:16px 0 0 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E55B00" style="background:#E55B00;border-radius:24px;">
+<tr><td align="center" class="bt" style="padding:40px 32px 12px 32px;"><img src="${LOGO}" width="56" height="56" alt="Nod" style="display:block;width:56px;height:56px;border:2px solid #F28A4A;border-radius:16px;"></td></tr>
+<tr><td align="center" class="bx bh" style="padding:8px 32px 10px 32px;font-family:Helvetica,Arial,sans-serif;font-size:28px;font-weight:bold;color:#FFFFFF;mso-line-height-rule:exactly;line-height:34px;letter-spacing:-0.5px;">Set it up with the person you’d call anyway.</td></tr>
+<tr><td align="center" class="bx" style="padding:0 40px 40px 40px;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#FFFFFF;mso-line-height-rule:exactly;line-height:23px;">Know someone else who’d want a trustee? Tell them about Nod.</td></tr>
+</table></td></tr>
+<tr><td class="px" style="padding:24px 8px 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6e6e73;mso-line-height-rule:exactly;line-height:20px;">
+You’re getting this because you accepted an invite to be their trustee on Nod.<br>
+<a href="${SITE}" style="color:#6e6e73;text-decoration:underline;">getnod.pages.dev</a>
+</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>`;
+  return {
+    subject: "You’re now a trustee on Nod",
+    html,
+    text: [
+      "You're their trustee now. Most of their payments go through on their own: you only hear from us when one looks off.",
+      `Their limit starts at $${args.limit}. Payments over it come to you. You can change it any time in the app.`,
+      "If a request looks wrong, call them on a number you already have before you allow it. You can always deny.",
+    ].join("\n\n"),
+  };
+}

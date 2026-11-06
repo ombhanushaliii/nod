@@ -428,9 +428,12 @@ export class MemoryRepo implements Repo {
 export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } = {}) {
   const repo = new MemoryRepo();
   const mails: { to: string; url: string; inviterName?: string | null }[] = [];
+  const welcomes: { kind: "user" | "trustee"; to: string; handle?: string | null; limit?: string }[] = [];
   const funded: string[] = [];
   // Privy DID -> embedded wallets, as Privy's API would report.
   const privyWallets = new Map<string, string[]>();
+  // Privy user DID -> the email Privy has for them (Google), for welcome emails.
+  const privyEmails = new Map<string, string>();
   const state: {
     mailFails: boolean;
     fundFails: boolean;
@@ -465,11 +468,22 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
     privy: {
       embeddedEthWallets: (did) =>
         Promise.resolve((privyWallets.get(did) ?? []).map((a) => ({ address: a.toLowerCase(), id: `wallet-${a.toLowerCase()}` }))),
+      contactEmail: (did) => Promise.resolve(privyEmails.get(did) ?? null),
     },
     mailer: {
       sendTrusteeInvite(to, url, inviterName) {
         if (state.mailFails) return Promise.reject(new Error("email down"));
         mails.push({ to, url, inviterName });
+        return Promise.resolve();
+      },
+      sendWelcome(to, handle) {
+        if (state.mailFails) return Promise.reject(new Error("email down"));
+        welcomes.push({ kind: "user", to, handle });
+        return Promise.resolve();
+      },
+      sendTrusteeWelcome(to, limit) {
+        if (state.mailFails) return Promise.reject(new Error("email down"));
+        welcomes.push({ kind: "trustee", to, limit });
         return Promise.resolve();
       },
     },
@@ -510,7 +524,7 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
     return { status: res.status, body: await res.json() };
   }
 
-  return { app, repo, mails, funded, privyWallets, state, call };
+  return { app, repo, mails, welcomes, privyEmails, funded, privyWallets, state, call };
 }
 
 export const addr = (ch: string) => `0x${ch.repeat(40)}`;
