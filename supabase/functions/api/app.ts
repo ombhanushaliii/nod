@@ -8,6 +8,7 @@ import { type OnboardingDeps, onboardingRoutes } from "./routes/onboarding.ts";
 import { type PaymentDeps, paymentRoutes } from "./routes/payments.ts";
 import { pushRoutes } from "./routes/push.ts";
 import { type JobsDeps, jobsRoutes } from "./routes/jobs.ts";
+import { publicRoutes } from "./routes/public.ts";
 import { type RulesDeps, rulesRoutes } from "./routes/rules.ts";
 
 export type AppDeps = OnboardingDeps & PaymentDeps & RulesDeps & {
@@ -33,6 +34,8 @@ export function createApp(deps: AppDeps) {
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  app.route("/", publicRoutes(deps.repo));
 
   // Cron jobs use their own secret, not a Privy token.
   if (deps.jobs) app.route("/", jobsRoutes(deps.jobs));

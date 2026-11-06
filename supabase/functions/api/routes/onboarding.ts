@@ -80,6 +80,24 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     return c.json({ pairId: invite.pairId, expiresAt: invite.expiresAt });
   });
 
+  // The user's trustee link. While invited: who was asked and until when.
+  // Once active: what the app needs to write approval requests (the pairId for
+  // the Arkiv entity, and the trustee's key to seal the payment details).
+  r.get("/pair", async (c) => {
+    const user = await requireUser(c);
+    const pair = await c.var.repo.userPair(user.id);
+    if (!pair) return c.json({ status: "none" });
+    if (pair.status === "active") {
+      return c.json({ status: "active", pairId: pair.pairId, trusteeEncPubKey: pair.trusteeEncPubKey, acceptedAt: pair.acceptedAt.toISOString() });
+    }
+    const expired = pair.inviteExpiresAt.getTime() <= Date.now();
+    return c.json({
+      status: expired ? "invite_expired" : "invited",
+      contact: pair.contact,
+      inviteExpiresAt: pair.inviteExpiresAt.toISOString(),
+    });
+  });
+
   r.post("/pairs/accept", async (c) => {
     const trustee = await requireUser(c);
     const { token, pairKeyAddress, encPubKey } = await body(c, z.object({

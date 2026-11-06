@@ -29,7 +29,9 @@ export default function Settings() {
   // Key export is itself an approval request (docs D2 mitigation).
   const exportReq = s.requests.find((r) => r.kind === 'export');
   const exS = exportReq ? reqState(exportReq, now) : null;
-  const exportSub = !exportReq
+  const exportSub = mode !== 'demo'
+    ? 'Coming soon'
+    : !exportReq
     ? `Needs ${tn}'s OK`
     : exS === 'pending'
       ? `Waiting on ${tn}`

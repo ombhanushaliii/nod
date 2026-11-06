@@ -27,6 +27,10 @@ export type ActivePair = { id: string; pairId: string; pairKeyAddress: string; t
 export type ApprovalRow = { id: string; requestKey: string; createdAt: Date };
 
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
+// The user's open pair: waiting for the trustee, or active.
+export type UserPair =
+  | { status: "invited"; pairId: string; contact: string; inviteExpiresAt: Date }
+  | { status: "active"; pairId: string; trusteeEncPubKey: string; acceptedAt: Date };
 
 export type RuleChange = { from: Rules; to: Rules; at: Date };
 export type RulesView = Rules & { updatedAt: Date; setByTrustee: boolean; history: RuleChange[] };
@@ -54,6 +58,7 @@ export interface Repo extends JobsRepo {
   createUser(privyUserId: string, walletAddress: string, privyWalletId: string): Promise<User>;
   createInvite(args: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   findInvite(tokenHash: string): Promise<InviteView | null>;
+  userPair(userId: string): Promise<UserPair | null>;
   // Returns the Arkiv pairId.
   acceptInvite(args: { tokenHash: string; trusteeId: string; pairKeyAddress: string; encPubKey: string }): Promise<string>;
 
@@ -168,6 +173,20 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         p_token_hash: tokenHash, p_expires_at: expiresAt.toISOString(),
       });
       if (error) rethrow(error);
+    },
+    async userPair(userId) {
+      const { data, error } = await db.from("pairs")
+        .select("pair_id, status, trustee_enc_pubkey, accepted_at, invites(contact, expires_at)")
+        .eq("user_id", userId).in("status", ["invited", "active"]).maybeSingle();
+      if (error) rethrow(error);
+      if (!data) return null;
+      if (data.status === "active") {
+        return { status: "active", pairId: data.pair_id, trusteeEncPubKey: data.trustee_enc_pubkey, acceptedAt: new Date(data.accepted_at) };
+      }
+      // One invite per pair; PostgREST returns it as an object or a one-item list.
+      const raw = data.invites as unknown;
+      const inv = (Array.isArray(raw) ? raw[0] : raw) as { contact: string; expires_at: string };
+      return { status: "invited", pairId: data.pair_id, contact: inv.contact, inviteExpiresAt: new Date(inv.expires_at) };
     },
     async findInvite(tokenHash) {
       const { data, error } = await db.from("invites")

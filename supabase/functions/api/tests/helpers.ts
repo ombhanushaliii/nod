@@ -314,6 +314,15 @@ export class MemoryRepo implements Repo {
     }
     return Promise.resolve();
   }
+  userPair(userId: string) {
+    const p = this.pairs.find((x) => x.userId === userId && x.status !== "revoked");
+    if (!p) return Promise.resolve(null);
+    if (p.status === "active") {
+      return Promise.resolve({ status: "active" as const, pairId: p.pairId, trusteeEncPubKey: p.encPubKey!, acceptedAt: this.clock() });
+    }
+    const inv = this.invites.find((i) => i.pairRowId === p.id)!;
+    return Promise.resolve({ status: "invited" as const, pairId: p.pairId, contact: inv.contact!, inviteExpiresAt: inv.expiresAt });
+  }
   findInvite(tokenHash: string) {
     const inv = this.invites.find((i) => i.tokenHash === tokenHash);
     if (!inv) return Promise.resolve(null);

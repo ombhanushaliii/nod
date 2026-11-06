@@ -22,9 +22,9 @@ export default function ExportKey() {
 function LiveExportKey() {
   return <Screen>
     <NavRow onBack={() => router.back()} backLabel="Settings" />
-    <Txt size={30} w={800}>Export your wallet</Txt>
+    <Txt size={30} w={800}>Export is coming soon</Txt>
     <Txt size={16} lh={1.5} color={colors.sub}>
-      Wallet export needs verified approval from your trustee. Export will be available when trustee approval is connected.
+      {"You'll be able to export your wallet key once your trustee approves it. That's not ready yet."}
     </Txt>
     <Button label="Back to settings" onPress={() => router.back()} />
   </Screen>;
