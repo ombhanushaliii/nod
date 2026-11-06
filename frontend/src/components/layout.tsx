@@ -1,4 +1,5 @@
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -143,14 +144,11 @@ export function StepBars({ step, total = 2 }: { step: number; total?: number }) 
   );
 }
 
-/** Nod mark: orange rounded tile with a white ring. */
+const LOGO = require('../../assets/images/logo.png');
+
+/** Nod logo: the "Nod" wordmark on the orange rounded tile, same as the app icon. */
 export function AppLogo({ size = 64 }: { size?: number }) {
-  const ring = size * 0.40625;
-  return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.3125, backgroundColor: colors.acc, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: ring, height: ring, borderRadius: ring / 2, borderWidth: ring * 0.19, borderColor: colors.white }} />
-    </View>
-  );
+  return <Image source={LOGO} style={{ width: size, height: size }} accessibilityLabel="Nod" accessibilityRole="image" />;
 }
 
 export function GoogleG({ size = 19 }: { size?: number }) {

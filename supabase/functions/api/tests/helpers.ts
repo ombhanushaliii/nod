@@ -347,6 +347,13 @@ export class MemoryRepo implements Repo {
       [...this.payees.entries()].filter(([k, p]) => k.startsWith(`${userId}|`) && p.firstPaidAt).map(([k]) => k.split("|")[1]),
     );
   }
+  sentToPayeeSince(userId: string, address: string, since: Date, freshAfter: Date) {
+    const going = ["sending", "submitted", "sent"];
+    return Promise.resolve(this.payments
+      .filter((p) => p.userId === userId && p.toAddress === address && p.createdAt >= since &&
+        (going.includes(p.status) || (p.status === "ready" && p.createdAt > freshAfter)))
+      .reduce((sum, p) => sum + p.amount, 0n));
+  }
   createPayment(p: NewPayment) {
     const row: Payment = { ...p, id: crypto.randomUUID(), approvalId: null, createdAt: this.clock() };
     this.payments.push(row);

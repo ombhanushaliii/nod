@@ -55,9 +55,9 @@ The backend answers one of: `refused`, `needs_trustee`, `cooldown`, `safe`.
 3. **Over the amount limit → trustee must approve. [team]** The limit is **$100** by default, or whatever the trustee set. The trustee also sets a toggle **[team]**:
    - `first_per_payee`: only the first over-limit payment to each payee needs approval.
    - `every_time`: every over-limit payment needs approval.
-4. **New payee → 24h cooldown. [team]** Applies even after the trustee allows the payment:
+4. **New payee → 24h cooldown, with $10 allowed in that time. [team]** Applies even after the trustee allows the payment:
    - After a trustee Allow: the 24h starts at the Allow. **[team]**
-   - With no trustee involved (the payee passed every check and is under the limit): the 24h starts at the first attempt to pay that payee. **[proposed, read from the team's wording]**
+   - With no trustee involved (the payee passed every check and is under the limit): the 24h starts at the first attempt to pay that payee. In those 24h, up to **$10 in total** can go to them right away (sent, sending, and checked payments that can still be sent all count); anything more waits for the unlock. A small payment doesn't make the payee known early: they count as new for the whole 24h. **[team]**
    - A new payee alone no longer needs the trustee. **[team, changed from the original plan]**
 5. Otherwise → `safe`.
 

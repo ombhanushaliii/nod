@@ -7,7 +7,7 @@ import { Avatar, AvatarPicker, BackButton, Button, Card, Chip, DemoTools, KV, La
 import { useNow } from '@/data/clock';
 import { isValidUsername, modeLabel, reqState, sentToday, TAKEN_USERNAMES } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
-import { useApprovalStatus, useAuth, useRequestExport, useRules, useWalletSetup } from '@/hooks/api';
+import { useApprovalStatus, useAuth, useRequestExport, useRules } from '@/hooks/api';
 import { m0, short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { colors, font, tones } from '@/theme';
@@ -15,9 +15,6 @@ import { colors, font, tones } from '@/theme';
 export default function Settings() {
   const now = useNow();
   const { session, signOut, walletAddress, mode } = useAuth();
-  const setup = useWalletSetup();
-  const [setupBusy, setSetupBusy] = useState(false);
-  const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const R = useRules();
   const s = useStore();
   const tn = trusteeName(s);
@@ -176,15 +173,6 @@ export default function Settings() {
       </View>
 
       <DemoTools />
-      {mode !== 'demo' && <View style={{ gap: 8 }}>
-        <Button label={setupBusy ? 'Connecting…' : 'Connect sponsored payments'} disabled={setupBusy} variant="soft" onPress={() => {
-          setSetupBusy(true); setSetupMessage(null);
-          void setup().then(() => setSetupMessage('Your wallet is connected for sponsored USDC payments.'))
-            .catch((err) => setSetupMessage(err instanceof Error ? err.message : 'Could not connect your wallet.'))
-            .finally(() => setSetupBusy(false));
-        }} />
-        {setupMessage && <Txt size={14} color={colors.sub}>{setupMessage}</Txt>}
-      </View>}
 
       <Button
         label="Sign out"

@@ -154,7 +154,8 @@ Two phones (or one phone and two Google accounts), both on the development
 client. The rules shape what you can test in one day:
 
 - The first payment ever is capped at $10.
-- An address the user has never paid waits 24h, even after the trustee allows it.
+- An address the user has never paid can get up to $10 right away. Anything more waits
+  24h from the first try, and a payment the trustee allows waits 24h from the Allow.
 
 So on day one you test pairing and the trustee's answers. The send after an
 Allow comes the next day.
@@ -166,8 +167,9 @@ Allow comes the next day.
    page says the link is open, and **Open in the Nod app** goes to Nod.
 3. **Trustee:** sign in on the trustee side and tap **Accept**. The user's app
    shows the trustee as set up.
-4. **User:** with test USDC in the wallet, send $5 to a new address. The app
-   says it unlocks in 24 hours (new person). This starts that address's wait.
+4. **User:** with test USDC in the wallet, send $15 to a new address. The app
+   holds it for 24 hours (new person) and offers to send $10 now. This starts
+   that address's wait.
 5. **User:** send $5 to a flagged address: one from the scam report import
    (step 6), or one GoPlus flags. Answer the 3 questions and ask the trustee.
 6. **Trustee:** the request shows under **Needs you**, with why it was flagged
@@ -194,7 +196,7 @@ Allow comes the next day.
 
 **Day two**
 
-10. **User:** send $5 to the address from step 4: it goes out (sponsored, on
+10. **User:** send $15 to the address from step 4: it goes out (sponsored, on
     Ethereum Sepolia). Within the hour after the unlock, send the allowed
     payment from step 6.
 

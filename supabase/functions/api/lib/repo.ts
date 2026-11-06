@@ -87,6 +87,10 @@ export interface Repo extends JobsRepo {
   getRules(userId: string): Promise<Rules>;
   hasSentPayment(userId: string): Promise<boolean>;
   paidPayees(userId: string): Promise<string[]>;
+  // Total going to this payee since `since`: sending, submitted and sent
+  // payments, plus ready (checked safe) ones created after `freshAfter`, which
+  // can still be sent. Counts toward the new-payee $10.
+  sentToPayeeSince(userId: string, address: string, since: Date, freshAfter: Date): Promise<bigint>;
   createPayment(p: NewPayment): Promise<{ id: string }>;
 
   // Approvals (D5).
@@ -321,6 +325,15 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         .eq("user_id", userId).not("first_paid_at", "is", null);
       if (error) rethrow(error);
       return data.map((r) => r.address);
+    },
+    async sentToPayeeSince(userId, address, since, freshAfter) {
+      const { data, error } = await db.from("payments").select("amount, status, created_at")
+        .eq("user_id", userId).eq("to_address", address).gte("created_at", since.toISOString())
+        .in("status", ["ready", "sending", "submitted", "sent"]);
+      if (error) rethrow(error);
+      return data
+        .filter((p) => p.status !== "ready" || new Date(p.created_at) > freshAfter)
+        .reduce((sum, p) => sum + BigInt(p.amount), 0n);
     },
     async createPayment(p) {
       const { data, error } = await db.from("payments").insert({

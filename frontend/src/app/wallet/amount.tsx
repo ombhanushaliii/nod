@@ -32,8 +32,8 @@ export default function Amount() {
   const overBal = amt > balance;
   const hintFirst = !firstDone;
   const curPayee = cur.address ? payeeBy({ payees }, cur.address) : undefined;
-  // Demo only: up to $10 to a new person in their first 24h. Live, the backend
-  // holds any payment to a new person for 24h, and the check says so.
+  // Up to $10 to a new person in their first 24h. The demo knows its payees and
+  // hints here; live, only the backend knows, and the check says what's left.
   const curIsNew = isDemo && !!cur.address && (!curPayee || now < curPayee.unlockAt);
   const left = cur.address ? capLeft({ payees, payments }, cur.address, now) : 10;
 

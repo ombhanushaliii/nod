@@ -12,7 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
-import { AppLock, BannerHost } from '@/components';
+import { AppLock, BannerHost, PrivacyCover } from '@/components';
 import { useHydrated } from '@/data/clock';
 import { useStore } from '@/data/store';
 import { colors } from '@/theme';
@@ -71,6 +71,8 @@ function AppLayout() {
       </Stack>
       <BannerHost />
       <AppLock />
+      {/* Last, so it covers everything in the normal view tree. */}
+      <PrivacyCover />
     </>
   );
 }

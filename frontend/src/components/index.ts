@@ -11,3 +11,4 @@ export * from './ReviewRow';
 export * from './BannerHost';
 export * from './AppLock';
 export * from './DemoTools';
+export * from './PrivacyCover';

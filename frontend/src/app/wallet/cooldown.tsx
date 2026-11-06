@@ -12,9 +12,9 @@ import { colors } from '@/theme';
 import { isDemo } from '@/wallet/config';
 
 /**
- * New person (docs D3, rule 4). Demo: up to $10 in the first 24h, the rest
- * later. Live: the backend holds any payment to a new person until 24h after
- * the first try; home keeps it until then.
+ * New person (docs D3, rule 4): up to $10 in total in the first 24h, the rest
+ * later. Demo works it out on the phone; live, the backend says what's left.
+ * Live, home keeps the held payment until it unlocks.
  */
 export default function Cooldown() {
   const now = useNow();
@@ -28,16 +28,14 @@ export default function Cooldown() {
   useBackGoesHome();
 
   const approved = !!result?.reqId;
-  const left = isDemo && draft?.address ? capLeft({ payees, payments }, draft.address, now) : 0;
+  const left = isDemo ? (draft?.address ? capLeft({ payees, payments }, draft.address, now) : 0) : (result?.left ?? 0);
   const name = draft?.name ?? '';
   const amount = draft?.amount;
 
-  const title = approved ? `${tn} said yes` : !isDemo ? 'New person' : left > 0 ? `${m0(left)} left for now` : 'Limit reached for now';
+  const title = approved ? `${tn} said yes` : left > 0 ? `${m0(left)} left for now` : 'Limit reached for now';
   const body = approved
     ? `${name} is new, so the payment unlocks after 24 hours.`
-    : !isDemo
-      ? `${name || 'This person'} is new, so payments to them unlock 24 hours after your first try. It stays on your home screen until then.`
-      : `${name || 'This person'} is new. For the first 24 hours you can send up to $10 in total${left < 10 ? ` (${m0(left)} left)` : ''}. The full ${amount ? m0(amount) : 'amount'} unlocks later.`;
+    : `${name || 'This person'} is new. For the first 24 hours you can send up to $10 in total${left < 10 ? ` (${m0(left)} left)` : ''}. The full ${amount ? m0(amount) : 'amount'} unlocks later${isDemo ? '' : ' and stays on your home screen until then'}.`;
 
   return (
     <Screen>
@@ -69,7 +67,7 @@ export default function Cooldown() {
             }}
           />
         )}
-        <Button label={approved || !isDemo ? 'OK' : 'Send full amount later'} variant={approved || !isDemo ? 'dark' : 'soft'} height={52} size={16} onPress={goWalletHome} />
+        <Button label={approved ? 'OK' : 'Send full amount later'} variant={approved ? 'dark' : 'soft'} height={52} size={16} onPress={goWalletHome} />
       </View>
     </Screen>
   );

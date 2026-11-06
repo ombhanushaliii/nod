@@ -10,6 +10,7 @@ import { colors } from '@/theme';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { AppLogo } from './layout';
+import { PrivacyCover } from './PrivacyCover';
 import { Txt } from './Txt';
 
 type Method = 'face' | 'finger' | 'passcode';
@@ -106,6 +107,7 @@ export function AppLock() {
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => {}}>
       <LockScreen method={method} onUnlock={() => void unlock()} />
+      <PrivacyCover />
     </Modal>
   );
 }

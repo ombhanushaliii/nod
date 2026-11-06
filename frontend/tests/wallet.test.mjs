@@ -67,3 +67,10 @@ test('switching accounts during a check prevents sending', async () => {
   await assert.rejects(sendCheckedPayment('id', {}, request, assertSession, noWait), /session changed/);
   assert.equal(sends, 0);
 });
+
+test("Privy's duplicate-signer refusal counts as the backend signer being added", async () => {
+  const { isAlreadyAddedSigner } = await import('../src/wallet/signers.ts');
+  assert.equal(isAlreadyAddedSigner(new Error('Duplicate signer(s) provided when updating wallet. To address, ensure each additional signer has not already been added.')), true);
+  assert.equal(isAlreadyAddedSigner(new Error('Network request failed')), false);
+  assert.equal(isAlreadyAddedSigner('Duplicate signer(s)'), false);
+});

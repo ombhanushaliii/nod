@@ -11,7 +11,7 @@ const newPayee = (hoursAgo: number) => ({ firstAttemptAt: new Date(NOW.getTime()
 const base = (o: Partial<RuleInput> = {}): RuleInput => ({
   amount: usdc(5), now: NOW, firstPaymentDone: true,
   amountLimit: usdc(100), notifyMode: "first_per_payee",
-  payee: knownPayee, flags: [], ...o,
+  payee: knownPayee, flags: [], sentToPayee: 0n, ...o,
 });
 
 Deno.test("1. first payment over $10 is refused", () => {
@@ -60,18 +60,39 @@ Deno.test("3. trustee-set lower limit applies", () => {
   assertEquals(decide(base({ amount: usdc(30), amountLimit: usdc(25) })).verdict, "needs_trustee");
 });
 
-Deno.test("4. new clean payee waits 24h from first attempt", () => {
-  const r = decide(base({ payee: newPayee(2) }));
+Deno.test("4. new clean payee: over $10 waits 24h from first attempt", () => {
+  const r = decide(base({ amount: usdc(15), payee: newPayee(2) }));
   assertEquals(r.verdict, "cooldown");
   assertEquals(r.unlockAt, new Date(NOW.getTime() + 22 * HOUR));
+  assertEquals(r.newPayeeLeft, usdc(10));
+});
+
+Deno.test("4. new clean payee: up to $10 in total goes right away", () => {
+  assertEquals(decide(base({ amount: usdc(5), payee: newPayee(2) })).verdict, "safe");
+  assertEquals(decide(base({ amount: usdc(10), payee: newPayee(2) })).verdict, "safe");
+  // $6 already going to them leaves $4.
+  assertEquals(decide(base({ amount: usdc(4), payee: newPayee(2), sentToPayee: usdc(6) })).verdict, "safe");
+  const over = decide(base({ amount: usdc(5), payee: newPayee(2), sentToPayee: usdc(6) }));
+  assertEquals(over.verdict, "cooldown");
+  assertEquals(over.newPayeeLeft, usdc(4));
+  assertEquals(decide(base({ amount: usdc(1), payee: newPayee(2), sentToPayee: usdc(10) })).newPayeeLeft, 0n);
+});
+
+Deno.test("4. a small payment doesn't make a payee known in their first day", () => {
+  const paidALittle = { firstAttemptAt: new Date(NOW.getTime() - 2 * HOUR), firstPaidAt: new Date(NOW.getTime() - HOUR), overLimitApprovedAt: null };
+  const r = decide(base({ amount: usdc(50), payee: paidALittle, sentToPayee: usdc(5) }));
+  assertEquals(r.verdict, "cooldown");
+  assertEquals(r.newPayeeLeft, usdc(5));
+  // Flagged in that window, it still gets the 24h wait after the trustee's Allow.
+  assertEquals(decide(base({ payee: paidALittle, sentToPayee: usdc(5), flags: ["look_alike"] })).reasons, ["look_alike", "new_payee"]);
 });
 
 Deno.test("4. new payee after 24h is safe", () => {
-  assertEquals(decide(base({ payee: newPayee(24) })).verdict, "safe");
+  assertEquals(decide(base({ amount: usdc(50), payee: newPayee(24) })).verdict, "safe");
 });
 
-Deno.test("4. brand-new user's first $10 to a new payee also waits", () => {
-  assertEquals(decide(base({ firstPaymentDone: false, amount: usdc(10), payee: newPayee(0) })).verdict, "cooldown");
+Deno.test("4. brand-new user's first $10 to a new payee goes right away", () => {
+  assertEquals(decide(base({ firstPaymentDone: false, amount: usdc(10), payee: newPayee(0) })).verdict, "safe");
 });
 
 Deno.test("parseUsdc", () => {
