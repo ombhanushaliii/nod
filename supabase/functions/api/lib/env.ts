@@ -6,7 +6,7 @@ export type Env = {
   privyAppSecret: string;
   privyVerificationKey: string;
   privyAuthorizationKey: string;
-  resendApiKey: string;
+  brevoApiKey: string;
   inviteFromEmail: string;
   inviteUrlBase: string;
   webOrigins: string[];
@@ -28,7 +28,7 @@ export function loadEnv(): Env {
     privyVerificationKey: required("PRIVY_VERIFICATION_KEY").replaceAll("\\n", "\n"),
     // The backend signer's authorization key, "wallet-auth:..." (D3a).
     privyAuthorizationKey: required("PRIVY_AUTHORIZATION_KEY"),
-    resendApiKey: required("RESEND_API_KEY"),
+    brevoApiKey: required("BREVO_API_KEY"),
     inviteFromEmail: required("INVITE_FROM_EMAIL"),
     inviteUrlBase: required("INVITE_URL_BASE"),
     webOrigins: (Deno.env.get("WEB_ALLOWED_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),

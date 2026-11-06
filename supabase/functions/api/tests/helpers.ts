@@ -338,7 +338,7 @@ export function makeTestApp(options: { webOrigins?: string[] } = {}) {
     },
     mailer: {
       sendTrusteeInvite(to, url) {
-        if (state.mailFails) return Promise.reject(new Error("resend down"));
+        if (state.mailFails) return Promise.reject(new Error("email down"));
         mails.push({ to, url });
         return Promise.resolve();
       },
