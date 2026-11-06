@@ -83,6 +83,10 @@ type Flow = {
   sentText: string;
   /** Live, trustee side: why requests couldn't be read. Not saved. */
   trusteeError: string | null;
+  /** Live, wallet side: people this account looks after plus trustee invites waiting for it. Shows the role switcher. Not saved. */
+  trusteeLinks: number;
+  /** Live: the side to open on was decided for this sign-in (or chosen with the switcher). Not saved. */
+  roleLanded: boolean;
 };
 
 type Actions = {
@@ -160,7 +164,7 @@ function initialData(): Data {
 }
 
 function initialFlow(): Flow {
-  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '', trusteeError: null };
+  return { banners: { user: null, trustee: null }, draft: null, result: null, answers: [null, null, null], waitingId: null, sentText: '', trusteeError: null, trusteeLinks: 0, roleLanded: false };
 }
 
 /**
@@ -199,7 +203,7 @@ export const useStore = create<Store>()(
             session: { role, email, method: 'Google' },
             username: role === 'user' && !s.username ? handleFrom(email) : s.username,
           })),
-        signOut: () => set({ session: null, draft: null, result: null, waitingId: null }),
+        signOut: () => set({ session: null, draft: null, result: null, waitingId: null, trusteeLinks: 0, roleLanded: false }),
 
         setUserAvatar: (i) => set({ userAvatar: i }),
         invite: (contact) => set({ trusteeContact: contact.trim(), trusteeStatus: 'pending' }),

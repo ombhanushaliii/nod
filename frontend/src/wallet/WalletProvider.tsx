@@ -59,7 +59,8 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   const creationAttempt = useRef<string | null>(null);
   const wallet = wallets.find((w) => w.walletClientType === 'privy');
   const contact = user?.google?.email ?? user?.email?.address ?? '';
-  const session = ready && authenticated && user && wallet ? { ...preferences, email: contact } : null;
+  const name = user?.google?.name ?? '';
+  const session = ready && authenticated && user && wallet ? { ...preferences, email: contact, name } : null;
   const currentAccount = useRef<string | undefined>(wallet?.address);
   const accountScope = authenticated ? wallet?.address : undefined;
   useEffect(() => {
@@ -83,8 +84,8 @@ function ConnectedSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     if (!authenticated || !user) { useStore.getState().signOut(); return; }
-    if (wallet) useStore.getState().activateWalletSession(user.id, { ...preferences, email: contact });
-  }, [ready, authenticated, user, wallet, preferences, contact]);
+    if (wallet) useStore.getState().activateWalletSession(user.id, { ...preferences, email: contact, name });
+  }, [ready, authenticated, user, wallet, preferences, contact, name]);
 
   const getProvider = useCallback(async (chainId: number = sepolia.id): Promise<EIP1193Provider> => {
     if (!ready || !authenticated || !wallet) throw new Error('Connect your wallet first.');
@@ -98,6 +99,7 @@ function ConnectedSession({ children }: { children: ReactNode }) {
     mode: 'privy', ready: !phase || !!startError, session, userId: user?.id ?? null,
     walletAddress: session ? wallet?.address ?? null : null, error: startError ?? error,
     signIn: async (role) => { selectLogin(role, 'Google'); await initOAuth({ provider: 'google' }); },
+    switchRole: (role) => selectLogin(role, preferences.method),
     signOut: async () => { currentAccount.current = undefined; await logout(); creationAttempt.current = null; useStore.getState().signOut(); },
     getAccessToken, getProvider,
     enableBackendSigner: async () => {
