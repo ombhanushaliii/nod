@@ -10,6 +10,7 @@ import { exportRoutes } from "./routes/exports.ts";
 import { pushRoutes } from "./routes/push.ts";
 import { type JobsDeps, jobsRoutes } from "./routes/jobs.ts";
 import { publicRoutes } from "./routes/public.ts";
+import { checkRoutes } from "./routes/check.ts";
 import { type RulesDeps, rulesRoutes } from "./routes/rules.ts";
 
 export type AppDeps = OnboardingDeps & PaymentDeps & RulesDeps & {
@@ -58,6 +59,7 @@ export function createApp(deps: AppDeps) {
   app.route("/", paymentRoutes(deps));
   app.route("/", exportRoutes(deps));
   app.route("/", rulesRoutes(deps));
+  app.route("/", checkRoutes(deps));
   app.route("/", pushRoutes());
 
   return app;
