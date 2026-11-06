@@ -1,9 +1,10 @@
 // Push notifications (D9). The backend pushes the trustee when a request
 // arrives, and the user when their trustee accepts or changes the rules.
 //
-// Needs an EAS project id (run `eas init`), Firebase (FCM) credentials for
-// Android, and a dev build that includes expo-notifications. Until those
-// exist this does nothing, and the apps refresh when opened instead.
+// Needs the EAS project id (app.json), Firebase's google-services.json for
+// Android and the FCM key in EAS (docs/privy-wallet.md), and a dev build that
+// includes expo-notifications. Without them this does nothing, and the apps
+// refresh when opened instead.
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';

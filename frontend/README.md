@@ -8,7 +8,7 @@ Live mode (`EXPO_PUBLIC_WALLET_MODE=privy`) is connected end to end:
 - Approval requests: sealed to the trustee and written to Arkiv (Rabdi) from the user's wallet.
 - The trustee's side: invite link, reading and opening requests, Allow / Deny with the per-pair key, and rules.
 
-Key export asks the trustee first, then opens Privy's export on `getnod.pages.dev/export`. Push stays off until the app has an EAS project. See [wallet setup](../docs/privy-wallet.md) for configuration, push, and what still needs a device test.
+Key export asks the trustee first, then opens Privy's export on `getnod.pages.dev/export`. Push works on Android (EAS project + Firebase; iOS still needs an APNs key). See [wallet setup](../docs/privy-wallet.md) for configuration, push, and what still needs a device test.
 
 Copy `.env.example` to `.env` and fill it in. `EXPO_PUBLIC_API_URL` is the deployed API (`https://<project-ref>.supabase.co/functions/v1/api`).
 

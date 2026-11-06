@@ -99,7 +99,7 @@ Done when: every screen works on mocks, and swapping a hook's implementation nee
 - [ ] Chains: Ethereum Sepolia + Rabdi; test USDC address taken from Circle's docs
 - [x] Build the USDC `transfer` tx for `POST /payments/:id/send`
 - [x] Privy `signMessage` for the two derivations (pair key, encryption key), using D's functions
-- [ ] Key export gated behind an approved `export` request (shows "Coming soon" for now)
+- [x] Key export gated behind an approved `export` request (hosted page `getnod.pages.dev/export`)
 - [ ] Real implementations of `useAuth`, `useBalance`, and the signing parts of the other hooks
 
 Done when: a fresh phone can log in, see its USDC, and write to Arkiv. The backend can send a sponsored payment from that wallet, and the signer policy rejects anything that isn't a USDC transfer.
@@ -145,9 +145,9 @@ Done when: a judge can run the README query and see real reports, and every judg
 | Item | Owner |
 |---|---|
 | The wording of the 3 scam questions | A, team agrees |
-| Which "older lists" to import besides OFAC | D |
+| Which "older lists" to import besides OFAC: **decided**, eth-labels (see deploy.md §6) | D |
 | Can a user remove the backend signer, and what does the app do then? | B |
-| Key export: coming soon (needs Privy's hosted export page) | B |
+| Key export: **built**, hosted page `getnod.pages.dev/export` (D2) | B |
 | Arkiv access key in a mobile app (it can be extracted); note this in `friction.md` | D |
 | Where the backend is hosted: **decided**, Supabase Edge Functions + Supabase Cron | C |
 | How invites are sent: **decided**, email through Brevo, link to getnod.pages.dev/invite | C |

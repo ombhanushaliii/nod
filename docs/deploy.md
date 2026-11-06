@@ -91,8 +91,8 @@ EXPO_PUBLIC_RABDI_RPC_URL=https://rpc.rabdi.db-chain.testnet.arkiv.network/<app 
 
 Use a separate Arkiv access key for the app: the app's key can be pulled out
 of the build. Set up Privy as in [privy-wallet.md](privy-wallet.md), then build
-and install the development client. Push stays off until you run `eas init` and
-add FCM credentials (see privy-wallet.md).
+and install the development client. Push needs `frontend/google-services.json`
+and the FCM key in EAS (see privy-wallet.md).
 
 ## 6. Scam report import (optional)
 

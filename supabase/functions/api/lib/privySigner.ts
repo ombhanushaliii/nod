@@ -67,7 +67,7 @@ const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 export async function importAuthorizationKey(walletAuthKey: string): Promise<CryptoKey> {
   const der = unb64(walletAuthKey.replace(/^wallet-auth:/, "").trim());
-  return crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  return await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
 }
 
 export async function authorizationSignature(

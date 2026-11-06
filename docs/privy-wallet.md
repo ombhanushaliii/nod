@@ -70,13 +70,21 @@ trustee operations.
 
 ## Push notifications
 
-The push code is in (`src/wallet/push.ts`) but stays off until the app has an
-EAS project: run `eas init`, add Firebase (FCM) credentials for Android, and
-rebuild the development client. Until then the app registers no token. The
-user's waiting screen still asks the backend, and the trustee app reads new
-requests when it opens or comes back to the front.
+Set up for Android. The app has an EAS project (`extra.eas.projectId` in
+`app.json`, owner `robaros-team`) and reads Firebase's
+`frontend/google-services.json` (git ignores it: ask the team for it, or
+download it from the `nodwallet` Firebase project). The FCM V1 service account
+key is uploaded to EAS (`eas credentials`), which is how Expo's push service
+reaches Android.
 
-## Not built yet
+After changing any of these, rebuild: `npx expo prebuild --clean -p android`,
+restore `android/local.properties`, then `npx expo run:android`. The app asks
+for notification permission once the user has signed up (or the trustee has
+accepted) and registers its token with `POST /push/register`.
+
+iOS still needs an APNs key in EAS. Pushes are a nudge: the user's waiting
+screen still asks the backend, and the trustee app reads new requests when it
+opens or comes back to the front.
 
 ## Key export
 
