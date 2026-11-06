@@ -31,6 +31,7 @@ export function WalletLogin() {
       <Button label={busy ? 'Connecting…' : 'Continue with Google'} variant="dark" disabled={busy || !auth.ready || !!auth.error} onPress={() => void run(() => auth.signIn(role))} />
       <Button label={role === 'user' ? 'I was invited as a trustee' : 'Back to wallet sign-in'} variant="ghost" disabled={busy}
         onPress={() => setRole(role === 'user' ? 'trustee' : 'user')} />
+      <Txt align="center" size={13} color={colors.sub}>No passwords or secret words to remember.</Txt>
     </View>
   </Screen>;
 }
