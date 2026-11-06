@@ -22,8 +22,8 @@ const GOPLUS_RISK_FIELDS = [
   "honeypot_related_address", "fake_token", "fake_standard_interface", "gas_abuse", "reinit",
 ];
 
-// Free public API, no key. Queried without chain_id: GoPlus doesn't list
-// Base Sepolia, and its labels are about the address, not one chain.
+// Free public API, no key. Queried without chain_id: the labels are about the
+// address, not one chain.
 export function goPlusApi(timeoutMs = 5000): GoPlus {
   return {
     async check(address) {

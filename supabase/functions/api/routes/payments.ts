@@ -26,7 +26,7 @@ export type PaymentDeps = {
 // scam report that appears in between isn't missed.
 export const MAX_CHECK_AGE_MS = 10 * 60 * 1000;
 
-export const EXPLORER_TX = "https://sepolia.basescan.org/tx/";
+export const EXPLORER_TX = "https://sepolia.etherscan.io/tx/";
 
 function view(p: Payment) {
   return {

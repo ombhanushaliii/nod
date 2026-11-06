@@ -6,9 +6,9 @@
 //   key = the signer's authorization key, "wallet-auth:" + base64 PKCS#8
 import { canonicalize } from "./jcs.ts";
 
-export const BASE_SEPOLIA_CAIP2 = "eip155:84532";
-// Circle's USDC on Base Sepolia (6 decimals, checked on-chain).
-export const BASE_SEPOLIA_USDC = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
+export const SEPOLIA_CAIP2 = "eip155:11155111";
+// Circle's USDC on Ethereum Sepolia (6 decimals, checked on-chain).
+export const SEPOLIA_USDC = "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238";
 
 export type SendResult = { transactionId: string | null; userOperationHash: string | null; hash: string | null };
 
@@ -111,12 +111,12 @@ export function privySender(cfg: {
       const url = `https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}/rpc`;
       const body = {
         method: "eth_sendTransaction",
-        caip2: cfg.caip2 ?? BASE_SEPOLIA_CAIP2,
+        caip2: cfg.caip2 ?? SEPOLIA_CAIP2,
         chain_type: "ethereum",
         sponsor: true,
         reference_id: referenceId,
         params: {
-          transaction: { to: cfg.usdc ?? BASE_SEPOLIA_USDC, data: transferCalldata(to, amount), value: "0x0" },
+          transaction: { to: cfg.usdc ?? SEPOLIA_USDC, data: transferCalldata(to, amount), value: "0x0" },
         },
       };
       const signature = await authorizationSignature(await key, { method: "POST", url, body, appId: cfg.appId });

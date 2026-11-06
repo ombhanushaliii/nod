@@ -5,7 +5,7 @@ import type { EIP1193Provider } from 'viem';
 import { useStore } from '@/data/store';
 import type { Role, Session } from '@/data/types';
 
-import { baseSepolia, rabdi } from './chains';
+import { sepolia, rabdi } from './chains';
 import { isDemo, walletConfig } from './config';
 import { DemoWalletProvider, unavailableSession, WalletContext } from './context';
 import { checkProvider, requireSignerPolicy } from './validation';
@@ -18,7 +18,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return <WalletContext.Provider value={{ ...unavailableSession, error: 'Privy needs a public app ID and a React Native client ID.' }}>{children}</WalletContext.Provider>;
   }
   return <PrivyProvider appId={walletConfig.appId} clientId={walletConfig.clientId}
-    supportedChains={walletConfig.rabdiRpcUrl ? [baseSepolia, rabdi] : [baseSepolia]}
+    supportedChains={walletConfig.rabdiRpcUrl ? [sepolia, rabdi] : [sepolia]}
     config={{ embedded: { ethereum: { createOnLogin: 'all-users' } } }}>
     <ConnectedSession>{children}</ConnectedSession>
   </PrivyProvider>;
@@ -71,7 +71,7 @@ function ConnectedSession({ children }: { children: ReactNode }) {
     if (wallet) useStore.getState().activateWalletSession(user.id, { role, email: contact, method });
   }, [isReady, user, wallet, role, contact, method]);
 
-  const getProvider = useCallback(async (chainId: number = baseSepolia.id): Promise<EIP1193Provider> => {
+  const getProvider = useCallback(async (chainId: number = sepolia.id): Promise<EIP1193Provider> => {
     if (!isReady || !user || !wallet) throw new Error('Wait for your wallet to finish connecting.');
     const provider = await wallet.getProvider() as unknown as EIP1193Provider;
     await checkProvider(provider, wallet.address, chainId);

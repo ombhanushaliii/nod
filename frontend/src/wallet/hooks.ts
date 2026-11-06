@@ -5,7 +5,7 @@ import { erc20Abi, formatUnits, isAddress, type Address } from 'viem';
 import { useStore } from '@/data/store';
 
 import { apiRequest } from './backend';
-import { baseClient, USDC_ADDRESS } from './chains';
+import { paymentClient, USDC_ADDRESS } from './chains';
 import { useWallet } from './context';
 
 export function useWalletAuth() {
@@ -35,7 +35,7 @@ export function useUsdcBalance() {
       reading = true;
       setState((s) => ({ address: walletAddress, units: s.address === walletAddress ? s.units : null, loading: true, error: null }));
       try {
-        const units = await baseClient.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [walletAddress as Address] });
+        const units = await paymentClient.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [walletAddress as Address] });
         if (!cancelled) setState({ address: walletAddress, units, loading: false, error: null });
       } catch {
         if (!cancelled) setState((s) => ({ ...s, loading: false, error: 'Could not load your USDC balance. Try again.' }));

@@ -102,7 +102,7 @@ export default function Invite() {
       </main>
 
       <footer style={{ borderTop: '1px solid #ECE9E2', padding: '24px 20px', textAlign: 'center', fontSize: 14, color: '#6e6e73' }}>
-        Nod · Testnet demo on Base Sepolia
+        Nod · Testnet demo on Ethereum Sepolia
       </footer>
     </div>
   )

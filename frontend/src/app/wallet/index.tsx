@@ -114,7 +114,7 @@ function Home() {
           </Txt>
         </View>
         <Txt size={13} color={colors.sub}>
-          {loading ? 'Refreshing balance…' : 'USDC · Base Sepolia'}
+          {loading ? 'Refreshing balance…' : 'USDC · Ethereum Sepolia'}
         </Txt>
         {balanceError && <Tap onPress={refresh}><Txt size={14} color={colors.accFg}>{balanceError}</Txt></Tap>}
       </View>
