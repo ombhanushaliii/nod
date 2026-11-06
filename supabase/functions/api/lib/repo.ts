@@ -33,6 +33,9 @@ export type KeyExport = { id: string; userId: string; nonce: string; status: Exp
 export type ExportDecision = { decisionKey: string; verdict: "allow" | "deny"; validFrom: Date | null; validUntil: Date | null };
 
 export type InviteView = { pairId: string; expiresAt: string; usable: boolean };
+// An invite still waiting for its trustee: not accepted, not expired, pair still invited.
+// tokenHash stays on the server; it's what accept_invite is keyed on.
+export type OpenInvite = { inviteId: string; pairId: string; expiresAt: string; tokenHash: string; inviterPrivyUserId: string };
 // The user's open pair: waiting for the trustee, or active.
 export type UserPair =
   | { status: "invited"; pairId: string; contact: string; inviteExpiresAt: Date }
@@ -65,6 +68,8 @@ export interface Repo extends JobsRepo {
   createUser(privyUserId: string, walletAddress: string, privyWalletId: string): Promise<User>;
   createInvite(args: { userId: string; pairId: string; contact: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   findInvite(tokenHash: string): Promise<InviteView | null>;
+  // Open invites sent to this email (lower-case), so a trustee can accept without the link.
+  invitesFor(contact: string): Promise<OpenInvite[]>;
   userPair(userId: string): Promise<UserPair | null>;
   // The user a pair protects.
   pairUserId(pairId: string): Promise<string | null>;
@@ -251,6 +256,26 @@ export function supabaseRepo(db: SupabaseClient): Repo {
         expiresAt: data.expires_at,
         usable: !data.accepted_at && pair.status === "invited" && new Date(data.expires_at) > new Date(),
       };
+    },
+    async invitesFor(contact) {
+      const { data, error } = await db.from("invites")
+        .select("id, token_hash, expires_at, pairs!inner(pair_id, status, user_id)")
+        .eq("contact", contact).is("accepted_at", null)
+        .gt("expires_at", new Date().toISOString()).eq("pairs.status", "invited");
+      if (error) rethrow(error);
+      const rows = (data ?? []).map((row) => {
+        const pair = row.pairs as unknown as { pair_id: string; user_id: string };
+        return { inviteId: row.id as string, pairId: pair.pair_id, expiresAt: row.expires_at as string, tokenHash: row.token_hash as string, userId: pair.user_id };
+      });
+      if (rows.length === 0) return [];
+      // pairs has two links to users (user and trustee), so look the inviters up separately.
+      const users = await db.from("users").select("id, privy_user_id").in("id", rows.map((r) => r.userId));
+      if (users.error) rethrow(users.error);
+      const privyIds = new Map((users.data ?? []).map((u) => [u.id as string, u.privy_user_id as string]));
+      return rows.flatMap(({ userId, ...r }) => {
+        const inviterPrivyUserId = privyIds.get(userId);
+        return inviterPrivyUserId ? [{ ...r, inviterPrivyUserId }] : [];
+      });
     },
     async acceptInvite({ tokenHash, trusteeId, pairKeyAddress, encPubKey }) {
       const { data, error } = await db.rpc("accept_invite", {

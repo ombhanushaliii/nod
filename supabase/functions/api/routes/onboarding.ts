@@ -121,18 +121,55 @@ export function onboardingRoutes(deps: OnboardingDeps) {
     });
   });
 
+  // Open invites sent to the signed-in person's email, so a trustee can accept
+  // in the app without opening the email link. The email comes from Privy
+  // (Google-verified), never from the request, so nobody can list someone
+  // else's invites. A user's own invites are left out: they can't accept them.
+  const callerEmail = async (privyUserId: string) =>
+    (await deps.privy.contactEmail(privyUserId))?.trim().toLowerCase() ?? null;
+
+  r.get("/trustee/invites", async (c) => {
+    await requireUser(c);
+    const email = await callerEmail(c.var.privyUserId);
+    if (!email) return c.json({ invites: [] });
+    const open = (await c.var.repo.invitesFor(email)).filter((i) => i.inviterPrivyUserId !== c.var.privyUserId);
+    const invites = await Promise.all(open.map(async (i) => ({
+      inviteId: i.inviteId,
+      pairId: i.pairId,
+      expiresAt: i.expiresAt,
+      // Who sent it, so the trustee knows whose invite they're accepting. Best effort.
+      from: await deps.privy.contactEmail(i.inviterPrivyUserId).catch(() => null),
+    })));
+    return c.json({ invites });
+  });
+
   r.post("/pairs/accept", async (c) => {
     const trustee = await requireUser(c);
-    const { token, pairKeyAddress, encPubKey } = await body(c, z.object({
-      token: z.string().min(1),
+    const input = await body(c, z.object({
+      // From the email link...
+      token: z.string().min(1).optional(),
+      // ...or from GET /trustee/invites, for an invite sent to this account's email.
+      inviteId: z.string().uuid().optional(),
       pairKeyAddress: evmAddress,
       encPubKey: hex32,
-    }));
+    }).refine((b) => !b.token !== !b.inviteId, { message: "Send either the invite token or the invite id." }));
+    const { pairKeyAddress, encPubKey } = input;
     // The per-pair key must not be the trustee's main wallet, or the link leaks (D5).
     if (pairKeyAddress === trustee.wallet_address) fail(422, "pair_key_is_main_wallet");
 
+    let tokenHash: string;
+    if (input.token) {
+      tokenHash = await sha256Hex(input.token);
+    } else {
+      // Only an invite sent to this account's own email can be accepted by id.
+      const email = await callerEmail(c.var.privyUserId);
+      const invite = email ? (await c.var.repo.invitesFor(email)).find((i) => i.inviteId === input.inviteId) : undefined;
+      if (!invite) fail(404, "invite_not_found", statusOf("invite_not_found")[1]);
+      tokenHash = invite.tokenHash;
+    }
+
     const pairId = await c.var.repo.acceptInvite({
-      tokenHash: await sha256Hex(token), trusteeId: trustee.id, pairKeyAddress, encPubKey,
+      tokenHash, trusteeId: trustee.id, pairKeyAddress, encPubKey,
     }).catch(mapRepoError);
 
     await topUp([pairKeyAddress]);

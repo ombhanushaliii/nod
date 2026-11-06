@@ -38,7 +38,7 @@ type Pair = {
   id: string; pairId: string; userId: string; trusteeId?: string;
   pairKeyAddress?: string; encPubKey?: string; status: "invited" | "active" | "revoked";
 };
-type Invite = { pairRowId: string; contact: string | null; tokenHash: string; expiresAt: Date; acceptedAt?: Date };
+type Invite = { id: string; pairRowId: string; contact: string | null; tokenHash: string; expiresAt: Date; acceptedAt?: Date };
 
 // Same rules as the SQL functions in the invite_functions migration.
 export class MemoryRepo implements Repo {
@@ -377,7 +377,7 @@ export class MemoryRepo implements Repo {
     } else {
       const pair: Pair = { id: crypto.randomUUID(), pairId: a.pairId, userId: a.userId, status: "invited" };
       this.pairs.push(pair);
-      this.invites.push({ pairRowId: pair.id, contact: a.contact, tokenHash: a.tokenHash, expiresAt: a.expiresAt });
+      this.invites.push({ id: crypto.randomUUID(), pairRowId: pair.id, contact: a.contact, tokenHash: a.tokenHash, expiresAt: a.expiresAt });
     }
     return Promise.resolve();
   }
@@ -411,6 +411,16 @@ export class MemoryRepo implements Repo {
       expiresAt: inv.expiresAt.toISOString(),
       usable: !inv.acceptedAt && pair.status === "invited" && inv.expiresAt > new Date(),
     });
+  }
+  invitesFor(contact: string) {
+    return Promise.resolve(this.invites.flatMap((inv) => {
+      const pair = this.pairs.find((p) => p.id === inv.pairRowId)!;
+      if (inv.contact !== contact || inv.acceptedAt || pair.status !== "invited" || inv.expiresAt <= new Date()) return [];
+      const inviter = this.users.find((u) => u.id === pair.userId);
+      return inviter
+        ? [{ inviteId: inv.id, pairId: pair.pairId, expiresAt: inv.expiresAt.toISOString(), tokenHash: inv.tokenHash, inviterPrivyUserId: inviter.privy_user_id }]
+        : [];
+    }));
   }
   acceptInvite(a: { tokenHash: string; trusteeId: string; pairKeyAddress: string; encPubKey: string }) {
     const inv = this.invites.find((i) => i.tokenHash === a.tokenHash);
