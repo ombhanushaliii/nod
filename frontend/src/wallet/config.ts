@@ -6,6 +6,8 @@ export const walletConfig = {
   policyId: process.env.EXPO_PUBLIC_PRIVY_SIGNER_POLICY_ID?.trim() ?? '',
   apiUrl: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '',
   rabdiRpcUrl: process.env.EXPO_PUBLIC_RABDI_RPC_URL?.trim() ?? '',
+  // The hosted page that shows Privy's key export, once the trustee allowed it (landing/src/Export.tsx).
+  exportUrl: process.env.EXPO_PUBLIC_EXPORT_URL?.trim() || 'https://getnod.pages.dev/export',
 } as const;
 
 export const isDemo = walletConfig.mode === 'demo';

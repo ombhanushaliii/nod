@@ -10,7 +10,7 @@ import { reportsFor, reqState } from '@/data/engine';
 import { useStore } from '@/data/store';
 import type { ApprovalRequest, CheckResult, Draft, Payment, RequestState, RulesMode } from '@/data/types';
 import { short } from '@/lib/format';
-import { approvalPatch, type ApprovalView, type PairView, pollDelay, requestPaymentApproval } from '@/wallet/approvals';
+import { approvalPatch, type ApprovalView, type PairView, pollDelay, requestExportApproval, requestPaymentApproval } from '@/wallet/approvals';
 import { apiRequest, ApiError } from '@/wallet/backend';
 import { useWallet } from '@/wallet/context';
 import { useWalletAuth, useUsdcBalance, useWalletSetup } from '@/wallet/hooks';
@@ -160,13 +160,42 @@ export function useRequestApproval() {
   };
 }
 
+/** Key export (D2): asks the trustee, live. Demo mode keeps its local request. */
+export function useRequestExport() {
+  const demoRequest = useStore((s) => s.requestExport);
+  const { live, api, assertSession } = useLiveApi();
+  const setup = useWalletSetup();
+  const { getArkivWalletClient } = useWalletSigning();
+  return useCallback(async () => {
+    if (!live) return demoRequest();
+    const { exportId, requestKey, expiresAt } = await requestExportApproval({
+      api, seal, refill: setup, assertSession,
+      writeRequest: async (pairId, sealed) => {
+        const client = await getArkivWalletClient();
+        return (await createApprovalRequest(client, { pairId, kind: 'export', sealed })).entityKey;
+      },
+    });
+    const req: ApprovalRequest = {
+      id: requestKey, kind: 'export', exportId, createdAt: Date.now(), status: 'pending', expiresAt: expiresAt ?? undefined,
+    };
+    // One export request at a time: a new one replaces the old.
+    useStore.setState((s) => ({ requests: [req, ...s.requests.filter((r) => r.kind !== 'export')] }));
+  }, [live, demoRequest, api, assertSession, setup, getArkivWalletClient]);
+}
+
+/** Marks the live export used once the export page reports back. */
+export const markExportUsed = (id: string) => patchRequest(id, { used: true });
+
 /** Asks the backend about one request: has the trustee answered? */
 function useRefreshRequest() {
   const { api, assertSession } = useLiveApi();
   return useCallback(async (req: ApprovalRequest) => {
-    if (!req.paymentId) return null;
+    const path = req.exportId
+      ? `/exports/${encodeURIComponent(req.exportId)}/approval`
+      : req.paymentId ? `/payments/${encodeURIComponent(req.paymentId)}/approval` : null;
+    if (!path) return null;
     try {
-      const view = await api<ApprovalView>(`/payments/${encodeURIComponent(req.paymentId)}/approval`, {});
+      const view = await api<ApprovalView>(path, {});
       assertSession();
       const patch = approvalPatch(view, Date.now());
       if (patch) patchRequest(req.id, patch);
@@ -189,7 +218,7 @@ export function useApprovalStatus(requestKey: string | null, now: number): Reque
   // Live: ask while this screen is open and the app is in front, backing off,
   // and never past the request's expiry. A push or reopening asks at once.
   useFocusEffect(useCallback(() => {
-    if (!live || !req?.paymentId || !pending) return;
+    if (!live || !(req?.paymentId || req?.exportId) || !pending) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     const tick = async () => {
@@ -219,7 +248,7 @@ export function useRefreshHome() {
     const now = Date.now();
     for (const r of useStore.getState().requests) {
       const st = reqState(r, now);
-      if (r.paymentId && !r.used && !r.dismissed && (st === 'pending' || st === 'allowed')) void refresh(r);
+      if ((r.paymentId || r.exportId) && !r.used && !r.dismissed && (st === 'pending' || st === 'allowed')) void refresh(r);
     }
     api<{ payments: { paymentId: string; status: string; to: string; amount: string; createdAt: string }[] }>('/payments?limit=20')
       .then(({ payments }) => {

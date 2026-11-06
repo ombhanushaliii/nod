@@ -7,7 +7,7 @@ import { Avatar, AvatarPicker, BackButton, Button, Card, Chip, DemoTools, KV, La
 import { useNow } from '@/data/clock';
 import { isValidUsername, modeLabel, reqState, sentToday, TAKEN_USERNAMES } from '@/data/engine';
 import { trusteeName, useStore } from '@/data/store';
-import { useAuth, useRules, useWalletSetup } from '@/hooks/api';
+import { useApprovalStatus, useAuth, useRequestExport, useRules, useWalletSetup } from '@/hooks/api';
 import { m0, short } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { colors, font, tones } from '@/theme';
@@ -29,13 +29,20 @@ export default function Settings() {
   // Key export is itself an approval request (docs D2 mitigation).
   const exportReq = s.requests.find((r) => r.kind === 'export');
   const exS = exportReq ? reqState(exportReq, now) : null;
-  const exportSub = mode !== 'demo'
-    ? 'Coming soon'
-    : !exportReq
+  // Live: asks the backend while this screen is open and the request waits.
+  useApprovalStatus(exportReq?.id ?? null, now);
+  const requestExport = useRequestExport();
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  // Live, an Allow is usable once, until the backend's window ends (1 hour).
+  const exportOpenable = exS === 'allowed' && !!exportReq && !exportReq.used && !(exportReq.validUntil && now >= exportReq.validUntil);
+  const exportSub = exportBusy
+    ? `Asking ${tn}…`
+    : !exportReq || exportReq.used
     ? `Needs ${tn}'s OK`
     : exS === 'pending'
       ? `Waiting on ${tn}`
-      : exS === 'allowed' && !exportReq.used
+      : exportOpenable
         ? 'Allowed · tap to view once'
         : exS === 'denied'
           ? `${tn} said no · tap to ask again`
@@ -44,14 +51,30 @@ export default function Settings() {
             : `Needs ${tn}'s OK`;
 
   const onExport = () => {
-    if (mode !== 'demo') { router.push('/wallet/export-key'); return; }
-    if (exS === 'pending') return haptic('error');
-    if (exportReq && exS === 'allowed' && !exportReq.used) {
-      s.consumeExport(exportReq.id);
+    if (exportBusy || exS === 'pending') return haptic('error');
+    if (exportReq && exportOpenable) {
+      // Demo shows the key here; live opens Privy's export page, which uses it up.
+      if (mode === 'demo') s.consumeExport(exportReq.id);
       router.push('/wallet/export-key');
       return;
     }
+    setExportError(null);
     setExportOpen(true);
+  };
+
+  const askExport = async () => {
+    setExportOpen(false);
+    setExportBusy(true);
+    setExportError(null);
+    try {
+      await requestExport();
+      haptic('success');
+    } catch (err) {
+      haptic('error');
+      setExportError(err instanceof Error ? err.message : `Couldn't ask ${tn}. Try again.`);
+    } finally {
+      setExportBusy(false);
+    }
   };
 
   return (
@@ -145,6 +168,11 @@ export default function Settings() {
             </Txt>
           </Tap>
         </Card>
+        {exportError && (
+          <Txt size={13} lh={1.45} color={colors.accFg} style={{ paddingHorizontal: 4 }} accessibilityRole="alert">
+            {exportError}
+          </Txt>
+        )}
       </View>
 
       <DemoTools />
@@ -184,10 +212,7 @@ export default function Settings() {
         <View style={{ gap: 8, paddingTop: 4 }}>
           <Button
             label={`Ask ${tn}`}
-            onPress={() => {
-              s.requestExport();
-              setExportOpen(false);
-            }}
+            onPress={() => void askExport()}
           />
           <Button label="Cancel" variant="soft" height={52} size={16} onPress={() => setExportOpen(false)} />
         </View>

@@ -5,7 +5,7 @@
 //
 // Plain functions with their dependencies passed in, so tests can run them
 // with node. Only type imports here.
-import type { PaymentRequestPayload } from '@guardian/arkiv/src/payload';
+import type { ExportRequestPayload, PaymentRequestPayload } from '@guardian/arkiv/src/payload';
 import type { ApprovalRequest } from '@/data/types';
 
 export type Api = <T>(path: string, body?: unknown) => Promise<T>;
@@ -108,7 +108,58 @@ export async function requestPaymentApproval(input: ApprovalInput, deps: Approva
   }
 }
 
-export type ApprovalView = { status: string; unlockAt?: string | null; validUntil?: string | null };
+export type ExportDeps = {
+  api: Api;
+  seal: (payload: ExportRequestPayload, trusteePubKey: Uint8Array) => Uint8Array;
+  /** Writes the export approval_request from the user's wallet; returns its entity key. */
+  writeRequest: (pairId: string, sealed: Uint8Array) => Promise<string>;
+  refill: () => Promise<unknown>;
+  assertSession: () => void;
+  wait?: (ms: number) => Promise<void>;
+};
+
+/**
+ * Asks the trustee to allow a key export (D2): the backend gives a nonce,
+ * the user's wallet writes the sealed request to Arkiv, and the backend
+ * checks it and pushes the trustee. A failed run starts a new export.
+ */
+export async function requestExportApproval(deps: ExportDeps): Promise<{ exportId: string; requestKey: string; expiresAt: number | null }> {
+  const wait = deps.wait ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms)));
+  const pair = await deps.api<PairView>('/pair');
+  deps.assertSession();
+  if (pair.status !== 'active') throw new Error("Your trustee hasn't accepted the invite yet.");
+  const { exportId, nonce } = await deps.api<{ exportId: string; nonce: string }>('/exports', {});
+  deps.assertSession();
+
+  const payload: ExportRequestPayload = { v: 1, kind: 'export', exportId, nonce: nonce.toLowerCase() as `0x${string}` };
+  const sealed = deps.seal(payload, hexToBytes(pair.trusteeEncPubKey));
+  let requestKey: string;
+  try {
+    requestKey = await deps.writeRequest(pair.pairId, sealed);
+  } catch (err) {
+    if (!isOutOfGas(err)) throw err;
+    await deps.refill();
+    requestKey = await deps.writeRequest(pair.pairId, sealed);
+  }
+  deps.assertSession();
+
+  const path = `/exports/${encodeURIComponent(exportId)}/request`;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await deps.api<{ status: string; expiresAt: string }>(path, { requestKey });
+      deps.assertSession();
+      return { exportId, requestKey, expiresAt: Date.parse(res.expiresAt) || null };
+    } catch (err) {
+      if (errorCode(err) !== 'request_not_on_arkiv' || attempt >= 4) throw err;
+      await wait(1500 * (attempt + 1));
+      deps.assertSession();
+    }
+  }
+}
+
+export type ApprovalView = {
+  status: string; unlockAt?: string | null; validFrom?: string | null; validUntil?: string | null;
+};
 
 /** What the backend's answer means for the request shown on the phone. */
 export function approvalPatch(view: ApprovalView, now: number): Partial<ApprovalRequest> | null {
@@ -117,8 +168,9 @@ export function approvalPatch(view: ApprovalView, now: number): Partial<Approval
     case 'awaiting_trustee':
       return { status: 'pending' };
     case 'ready':
-    case 'cooling_down': {
-      const patch: Partial<ApprovalRequest> = { status: 'allowed', validFrom: at(view.unlockAt) ?? now };
+    case 'cooling_down':
+    case 'allowed': {
+      const patch: Partial<ApprovalRequest> = { status: 'allowed', validFrom: at(view.unlockAt ?? view.validFrom) ?? now };
       if (view.validUntil) patch.validUntil = at(view.validUntil);
       return patch;
     }
@@ -126,6 +178,8 @@ export function approvalPatch(view: ApprovalView, now: number): Partial<Approval
       return { status: 'denied', decidedAt: now };
     case 'expired':
       return { status: 'expired' };
+    case 'used':
+      return { status: 'allowed', used: true };
     case 'sending':
     case 'submitted':
     case 'sent':
