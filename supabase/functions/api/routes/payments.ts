@@ -10,7 +10,7 @@ import { type PaymentSender, SendError } from "../lib/privySigner.ts";
 import { MESSAGES, notifyUser, type PushSender } from "../lib/push.ts";
 import type { ActivePair, Payment, PaymentStatus, Repo } from "../lib/repo.ts";
 import type { GoPlus, ScamReports } from "../lib/risk.ts";
-import { COOLDOWN_MS, decide, formatUsdc, lookAlikeOf, parseUsdc, type Verdict } from "../lib/rules.ts";
+import { COOLDOWN_MS, decide, formatUsdc, lookAlikeOf, parseUsdc, TRUSTEE_BLOCK_AT, type Verdict } from "../lib/rules.ts";
 import { body, evmAddress, hex32 } from "../lib/validate.ts";
 import { syncExportDecision } from "./exports.ts";
 
@@ -28,6 +28,13 @@ export type PaymentDeps = {
 export const MAX_CHECK_AGE_MS = 10 * 60 * 1000;
 
 export const EXPLORER_TX = "https://sepolia.etherscan.io/tx/";
+
+// A trustee hears about blocked attempts to the same address at most this often.
+export const BLOCKED_PUSH_EVERY_MS = 60 * 60 * 1000;
+
+// "trustee_reporters:7" -> 7
+const reportersIn = (reasons: string[]) =>
+  Number(reasons.find((r) => r.startsWith("trustee_reporters:"))?.slice(18) ?? 0) || 0;
 
 function view(p: Payment) {
   return {
@@ -142,10 +149,13 @@ export function paymentRoutes(deps: PaymentDeps) {
 
     const flags: string[] = [];
     const warnings: string[] = [];
+    const trustees = reports.trustees ?? 0;
     if (reports.verified > 0) {
       flags.push("scam_report");
       // What the reports say it is, so both apps can say why in plain words.
-      flags.push(...(reports.categories ?? []).map((c) => `reported:${c}`));
+      // Trustee reports get their own reason, with how many trustees.
+      flags.push(...(reports.categories ?? []).filter((c) => !(c === "scam" && trustees > 0)).map((c) => `reported:${c}`));
+      if (trustees > 0) flags.push("reported_by_trustees", `trustee_reporters:${trustees}`);
     }
     else if (reports.unverified > 0) warnings.push("unverified_scam_report");
     // If GoPlus can't answer, don't send unchecked: ask the trustee.
@@ -157,7 +167,7 @@ export function paymentRoutes(deps: PaymentDeps) {
     const result = decide({
       amount, now: now(), firstPaymentDone,
       amountLimit: rules.amountLimit, notifyMode: rules.notifyMode,
-      payee, flags, sentToPayee,
+      payee, flags, sentToPayee, trusteeReporters: trustees,
     });
 
     const nonce = randomHex32();
@@ -166,6 +176,13 @@ export function paymentRoutes(deps: PaymentDeps) {
       verdict: result.verdict, reasons: result.reasons,
       status: statusFor[result.verdict], unlockAt: result.unlockAt, nonce,
     });
+
+    // Blocked by trustee reports: tell the payer's trustee, once an hour per address.
+    if (result.reasons.includes("blocked_by_trustees")) {
+      const recent = await repo.blockedAttempts(user.id, input.to, new Date(at - BLOCKED_PUSH_EVERY_MS));
+      const pair = recent <= 1 ? await repo.getActivePair(user.id) : null;
+      if (pair) await notifyUser(repo, deps.push, pair.trusteeId, MESSAGES.paymentBlocked(pair.pairId));
+    }
 
     return c.json({
       paymentId: id,
@@ -181,6 +198,32 @@ export function paymentRoutes(deps: PaymentDeps) {
       lookAlikeOf: lookAlike,
       reports,
       trusteeActive,
+    });
+  });
+
+  // Trustee app: payments by the people this trustee protects that were blocked
+  // because trustees reported the address. Newest first, up to 50.
+  r.get("/trustee/blocked", async (c) => {
+    const me = await requireUser(c);
+    const people = await c.var.repo.protectedUsers(me.id);
+    const pairOf = new Map(people.map((p) => [p.userId, p.pairId]));
+    const list = await c.var.repo.blockedAttemptsFor(people.map((p) => p.userId), 50);
+    return c.json({
+      blocked: list.map((p) => ({
+        paymentId: p.id, pairId: pairOf.get(p.userId) ?? null, to: p.toAddress, amount: formatUsdc(p.amount),
+        reporters: reportersIn(p.reasons), at: p.createdAt.toISOString(),
+      })),
+    });
+  });
+
+  // Both apps: addresses trustees reported (Deny & report), with how many
+  // different trustees reported each. These reports are public on Arkiv.
+  r.get("/reports/trustees", async (c) => {
+    await requireUser(c);
+    const list = await deps.scamReports.trusteeReported(100);
+    return c.json({
+      blockAt: TRUSTEE_BLOCK_AT,
+      reports: list.map((r) => ({ address: r.address, trustees: r.trustees, lastReportedAt: r.lastReportedAt.toISOString() })),
     });
   });
 

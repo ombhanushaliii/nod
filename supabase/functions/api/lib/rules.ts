@@ -10,6 +10,9 @@ export const COOLDOWN_MS = 24 * 3600 * 1000;
 export type Verdict = "refused" | "needs_trustee" | "cooldown" | "safe";
 export type NotifyMode = "first_per_payee" | "every_time";
 
+// This many different trustees reporting an address blocks payments to it.
+export const TRUSTEE_BLOCK_AT = 5;
+
 export type RuleInput = {
   amount: bigint;
   now: Date;
@@ -23,6 +26,8 @@ export type RuleInput = {
   // Already going to this payee in the last 24h: sent, submitted or sending,
   // plus payments checked as safe that can still be sent.
   sentToPayee: bigint;
+  // How many different trustees reported the payee (Deny & report).
+  trusteeReporters?: number;
 };
 
 export type RuleResult = {
@@ -32,6 +37,12 @@ export type RuleResult = {
 };
 
 export function decide(i: RuleInput): RuleResult {
+  // 0. Reported by TRUSTEE_BLOCK_AT or more trustees: blocked, nobody can allow it.
+  const reporters = i.trusteeReporters ?? 0;
+  if (reporters >= TRUSTEE_BLOCK_AT) {
+    return { verdict: "refused", reasons: ["blocked_by_trustees", `trustee_reporters:${reporters}`], unlockAt: null };
+  }
+
   // 1. First-ever payment is capped at $10.
   if (!i.firstPaymentDone && i.amount > FIRST_PAYMENT_CAP) {
     return { verdict: "refused", reasons: ["first_payment_cap"], unlockAt: null };

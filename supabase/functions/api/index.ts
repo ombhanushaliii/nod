@@ -43,6 +43,7 @@ const app = createApp({
     client: arkiv,
     trustedCreators,
     archive: (address) => repo.archivedReportCounts(address),
+    archiveTrustee: (limit) => repo.archivedTrusteeReports(limit),
   }),
   arkiv: arkivApprovals(arkiv),
   goPlus: goPlusApi(),

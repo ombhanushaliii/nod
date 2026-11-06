@@ -24,7 +24,7 @@ import { asc, eq } from "@arkiv-network/sdk/query";
 import { addr, bytes, defineSchema, key, SchemaMismatchError, str, u64 } from "@arkiv-network/sdk/schema";
 import { http, type Hex } from "viem";
 import type { ArkivApprovals, ArkivDecision, ArkivRequest } from "./arkiv.ts";
-import { knownCategories, type ReportCounts, type ScamReports } from "./risk.ts";
+import { groupTrusteeReports, knownCategories, type ReportCounts, type ScamReports, type TrusteeReported } from "./risk.ts";
 
 export const ApprovalRequest = defineSchema("approval_request", {
   pairId: str().indexed(),
@@ -88,11 +88,13 @@ export function countReports(creators: string[], trusted: Set<string>): ReportCo
 
 // Counts, plus the categories of the verified reports only: anyone can write
 // a report, so a stranger's category never reaches the user.
-export function summarizeReports(rows: { creator: string; category: string }[], trusted: Set<string>): ReportCounts {
+export function summarizeReports(rows: { creator: string; category: string; source?: string }[], trusted: Set<string>): ReportCounts {
   const mine = rows.filter((r) => trusted.has(r.creator.toLowerCase()));
   return {
     ...countReports(rows.map((r) => r.creator), trusted),
     categories: knownCategories(mine.map((r) => r.category)),
+    // Different trustees, not reports: one trustee reporting twice counts once.
+    trustees: new Set(mine.filter((r) => r.source === "trustee").map((r) => r.creator.toLowerCase())).size,
   };
 }
 
@@ -162,22 +164,24 @@ export function arkivScamReports(deps: {
   // Lower-case: the seed wallet plus every trustee pair key.
   trustedCreators: () => Promise<string[]>;
   archive: (address: string) => Promise<ReportCounts>;
+  // The archive's trustee reports, when Arkiv can't answer.
+  archiveTrustee: (limit: number) => Promise<TrusteeReported[]>;
 }): ScamReports {
   return {
     async countFor(address) {
       try {
         const readRows = async () => {
-          const rows: { creator: string; category: string }[] = [];
+          const rows: { creator: string; category: string; source: string }[] = [];
           for (let page = 0; page < MAX_PAGES; page++) {
             const res = await deps.client
-              .select({ $creator: true, category: true })
+              .select({ $creator: true, category: true, source: true })
               .from(ScamReport, { onMismatch: "skip" })
               .where(eq("address", addr(address as Hex)))
               .orderBy(asc("$key"))
               .limit(PAGE)
               .offset(page * PAGE)
               .fetch();
-            rows.push(...res.entities.map((r) => ({ creator: r.$creator, category: r.category?.value ?? "" })));
+            rows.push(...res.entities.map((r) => ({ creator: r.$creator, category: r.category?.value ?? "", source: r.source?.value ?? "" })));
             // The offset counts skipped entities too, so a full page is rows + skipped.
             if (res.entities.length + res.skipped < PAGE) break;
           }
@@ -188,6 +192,35 @@ export function arkivScamReports(deps: {
       } catch (err) {
         console.error("arkiv report read failed, using the archive", err);
         return await deps.archive(address);
+      }
+    },
+
+    async trusteeReported(limit) {
+      try {
+        const rows: { address: string; creator: string; at: Date }[] = [];
+        const [timing, trustedList] = await Promise.all([deps.client.getBlockTiming(), deps.trustedCreators()]);
+        const trusted = new Set(trustedList.map((a) => a.toLowerCase()));
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const res = await deps.client
+            .select({ $creator: true, $createdAt: true, address: true })
+            .from(ScamReport, { onMismatch: "skip" })
+            .where(eq("source", "trustee"))
+            .orderBy(asc("$key"))
+            .limit(PAGE)
+            .offset(page * PAGE)
+            .fetch();
+          for (const r of res.entities) {
+            // Only reports from a known trustee pair key count; anyone can write "trustee".
+            if (trusted.has(r.$creator.toLowerCase())) {
+              rows.push({ address: r.address.value, creator: r.$creator, at: blockToDate(r.$createdAt, timing) });
+            }
+          }
+          if (res.entities.length + res.skipped < PAGE) break;
+        }
+        return groupTrusteeReports(rows).slice(0, limit);
+      } catch (err) {
+        console.error("arkiv trustee report list failed, using the archive", err);
+        return await deps.archiveTrustee(limit);
       }
     },
   };

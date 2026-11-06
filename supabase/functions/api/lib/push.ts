@@ -74,6 +74,13 @@ export const MESSAGES = {
     body: "Open the app to see if you can export your key.",
     data: { type: "export_answered" },
   }),
+  // To the trustee, when a payment by someone they protect was blocked because
+  // many trustees reported the address. No details; the app reads them.
+  paymentBlocked: (pairId: string): PushMessage => ({
+    title: "A payment was blocked",
+    body: "Someone you protect tried to pay an address other trustees reported.",
+    data: { type: "payment_blocked", pairId },
+  }),
   // To the user, when their trustee changed their rules.
   rulesChanged: (): PushMessage => ({
     title: "Your trustee changed your payment rules",

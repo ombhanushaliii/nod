@@ -37,7 +37,7 @@ Deno.test("summarizeReports: categories come from trusted creators only, known o
     { creator: addr("b"), category: "made-up" },
     // A stranger can't put a category in front of the user.
     { creator: addr("c"), category: "exploit" },
-  ], trusted), { verified: 4, unverified: 1, categories: ["sanctioned", "phishing"] });
+  ], trusted), { verified: 4, unverified: 1, categories: ["sanctioned", "phishing"], trustees: 0 });
 });
 
 function fakeClient(fetch: (offset: number) => Promise<unknown>): PublicArkivClient {
@@ -58,8 +58,9 @@ Deno.test("scam reports: counts creators from Arkiv", async () => {
     })),
     trustedCreators: () => Promise.resolve([addr("a")]),
     archive: () => Promise.reject(new Error("not used")),
+    archiveTrustee: () => Promise.reject(new Error("not used")),
   });
-  assertEquals(await reports.countFor(addr("9")), { verified: 1, unverified: 1, categories: ["sanctioned"] });
+  assertEquals(await reports.countFor(addr("9")), { verified: 1, unverified: 1, categories: ["sanctioned"], trustees: 0 });
 });
 
 Deno.test("scam reports: Arkiv down falls back to the archive", async () => {
@@ -67,6 +68,7 @@ Deno.test("scam reports: Arkiv down falls back to the archive", async () => {
     client: fakeClient(() => Promise.reject(new Error("timeout"))),
     trustedCreators: () => Promise.resolve([]),
     archive: (a) => Promise.resolve(a === addr("9") ? { verified: 3, unverified: 0 } : { verified: 0, unverified: 0 }),
+    archiveTrustee: () => Promise.reject(new Error("not used")),
   });
   assertEquals(await reports.countFor(addr("9")), { verified: 3, unverified: 0 });
 });
@@ -82,8 +84,9 @@ Deno.test("scam reports: pages of 100 (skipped ones count), stops at a short pag
     }),
     trustedCreators: () => Promise.resolve([]),
     archive: () => Promise.reject(new Error("not used")),
+    archiveTrustee: () => Promise.reject(new Error("not used")),
   });
-  assertEquals(await reports.countFor(addr("9")), { verified: 0, unverified: 93, categories: [] });
+  assertEquals(await reports.countFor(addr("9")), { verified: 0, unverified: 93, categories: [], trustees: 0 });
   assertEquals(offsets, [0, 100]);
 });
 

@@ -3,7 +3,26 @@
 // categories: what the verified reports say the address is, e.g.
 // "sanctioned", "phishing", "exploit" (importer) or "scam" (trustee deny).
 // Only the known ones, each once.
-export type ReportCounts = { verified: number; unverified: number; categories?: string[] };
+// trustees: how many different trustees reported it (verified, source "trustee").
+export type ReportCounts = { verified: number; unverified: number; categories?: string[]; trustees?: number };
+
+// An address and how many different trustees reported it.
+export type TrusteeReported = { address: string; trustees: number; lastReportedAt: Date };
+
+// Report rows -> one line per address: distinct trustees, newest report first.
+export function groupTrusteeReports(rows: { address: string; creator: string; at: Date }[]): TrusteeReported[] {
+  const by = new Map<string, { creators: Set<string>; last: Date }>();
+  for (const r of rows) {
+    const a = r.address.toLowerCase();
+    const e = by.get(a) ?? { creators: new Set<string>(), last: r.at };
+    e.creators.add(r.creator.toLowerCase());
+    if (r.at > e.last) e.last = r.at;
+    by.set(a, e);
+  }
+  return [...by.entries()]
+    .map(([address, e]) => ({ address, trustees: e.creators.size, lastReportedAt: e.last }))
+    .sort((a, b) => b.lastReportedAt.getTime() - a.lastReportedAt.getTime());
+}
 
 export const REPORT_CATEGORIES = ["sanctioned", "phishing", "exploit", "scam"] as const;
 
@@ -17,6 +36,8 @@ export function knownCategories(categories: (string | null | undefined)[]): stri
 // trusted creators (our seed wallet and trustee per-pair keys).
 export interface ScamReports {
   countFor(address: string): Promise<ReportCounts>;
+  // Addresses trustees reported (Deny & report), most recent first.
+  trusteeReported(limit: number): Promise<TrusteeReported[]>;
 }
 
 export type GoPlusResult = { flagged: string[] } | { unavailable: true };
@@ -59,4 +80,5 @@ export function goPlusApi(timeoutMs = 5000): GoPlus {
 // Placeholder until the Arkiv person wires live queries.
 export const noScamReports: ScamReports = {
   countFor: () => Promise.resolve({ verified: 0, unverified: 0 }),
+  trusteeReported: () => Promise.resolve([]),
 };

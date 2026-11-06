@@ -7,7 +7,7 @@ import {
   type User, type ExportDecision, type KeyExport,
 } from "../lib/repo.ts";
 import type { NotifyMode } from "../lib/rules.ts";
-import { type GoPlusResult, knownCategories, type ReportCounts } from "../lib/risk.ts";
+import { type GoPlusResult, groupTrusteeReports, knownCategories, type ReportCounts, type TrusteeReported } from "../lib/risk.ts";
 import type { ArkivDecision, ArkivRequest } from "../lib/arkiv.ts";
 import type { SendError, TxOutcome } from "../lib/privySigner.ts";
 import type { PushMessage } from "../lib/push.ts";
@@ -112,7 +112,20 @@ export class MemoryRepo implements Repo {
       verified: verified.length,
       unverified: rows.length - verified.length,
       categories: knownCategories(verified.map((r) => ("category" in r ? r.category : null))),
+      trustees: new Set(verified.filter((r) => "source" in r && r.source === "trustee").map((r) => ("creator" in r ? r.creator : ""))).size,
     });
+  }
+  archivedTrusteeReports(limit: number) {
+    const rows = this.archive.filter((r): r is ArchiveRow => "source" in r && r.source === "trustee" && r.verified);
+    return Promise.resolve(groupTrusteeReports(rows.map((r) => ({ address: r.address, creator: r.creator, at: this.clock() }))).slice(0, limit));
+  }
+  blockedAttempts(userId: string, address: string, since: Date) {
+    return Promise.resolve(this.payments.filter((p) => p.userId === userId && p.toAddress === address.toLowerCase()
+      && p.verdict === "refused" && p.reasons.includes("blocked_by_trustees") && p.createdAt >= since).length);
+  }
+  blockedAttemptsFor(userIds: string[], limit: number) {
+    return Promise.resolve(this.payments.filter((p) => userIds.includes(p.userId) && p.reasons.includes("blocked_by_trustees"))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit).map((p) => ({ ...p })));
   }
 
   getPayment(id: string, userId: string) {
@@ -474,6 +487,7 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
     fundFails: boolean;
     now: Date;
     reports: Map<string, ReportCounts>;
+    trusteeReported: TrusteeReported[];
     goplus: Map<string, GoPlusResult>;
     // Fake Arkiv: entities by key.
     arkivRequests: Map<string, ArkivRequest>;
@@ -489,7 +503,7 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
     deadTokens: string[];
     pushFails: boolean;
   } = {
-    mailFails: false, fundFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), goplus: new Map(),
+    mailFails: false, fundFails: false, now: new Date("2026-11-06T10:00:00Z"), reports: new Map(), trusteeReported: [], goplus: new Map(),
     arkivRequests: new Map(), arkivDecisions: [], sent: [], sendFails: null, txOutcomes: new Map(), txLookupFails: false,
     pushes: [], deadTokens: [], pushFails: false,
   };
@@ -524,7 +538,10 @@ export function makeTestApp(options: { webOrigins?: string[]; jobs?: JobsDeps } 
     },
     funder: { fund: (a) => (funded.push(a), state.fundFails ? Promise.reject(new Error("rabdi down")) : Promise.resolve()) },
     inviteUrlBase: "guardian://invite/",
-    scamReports: { countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }) },
+    scamReports: {
+      countFor: (a) => Promise.resolve(state.reports.get(a) ?? { verified: 0, unverified: 0 }),
+      trusteeReported: (limit) => Promise.resolve(state.trusteeReported.slice(0, limit)),
+    },
     goPlus: { check: (a) => Promise.resolve(state.goplus.get(a) ?? { flagged: [] }) },
     arkiv: {
       getRequest: (k) => Promise.resolve(state.arkivRequests.get(k) ?? null),

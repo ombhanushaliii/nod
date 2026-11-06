@@ -3,7 +3,7 @@
 import type { JobsRepo } from "./jobs.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotifyMode, Verdict } from "./rules.ts";
-import { knownCategories, type ReportCounts } from "./risk.ts";
+import { groupTrusteeReports, knownCategories, type ReportCounts, type TrusteeReported } from "./risk.ts";
 
 export type User = {
   id: string; privy_user_id: string; wallet_address: string; privy_wallet_id: string | null; created_at: string;
@@ -154,6 +154,10 @@ export interface Repo extends JobsRepo {
   pairKeysOfTrustee(trusteeId: string): Promise<string[]>;
   // Counts from the Supabase archive, used when Arkiv can't be reached.
   archivedReportCounts(address: string): Promise<ReportCounts>;
+  archivedTrusteeReports(limit: number): Promise<TrusteeReported[]>;
+  // Payments blocked because trustees reported the address (reason blocked_by_trustees).
+  blockedAttempts(userId: string, address: string, since: Date): Promise<number>;
+  blockedAttemptsFor(userIds: string[], limit: number): Promise<Payment[]>;
 }
 
 const date = (v: string | null) => (v ? new Date(v) : null);
@@ -590,14 +594,36 @@ export function supabaseRepo(db: SupabaseClient): Repo {
       if (error) rethrow(error);
     },
     async archivedReportCounts(address) {
-      const { data, error } = await db.from("scam_reports_archive").select("verified, category").eq("address", address.toLowerCase());
+      const { data, error } = await db.from("scam_reports_archive").select("verified, category, source, creator").eq("address", address.toLowerCase());
       if (error) rethrow(error);
       const verified = data.filter((r) => r.verified);
       return {
         verified: verified.length,
         unverified: data.length - verified.length,
         categories: knownCategories(verified.map((r) => r.category)),
+        trustees: new Set(verified.filter((r) => r.source === "trustee").map((r) => (r.creator as string).toLowerCase())).size,
       };
+    },
+    async archivedTrusteeReports(limit) {
+      const { data, error } = await db.from("scam_reports_archive").select("address, creator, archived_at")
+        .eq("source", "trustee").eq("verified", true).limit(5000);
+      if (error) rethrow(error);
+      return groupTrusteeReports(data.map((r) => ({ address: r.address, creator: r.creator, at: new Date(r.archived_at) }))).slice(0, limit);
+    },
+    async blockedAttempts(userId, address, since) {
+      const { count, error } = await db.from("payments").select("id", { count: "exact", head: true })
+        .eq("user_id", userId).eq("to_address", address.toLowerCase()).eq("verdict", "refused")
+        .contains("reasons", ["blocked_by_trustees"]).gte("created_at", since.toISOString());
+      if (error) rethrow(error);
+      return count ?? 0;
+    },
+    async blockedAttemptsFor(userIds, limit) {
+      if (userIds.length === 0) return [];
+      const { data, error } = await db.from("payments").select("*").in("user_id", userIds)
+        .eq("verdict", "refused").contains("reasons", ["blocked_by_trustees"])
+        .order("created_at", { ascending: false }).limit(limit);
+      if (error) rethrow(error);
+      return data.map(toPayment);
     },
   };
 }
