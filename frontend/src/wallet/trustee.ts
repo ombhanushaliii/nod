@@ -1,6 +1,6 @@
 // The trustee's side (D5), live mode. Plain functions with their
 // dependencies passed in, so tests can run them with node. Type imports only.
-import type { PaymentRequestPayload } from '@guardian/arkiv/src/payload';
+import type { ExportRequestPayload, PaymentRequestPayload } from '@guardian/arkiv/src/payload';
 import type { ApprovalRequest, Reason, Why } from '@/data/types';
 
 /** Someone this trustee protects, from GET /trustee/users. */
@@ -126,19 +126,31 @@ export function readRequests(args: {
   people: LivePerson[];
   open: (sealed: Uint8Array) => unknown;
   parse: (value: unknown) => PaymentRequestPayload | null;
+  parseExport: (value: unknown) => ExportRequestPayload | null;
 }): ApprovalRequest[] {
   const byPair = new Map(args.people.map((p) => [p.pairId.toLowerCase(), p]));
   const out: ApprovalRequest[] = [];
   for (const row of args.rows) {
     const person = byPair.get(row.pairId.toLowerCase());
-    if (!person || row.kind !== 'payment') continue;
+    if (!person || (row.kind !== 'payment' && row.kind !== 'export')) continue;
     if (row.creator.toLowerCase() !== person.walletAddress.toLowerCase()) continue;
-    let payload: PaymentRequestPayload | null;
+    let opened: unknown;
     try {
-      payload = args.parse(args.open(row.sealed));
+      opened = args.open(row.sealed);
     } catch {
       continue;
     }
+    if (row.kind === 'export') {
+      const exp = args.parseExport(opened);
+      if (!exp) continue;
+      out.push({
+        id: row.key.toLowerCase(), kind: 'export', pairId: person.pairId, exportId: exp.exportId,
+        createdAt: row.createdAt, expiresAt: row.createdAt + REQUEST_TTL_MS, status: 'pending',
+        nonce: exp.nonce, userWallet: person.walletAddress.toLowerCase(),
+      });
+      continue;
+    }
+    const payload = args.parse(opened);
     if (!payload) continue;
     const units = BigInt(payload.amount);
     out.push({
@@ -188,6 +200,7 @@ export async function notifyDecision(
 
 export type DecideDeps = {
   intentHash: (to: `0x${string}`, amount: bigint, nonce: `0x${string}`) => string;
+  exportIntentHash: (wallet: `0x${string}`, nonce: `0x${string}`) => string;
   writeReport: (address: string) => Promise<string>;
   writeDecision: (input: {
     pairId: string; requestKey: string; verdict: 'allow' | 'deny'; intentHash?: string; validFrom?: number; reportKey?: string;
@@ -204,8 +217,9 @@ export type DecideDeps = {
  * because of the limit reports nothing: the address may be someone real.
  */
 export async function decide(r: ApprovalRequest, allow: boolean, deps: DecideDeps): Promise<Partial<ApprovalRequest>> {
-  if (!r.pairId || !r.address || !r.amountUnits || !r.nonce) throw new Error('This request is missing details.');
   const now = (deps.now ?? Date.now)();
+  if (r.kind === 'export') return decideExport(r, allow, deps, now);
+  if (!r.pairId || !r.address || !r.amountUnits || !r.nonce) throw new Error('This request is missing details.');
   if (allow) {
     const validFrom = r.newPayee ? now + NEW_PAYEE_WAIT_MS : now;
     await deps.writeDecision({
@@ -226,4 +240,21 @@ export async function decide(r: ApprovalRequest, allow: boolean, deps: DecideDep
   await deps.writeDecision({ pairId: r.pairId, requestKey: r.id, verdict: 'deny', reportKey });
   await deps.notify(r.pairId, r.id).catch(() => {});
   return { status: 'denied', decidedAt: now };
+}
+
+/**
+ * A key export (D2). Allow is bound to this export and this user's wallet
+ * (exportIntentHash), and the backend lets it be used once, within an hour.
+ * Deny reports nothing: there's no address to report.
+ */
+async function decideExport(r: ApprovalRequest, allow: boolean, deps: DecideDeps, now: number): Promise<Partial<ApprovalRequest>> {
+  if (!r.pairId || !r.nonce || !r.userWallet) throw new Error('This request is missing details.');
+  await deps.writeDecision(allow
+    ? {
+      pairId: r.pairId, requestKey: r.id, verdict: 'allow', validFrom: now,
+      intentHash: deps.exportIntentHash(r.userWallet as `0x${string}`, r.nonce as `0x${string}`),
+    }
+    : { pairId: r.pairId, requestKey: r.id, verdict: 'deny' });
+  await deps.notify(r.pairId, r.id).catch(() => {});
+  return allow ? { status: 'allowed', decidedAt: now, validFrom: now } : { status: 'denied', decidedAt: now };
 }

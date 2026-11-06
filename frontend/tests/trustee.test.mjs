@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { deriveEncKey, intentHash, open, seal } from '../../packages/arkiv/src/crypto.ts';
-import { parsePaymentPayload } from '../../packages/arkiv/src/payload.ts';
+import { deriveEncKey, exportIntentHash, intentHash, open, seal } from '../../packages/arkiv/src/crypto.ts';
+import { parseExportPayload, parsePaymentPayload } from '../../packages/arkiv/src/payload.ts';
 import { decide, mergeRequests, NEW_PAYEE_WAIT_MS, readRequests, reasonFromTag, reasonsFor, whyFrom, withRefill } from '../src/wallet/trustee.ts';
 
 const enc = deriveEncKey(`0x${'22'.repeat(65)}`);
@@ -19,7 +19,9 @@ const row = (over = {}) => ({
   key: `0x${'CD'.repeat(32)}`, creator: USER.toUpperCase().replace('0X', '0x'), pairId: PAIR, kind: 'payment',
   createdAt: 1_000_000, sealed: seal(payload, enc.publicKey), ...over,
 });
-const read = (rows) => readRequests({ rows, people: [person], open: (b) => open(b, enc.secretKey), parse: parsePaymentPayload });
+const read = (rows) => readRequests({
+  rows, people: [person], open: (b) => open(b, enc.secretKey), parse: parsePaymentPayload, parseExport: parseExportPayload,
+});
 
 test('readRequests opens the user’s own request', () => {
   const [r] = read([row()]);
@@ -91,6 +93,7 @@ function deps(over = {}) {
     log,
     deps: {
       intentHash,
+      exportIntentHash,
       writeReport: async () => { log.reports++; return `0x${'ee'.repeat(32)}`; },
       writeDecision: async (d) => { log.decisions.push(d); return `0x${'ff'.repeat(32)}`; },
       notify: async () => { log.notified++; },
@@ -183,4 +186,38 @@ test('notifyDecision asks again while Arkiv catches up, then stops', async () =>
   calls = 0;
   await notifyDecision(async () => { calls++; return { status: 'awaiting_trustee' }; }, async () => {});
   assert.equal(calls, 3);
+});
+
+const exportPayload = { v: 1, kind: 'export', exportId: 'exp-1', nonce: `0x${'cd'.repeat(32)}` };
+const exportRow = (over = {}) => row({ kind: 'export', sealed: seal(exportPayload, enc.publicKey), ...over });
+
+test('readRequests opens an export request, with the wallet from the pair', () => {
+  const [r] = read([exportRow()]);
+  assert.equal(r.kind, 'export');
+  assert.equal(r.exportId, 'exp-1');
+  assert.equal(r.userWallet, USER);
+  assert.equal(r.status, 'pending');
+  // A payment-shaped payload under kind export is dropped, and the other way round.
+  assert.equal(read([exportRow({ sealed: seal(payload, enc.publicKey) })]).length, 0);
+  assert.equal(read([row({ sealed: seal(exportPayload, enc.publicKey) })]).length, 0);
+});
+
+test('allow of an export binds to this wallet and nonce, usable now', async () => {
+  const [r] = read([exportRow()]);
+  const { log, deps: d } = deps();
+  const patch = await decide(r, true, d);
+  const [w] = log.decisions;
+  assert.equal(w.verdict, 'allow');
+  assert.equal(w.intentHash, exportIntentHash(USER, exportPayload.nonce));
+  assert.equal(w.validFrom, 5_000);
+  assert.equal(patch.status, 'allowed');
+  assert.equal(log.notified, 1);
+});
+
+test('deny of an export reports nothing', async () => {
+  const [r] = read([exportRow()]);
+  const { log, deps: d } = deps();
+  assert.equal((await decide(r, false, d)).status, 'denied');
+  assert.equal(log.reports, 0);
+  assert.equal(log.decisions[0].verdict, 'deny');
 });
