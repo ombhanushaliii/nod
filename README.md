@@ -7,8 +7,12 @@
 
 <p align="center">
   <a href="https://getnod.pages.dev">Website</a> ·
-  <a href="https://github.com/ombhanushaliii/nod/releases/download/v1.0.0/nod-v1.0.0.apk">Android APK</a> ·
-  <a href="https://rabdi.explorer.arkiv.network">Arkiv explorer</a>
+  <a href="https://github.com/ombhanushaliii/nod/releases/download/v1.0.0/nod-v1.0.0.apk">Android APK</a>
+  <br/>
+  On Arkiv:
+  <a href="https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280x687075f4477b79d8c83146bcedb58c2143ebfdcce9260a57316dcb2a0d2a3d7b%29">approval_request</a> ·
+  <a href="https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280xdbda5b259ef9231d203f72a0b1df86a023998deecc412f97bc1b577b42c4f44a%29">trustee_decision</a> ·
+  <a href="https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280x003dad22c9aac0ff917b5be041645f7a91d721c6dc3d5f4a6f4a9bfb07a368de%29#blob-003dad22-reason">scam_report</a>
 </p>
 
 ---
@@ -38,6 +42,16 @@ Every safety decision lives on [Arkiv](https://arkiv.network) (Rabdi testnet), i
 | `approval_request` | The user's own wallet | 24 h | A risky payment, encrypted so only the trustee can read it |
 | `trustee_decision` | A private per-pair trustee key | 24 h (25 h for someone new) | Allow or deny, tied to the exact recipient and amount |
 | `scam_report` | A trustee, or Nod's seed wallet for imported lists | 180 days, renewable by anyone | A public warning any wallet can check |
+
+### See it on-chain
+
+Three real Nod entities on the [Rabdi explorer](https://rabdi.explorer.arkiv.network). Click to open each one:
+
+- **[approval_request](https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280x687075f4477b79d8c83146bcedb58c2143ebfdcce9260a57316dcb2a0d2a3d7b%29)**: a payment a user sent to their trustee. It's written by the user's own wallet (`0x2812…1Bce`), with `kind = "payment"` and the pair's `pairId`. The `payload` is 403 bytes of encrypted binary, so only the trustee can read the amount, recipient and answers. It lives 24 hours.
+- **[trustee_decision](https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280xdbda5b259ef9231d203f72a0b1df86a023998deecc412f97bc1b577b42c4f44a%29)**: the trustee's answer to that request. `requestKey` points back to it, and `verdict` is `"deny"`. It's written by the per-pair trustee key (`0x7E38…689A`), not the trustee's main wallet and not our backend. `reportKey` links the scam report the trustee filed with **Deny & report**.
+- **[scam_report](https://rabdi.explorer.arkiv.network/entity-explorer?q=%24key+%3D+key%280x003dad22c9aac0ff917b5be041645f7a91d721c6dc3d5f4a6f4a9bfb07a368de%29#blob-003dad22-reason)**: a public report on `0xc2813b…353Be1`, with `category = "phishing"` and `source = "list"`, and the reason `Fake_Phishing37 (eth-labels: phish-hack)`. It was imported from eth-labels by Nod's seed wallet (`0x53Ea…2843`). It lives 6 months and was created with `permissionlessExtension`, so anyone can keep it alive.
+
+Request and decision entities expire after a day by design, so their links stop working once that day is over. Scam reports stay.
 
 Why Arkiv and not a database:
 
