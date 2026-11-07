@@ -977,7 +977,7 @@ function GetNod() {
               Download for iPhone
             </a>
           </div>
-          <a href="#top" className="btn-ink" style={cta}>
+          <a href="https://github.com/ombhanushaliii/nod/releases/download/v1.0.0/nod-v1.0.0.apk" className="btn-ink" style={cta}>
             Download for Android
           </a>
         </div>
